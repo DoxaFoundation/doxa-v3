@@ -1,0 +1,82 @@
+{
+	"canisters": {
+		"backend": {
+			"main": "src/backend/main.mo",
+			"type": "motoko"
+		},
+		"ckusdc_reserve": {
+			"main": "src/backend/ckusdc-reserve/main.mo",
+			"type": "motoko"
+		},
+		"ckusdc_pool": {
+			"main": "src/backend/ckusdc-pool/main.mo",
+			"type": "motoko",
+			"dependencies": [
+				"ckusdc_reserve",
+				"exchange_rate_canister",
+				"usdx_ledger",
+				"icp_ledger"
+			]
+		},
+		"usdx_ledger": {
+			"type": "custom",
+			"candid": "src/backend/doxa-dollar/icrc1-ledger.did",
+			"wasm": "src/backend/doxa-dollar/icrc1-ledger.wasm.gz"
+		},
+		"stablecoin_minter": {
+			"main": "src/backend/stablecoin-minter/main.mo",
+			"type": "motoko",
+			"dependencies": [
+				"icp_ledger",
+				"ckusdc_reserve",
+				"usdx_ledger",
+				"exchange_rate_canister"
+			]
+		},
+		"root_canister": {
+			"main": "src/backend/root-canister/main.mo",
+			"type": "motoko"
+		},
+		"frontend": {
+			"dependencies": [
+				"ckusdc_reserve",
+				"internet-identity"
+			],
+			"frontend": {
+				"entrypoint": "build/index.html"
+			},
+			"source": [
+				"build/"
+			],
+			"type": "assets"
+		},
+		"internet-identity": {
+			"type": "pull",
+			"id": "rdmx6-jaaaa-aaaaa-aaadq-cai",
+			"frontend": {}
+		},
+		"icp_ledger": {
+			"type": "custom",
+			"candid": "https://raw.githubusercontent.com/dfinity/ic/33dd2ef2184a64c00e64ff0412e7378d46507005/rs/rosetta-api/icp_ledger/ledger.did",
+			"wasm": "https://download.dfinity.systems/ic/33dd2ef2184a64c00e64ff0412e7378d46507005/canisters/ledger-canister.wasm.gz",
+			"specified_id": "ryjl3-tyaaa-aaaaa-aaaba-cai",
+			"remote": {
+				"id": {
+					"ic": "ryjl3-tyaaa-aaaaa-aaaba-cai"
+				}
+			}
+		},
+		"exchange_rate_canister": {
+			"type": "pull",
+			"id": "uf6dk-hyaaa-aaaaq-qaaaq-cai"
+		}
+	},
+	"defaults": {
+		"build": {
+			"args": "",
+			"packtool": "mops sources"
+		}
+	},
+	"output_env_file": "src/frontend/.env",
+	"version": 1
+}
