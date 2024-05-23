@@ -1,18 +1,9 @@
 {
 	"canisters": {
-		"backend": {
-			"main": "src/backend/main.mo",
-			"type": "motoko"
-		},
-		"ckusdc_reserve": {
-			"main": "src/backend/ckusdc-reserve/main.mo",
-			"type": "motoko"
-		},
 		"ckusdc_pool": {
 			"main": "src/backend/ckusdc-pool/main.mo",
 			"type": "motoko",
 			"dependencies": [
-				"ckusdc_reserve",
 				"exchange_rate_canister",
 				"usdx_ledger",
 				"icp_ledger"
@@ -28,7 +19,6 @@
 			"type": "motoko",
 			"dependencies": [
 				"icp_ledger",
-				"ckusdc_reserve",
 				"usdx_ledger",
 				"exchange_rate_canister"
 			]
@@ -39,7 +29,6 @@
 		},
 		"frontend": {
 			"dependencies": [
-				"ckusdc_reserve",
 				"internet-identity"
 			],
 			"frontend": {

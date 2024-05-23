@@ -8,7 +8,7 @@ export ARCHIVE_CONTROLLER=$(dfx canister id root_canister)
 # canister id of stable coin minter as minting account
 export MINTER_ACCOUNT=$(dfx canister id stablecoin_minter)
 
-TOKEN_NAME="Doxa Dollar"
+TOKEN_NAME="Digital Dollar"
 TOKEN_SYMBOL="USDx"
 
 PRE_MINTED_TOKENS=0
