@@ -3,40 +3,28 @@
 		"ckusdc_pool": {
 			"main": "src/backend/ckusdc-pool/main.mo",
 			"type": "motoko",
-			"dependencies": [
-				"exchange_rate_canister",
-				"usdx_ledger",
-				"icp_ledger"
-			]
+			"dependencies": ["exchange_rate_canister", "usdx_ledger", "icp_ledger"]
 		},
 		"usdx_ledger": {
 			"type": "custom",
-			"candid": "src/backend/doxa-dollar/icrc1-ledger.did",
-			"wasm": "src/backend/doxa-dollar/icrc1-ledger.wasm.gz"
+			"candid": "src/backend/digital-dollar/icrc1-ledger.did",
+			"wasm": "src/backend/digital-dollar/icrc1-ledger.wasm.gz"
 		},
 		"stablecoin_minter": {
 			"main": "src/backend/stablecoin-minter/main.mo",
 			"type": "motoko",
-			"dependencies": [
-				"icp_ledger",
-				"usdx_ledger",
-				"exchange_rate_canister"
-			]
+			"dependencies": ["icp_ledger", "usdx_ledger", "exchange_rate_canister", "ckusdc_ledger"]
 		},
 		"root_canister": {
 			"main": "src/backend/root-canister/main.mo",
 			"type": "motoko"
 		},
 		"frontend": {
-			"dependencies": [
-				"internet-identity"
-			],
+			"dependencies": ["internet-identity"],
 			"frontend": {
 				"entrypoint": "build/index.html"
 			},
-			"source": [
-				"build/"
-			],
+			"source": ["build/"],
 			"type": "assets"
 		},
 		"internet-identity": {
@@ -46,8 +34,8 @@
 		},
 		"icp_ledger": {
 			"type": "custom",
-			"candid": "https://raw.githubusercontent.com/dfinity/ic/33dd2ef2184a64c00e64ff0412e7378d46507005/rs/rosetta-api/icp_ledger/ledger.did",
-			"wasm": "https://download.dfinity.systems/ic/33dd2ef2184a64c00e64ff0412e7378d46507005/canisters/ledger-canister.wasm.gz",
+			"candid": "https://raw.githubusercontent.com/dfinity/ic/5ba1412f9175d987661ae3c0d8dbd1ac3e092b7d/rs/rosetta-api/icp_ledger/ledger.did",
+			"wasm": "https://download.dfinity.systems/ic/5ba1412f9175d987661ae3c0d8dbd1ac3e092b7d/canisters/ledger-canister.wasm.gz",
 			"specified_id": "ryjl3-tyaaa-aaaaa-aaaba-cai",
 			"remote": {
 				"id": {
@@ -58,11 +46,21 @@
 		"exchange_rate_canister": {
 			"type": "pull",
 			"id": "uf6dk-hyaaa-aaaaq-qaaaq-cai"
+		},
+		"ckusdc_ledger": {
+			"type": "custom",
+			"candid": "https://raw.githubusercontent.com/dfinity/ic/5ba1412f9175d987661ae3c0d8dbd1ac3e092b7d/rs/rosetta-api/icrc1/ledger/ledger.did",
+			"wasm": "https://download.dfinity.systems/ic/5ba1412f9175d987661ae3c0d8dbd1ac3e092b7d/canisters/ic-icrc1-ledger.wasm.gz",
+			"specified_id": "xevnm-gaaaa-aaaar-qafnq-cai",
+			"remote": {
+				"id": {
+					"ic": "xevnm-gaaaa-aaaar-qafnq-cai"
+				}
+			}
 		}
 	},
 	"defaults": {
 		"build": {
-			"args": "",
 			"packtool": "mops sources"
 		}
 	},

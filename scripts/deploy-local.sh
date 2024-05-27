@@ -42,8 +42,6 @@ dfx deploy icp_ledger --specified-id ryjl3-tyaaa-aaaaa-aaaba-cai --argument "
 ######################################################################################
 
 
-#Deploy Reserve Canister
-dfx deploy ckusdc_reserve --with-cycles 1_000_000
 
 # Creating Local USDx Ledger before deploying stablecoin_minter (stablecoin_minter is a dependency of usdx_ledger)
 dfx canister create usdx_ledger --specified-id irorr-5aaaa-aaaak-qddsq-cai
@@ -51,6 +49,9 @@ dfx canister create usdx_ledger --specified-id irorr-5aaaa-aaaak-qddsq-cai
 # Creating Local stablecoin_minter , root_canister before deploying usdx_ledger (These are minteraccount and archivecontroller for usdx_ledger)
 dfx canister create stablecoin_minter --specified-id iyn2n-liaaa-aaaak-qddta-cai
 dfx canister create root_canister --specified-id iwpxf-qyaaa-aaaak-qddsa-cai
+
+# Deploy ckUSDX Locally
+./scripts/deploy-local-ckusdc.sh
 
 # Deploy USDx Ledger Locally
 ./scripts/deploy-local-usdx.sh

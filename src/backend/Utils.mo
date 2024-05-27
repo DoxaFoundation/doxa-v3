@@ -8,6 +8,7 @@ import Principal "mo:base/Principal";
 import Account "mo:account-identifier";
 import HashMap "mo:base/HashMap";
 import Buffer "mo:base/Buffer";
+import Debug "mo:base/Debug";
 
 module {
 
@@ -15,6 +16,12 @@ module {
 
 	public let accountIdentifier = Account.accountIdentifier;
 	public let principalToSubaccountBlob = Account.principalToSubaccount;
+
+	public func trapAnonymous(caller : Principal) : () {
+		if (Principal.isAnonymous(caller)) {
+			Debug.trap("Anonymous principal cannot mint");
+		};
+	};
 
 	public func fromNatToNat8Array(len : Nat, n : Nat) : [Nat8] {
 		let ith_byte = func(i : Nat) : Nat8 {
