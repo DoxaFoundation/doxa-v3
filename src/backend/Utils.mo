@@ -147,4 +147,8 @@ module {
 	public func accountIdentifierDefaultBlob(id : Principal) : Blob {
 		Account.accountIdentifier(id, Account.defaultSubaccount());
 	};
+
+	public func decimals6to8(decimals6 : Nat) : Nat {
+		decimals6 * 100;
+	};
 };

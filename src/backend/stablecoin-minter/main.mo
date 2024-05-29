@@ -3,6 +3,8 @@ import USDx "canister:usdx_ledger";
 import Result "mo:base/Result";
 import Nat "mo:base/Nat";
 import Principal "mo:base/Principal";
+import Nat64 "mo:base/Nat64";
+import Time "mo:base/Time";
 import Map "mo:map/Map";
 import U "../Utils";
 
@@ -45,7 +47,28 @@ actor StablecoinMinter {
 			case (null) {};
 		};
 
-		#ok(1);
+		let (mintAmount, mintTo) = switch (await validateCkUsdcBlockForMint(ckusdc_block_index, caller, minting_token)) {
+			case (#ok(value)) { value : (Nat, ckUSDC.Account) };
+			case (#err(error)) { return #err(error) };
+		};
+
+		let transferArg : USDx.TransferArg = {
+			amount = mintAmount;
+			created_at_time = ?Nat64.fromIntWrap(Time.now());
+			fee = null;
+			from_subaccount = null;
+			memo = null;
+			to = mintTo;
+		};
+
+		let usdxBlockIndex = switch (await USDx.icrc1_transfer(transferArg)) {
+			case (#Ok(value)) { value };
+			case (#Err(error)) {
+				return #err(#Other({ error_message = "USDx Ledger Transfer Error: " #debug_show (error); error_code = 0 }));
+			};
+		};
+		Map.set(processedMintWithCkusdc, nhash, ckusdc_block_index, usdxBlockIndex);
+		#ok(usdxBlockIndex);
 	};
 
 	func getCkUsdcReserveAccount(_token : Tokens) : ckUSDC.Account {
@@ -65,7 +88,7 @@ actor StablecoinMinter {
 		};
 	};
 
-	func _validateCkUsdcBlockForMint(ckusdcBI : CkUSDCBlockIndex, caller : Principal, token : Tokens) : async Result<(), NotifyError> {
+	func validateCkUsdcBlockForMint(ckusdcBI : CkUSDCBlockIndex, caller : Principal, token : Tokens) : async Result<(Nat, ckUSDC.Account), NotifyError> {
 
 		let getTransactionsResponse = await ckUSDC.get_transactions({ start = ckusdcBI; length = 1 });
 
@@ -98,39 +121,36 @@ actor StablecoinMinter {
 
 		// Check transfer.from.owner is caller
 		// if notEqual check caller is spender
+		if (caller != transfer.from.owner) {
+			switch (transfer.spender) {
+				case (?spender) {
+					if (caller != spender.owner) {
+						return #err(
+							#InvalidTransaction(
+								"Notifier (" # Principal.toText(caller)
+								# ") is neither spender (" # Principal.toText(spender.owner)
+								# ") nor originator(" #Principal.toText(transfer.from.owner) # ")"
+							)
+						);
+					};
+				};
+				case (null) {
+					return #err(
+						#InvalidTransaction(
+							"Notifier principal (" # Principal.toText(caller) #
+							")  and transaction originator principal (" # Principal.toText(transfer.from.owner) # ") are not the same"
+						)
+					);
+				};
+			};
+		};
 
-		//     ↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧↧
+		// Check amount is above minimum 1USDC 1_000_000 (6 Decimal)
+		if (transfer.amount < 1_000_000) {
+			return #err(#InvalidTransaction("Transaction amount is less than 1 ckUSDC"));
+		};
 
-		// {
-		//     archived_transactions : [{
-		//         callback : QueryArchiveFn;
-		//         length : Nat;
-		//         start : TxIndex;
-		//     }];
-		//     first_index : TxIndex;
-		//     log_length : Nat;
-		//     transactions : [Transaction];
-		// };
-
-		// record {
-		//     burn : opt Burn;
-		//     kind : text;
-		//     mint : opt Mint;
-		//     approve : opt Approve;
-		//     timestamp : Timestamp;
-		//     transfer : opt Transfer;
-		// };
-
-		// type Transfer = record {
-		//     to : Account;
-		//     fee : opt nat;
-		//     from : Account;
-		//     memo : opt blob;
-		//     created_at_time : opt Timestamp;
-		//     amount : nat;
-		//     spender : opt Account;
-		// };
-		#ok();
+		#ok(transfer.amount, transfer.from);
 	};
 
 };
