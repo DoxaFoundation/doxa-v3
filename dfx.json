@@ -7,8 +7,8 @@
 		},
 		"usdx_ledger": {
 			"type": "custom",
-			"candid": "src/backend/digital-dollar/icrc1-ledger.did",
-			"wasm": "src/backend/digital-dollar/icrc1-ledger.wasm.gz"
+			"candid": "src/backend/digital-dollar/ledger.did",
+			"wasm": "src/backend/digital-dollar/ic-icrc1-ledger.wasm"
 		},
 		"stablecoin_minter": {
 			"main": "src/backend/stablecoin-minter/main.mo",
