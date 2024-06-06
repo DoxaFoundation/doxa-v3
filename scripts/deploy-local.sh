@@ -41,7 +41,7 @@ dfx deploy icp_ledger --specified-id ryjl3-tyaaa-aaaaa-aaaba-cai --argument "
 ######################################################################################
 ######################################################################################
 
-
+dfx canister create ckusdc_pool --specified-id i7m4z-gqaaa-aaaak-qddtq-cai
 
 # Creating Local USDx Ledger before deploying stablecoin_minter (stablecoin_minter is a dependency of usdx_ledger)
 dfx canister create usdx_ledger --specified-id irorr-5aaaa-aaaak-qddsq-cai
@@ -57,11 +57,10 @@ dfx canister create root_canister --specified-id iwpxf-qyaaa-aaaak-qddsa-cai
 ./scripts/deploy-local-usdx.sh
 
 
-dfx canister create ckusdc_pool --specified-id i7m4z-gqaaa-aaaak-qddtq-cai
-dfx deploy ckusdc_pool --argument '(principal "i7m4z-gqaaa-aaaak-qddtq-cai")'
+
 
 dfx deploy stablecoin_minter
 
 dfx deploy root_canister
 
-
+dfx deploy ckusdc_pool

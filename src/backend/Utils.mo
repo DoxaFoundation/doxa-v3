@@ -9,10 +9,16 @@ import Account "mo:account-identifier";
 import HashMap "mo:base/HashMap";
 import Buffer "mo:base/Buffer";
 import Debug "mo:base/Debug";
+import Time "mo:base/Time";
+import Nat64 "mo:base/Nat64";
 
 module {
 
 	type HashMap<K, V> = HashMap.HashMap<K, V>;
+
+	type Tokens = {
+		#USDx;
+	};
 
 	public let accountIdentifier = Account.accountIdentifier;
 	public let principalToSubaccountBlob = Account.principalToSubaccount;
@@ -151,4 +157,9 @@ module {
 	public func decimals6to8(decimals6 : Nat) : Nat {
 		decimals6 * 100;
 	};
+
+	public func timeNowInNat64() : Nat64 {
+		return Nat64.fromIntWrap(Time.now());
+	};
+
 };

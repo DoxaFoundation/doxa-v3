@@ -24,6 +24,7 @@ fi
 
 export MINTER_PRINCIPAL=$(dfx identity get-principal --identity minter)
 export DEFAULT_ACCOUNT=$(dfx identity get-principal --identity default)
+export DOXA_ACCOUNT=$(dfx identity get-principal --identity doxa)
 
 # Mint 1000 ckUSDC
 PRE_MINTED_TOKENS=1000_000_000
@@ -49,7 +50,7 @@ dfx deploy ckusdc_ledger --argument "( variant { Init = record {
   transfer_fee = ${TRANSFER_FEE};
   metadata = ${METADATA};
   minting_account = record { owner = principal \"${MINTER_PRINCIPAL}\" };
-  initial_balances = vec {record {  record { owner = principal \"$DEFAULT_ACCOUNT\"}; ${PRE_MINTED_TOKENS} }};
+  initial_balances = vec { record {  record { owner = principal \"$DEFAULT_ACCOUNT\"}; ${PRE_MINTED_TOKENS}}; record {  record { owner = principal \"$DOXA_ACCOUNT\"}; ${PRE_MINTED_TOKENS} }};
   maximum_number_of_accounts = null;
   accounts_overflow_trim_quantity = null;
   fee_collector_account = null;

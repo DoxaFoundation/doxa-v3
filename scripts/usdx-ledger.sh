@@ -6,7 +6,10 @@ export ARCHIVE_CONTROLLER=$(dfx canister id root_canister --ic)
 # canister id of stable coin minter as minting account
 export MINTER_ACCOUNT=$(dfx canister id stablecoin_minter --ic)
 
-TOKEN_NAME="Digital Dollar"
+# canister id of ckusdc_pool as Fee collector
+export FEE_COLLECTOR_ACCOUNT=$(dfx canister id ckusdc_pool --ic)
+
+TOKEN_NAME="Doxa Dollar"
 TOKEN_SYMBOL="USDx"
 Decimals=6
 
@@ -32,7 +35,7 @@ record {
      initial_balances = vec {};
      maximum_number_of_accounts = null;
      accounts_overflow_trim_quantity = null;
-     fee_collector_account = null;
+     fee_collector_account = opt record { owner = principal \"${FEE_COLLECTOR_ACCOUNT}\" };
      max_memo_length = opt 80;
      archive_options = record {
          num_blocks_to_archive = ${NUM_OF_BLOCK_TO_ARCHIVE};
