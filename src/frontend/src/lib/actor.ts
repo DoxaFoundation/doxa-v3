@@ -19,7 +19,7 @@ const getAgent = async (identity: Identity): Promise<HttpAgent> => {
 };
 
 export const getActor = async (identity: Identity): Promise<ActorSubclass<_SERVICE>> => {
-	const canisterId: string = import.meta.env.VITE_BACKEND_CANISTER_ID as string;
+	const canisterId: string = import.meta.env.VITE_STABLECOIN_MINTER_CANISTER_ID as string;
 
 	const agent = await getAgent(identity);
 
