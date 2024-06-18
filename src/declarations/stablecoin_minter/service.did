@@ -1,0 +1,31 @@
+type USDxBlockIndex = nat;
+type Tokens = variant {USDx;};
+type Subaccount = vec nat8;
+type NotifyMintWithCkusdcResult = 
+ variant {
+   err: NotifyError;
+   ok: USDxBlockIndex;
+ };
+type NotifyError = 
+ variant {
+   AlreadyProcessed: record {blockIndex: nat;};
+   InvalidTransaction: text;
+   Other: record {
+            error_code: nat64;
+            error_message: text;
+          };
+ };
+type CkUSDCBlockIndex = nat;
+type Account = 
+ record {
+   owner: principal;
+   subaccount: opt Subaccount;
+ };
+service : {
+  get_ckusdc_reserve_account_of: (record {token: Tokens;}) -> (Account) query;
+  notify_mint_with_ckusdc:
+   (record {
+      ckusdc_block_index: CkUSDCBlockIndex;
+      minting_token: Tokens;
+    }) -> (NotifyMintWithCkusdcResult);
+}

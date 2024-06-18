@@ -1,0 +1,10 @@
+// Version: 1.0.0
+type BlockIndex = Nat;
+type BlockIndex__1 = Nat;
+type CkUSDCBlockIndex = BlockIndex__1;
+type USDxBlockIndex = BlockIndex;
+actor {
+  stable processedMintWithCkusdc :
+    [var ?([var ?CkUSDCBlockIndex], [var ?USDxBlockIndex], [var Nat],
+           [var Nat32])]
+};
