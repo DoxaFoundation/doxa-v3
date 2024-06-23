@@ -1,9 +1,8 @@
 export const idlFactory = ({ IDL }) => {
   const Tokens = IDL.Variant({ 'USDx' : IDL.Null });
-  const Subaccount = IDL.Vec(IDL.Nat8);
   const Account = IDL.Record({
     'owner' : IDL.Principal,
-    'subaccount' : IDL.Opt(Subaccount),
+    'subaccount' : IDL.Opt(IDL.Vec(IDL.Nat8)),
   });
   const CkUSDCBlockIndex = IDL.Nat;
   const USDxBlockIndex = IDL.Nat;

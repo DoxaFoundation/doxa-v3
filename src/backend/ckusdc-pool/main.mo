@@ -210,7 +210,7 @@ actor CkusdcPool {
 	func getCurrentReserveOfUSDx() : async Nat {
 		await CkUSDC.icrc1_balance_of({
 			owner = Principal.fromActor(StablecoinMinter);
-			subaccount = ?U.toSubAccount(1);
+			subaccount = U.toSubAccount(1);
 		});
 	};
 
@@ -229,7 +229,7 @@ actor CkusdcPool {
 	func getCkUsdcReserveAccount(_token : Tokens) : CkUSDC.Account {
 		{
 			owner = Principal.fromActor(StablecoinMinter);
-			subaccount = ?U.toSubAccount(1);
+			subaccount = U.toSubAccount(1);
 		};
 	};
 

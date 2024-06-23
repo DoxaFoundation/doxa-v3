@@ -76,7 +76,7 @@ actor StablecoinMinter {
 		//     case (#USDx) {
 		{
 			owner = Principal.fromActor(StablecoinMinter);
-			subaccount = ?U.toSubAccount(1);
+			subaccount = U.toSubAccount(1);
 		};
 		//     };
 		// };

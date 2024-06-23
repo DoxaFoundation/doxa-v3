@@ -1,16 +1,22 @@
 import { type Identity, type ActorSubclass, AnonymousIdentity } from '@dfinity/agent';
-import type { _SERVICE } from '../../../../declarations/backend/backend.did';
+import type { _SERVICE } from '../../../../declarations/stablecoin_minter/stablecoin_minter.did';
 import { writable, type Readable, get } from 'svelte/store';
 import { AuthClient } from '@dfinity/auth-client';
-import { getActor } from '../actor';
+import { getStablecoinMinterActor } from '../actor';
 import { goto } from '$app/navigation';
 import { type Principal } from '@dfinity/principal';
+import type { Canister } from '@dfinity/utils';
+import type { IcrcLedgerCanister } from '@dfinity/ledger-icrc';
+import { getCkUsdcActor, getUsdxActor } from '$lib/icrc';
+import { balanceStore } from './balance.store';
+import { onDestroy } from 'svelte';
 
 export interface AuthStoreData {
 	isAuthenticated: boolean;
 	// identity: Identity;
-	actor: ActorSubclass<_SERVICE>;
-	// stablecoinMinter: ActorSubclass<_SERVICE>;
+	stablecoinMinter: ActorSubclass<_SERVICE>;
+	ckUsdc: IcrcLedgerCanister;
+	usdx: IcrcLedgerCanister;
 	identityProvider: string;
 	principal: Principal;
 }
@@ -25,19 +31,24 @@ export interface AuthStore extends Readable<AuthStoreData> {
 let authClient: AuthClient | null | undefined;
 
 const anonIdentity = new AnonymousIdentity();
-const anonActor: ActorSubclass<_SERVICE> = await getActor(anonIdentity);
+const anonActor: ActorSubclass<_SERVICE> = await getStablecoinMinterActor(anonIdentity);
 const anonPrincipal: Principal = anonIdentity.getPrincipal();
+
+const anonCkUsdcActor = await getCkUsdcActor(anonIdentity);
+const anonUsdxActor = await getUsdxActor(anonIdentity);
 
 const init = async (): Promise<AuthStore> => {
 	const { subscribe, set } = writable<AuthStoreData>({
 		isAuthenticated: false,
 		// identity: new AnonymousIdentity(),
-		actor: anonActor,
+		stablecoinMinter: anonActor,
 		identityProvider: 'anonymous',
-		principal: anonPrincipal
+		principal: anonPrincipal,
+		ckUsdc: anonCkUsdcActor,
+		usdx: anonUsdxActor
 	});
 
-	onConnectionUpdateHelper(set);
+	checkPlugConnectionIfTrueUpdateAuth(set);
 
 	return {
 		subscribe,
@@ -47,12 +58,16 @@ const init = async (): Promise<AuthStore> => {
 
 			if (isAuthenticated) {
 				const signIdentity = authClient.getIdentity();
-				const authActor = await getActor(signIdentity);
-				console.log(signIdentity.getPrincipal().toText());
+				const authActor = await getStablecoinMinterActor(signIdentity);
+				const authUsdxActor = await getUsdxActor(signIdentity);
+				const authCkUsdcActor = await getCkUsdcActor(signIdentity);
+
 				return set({
 					isAuthenticated,
 					// identity: signIdentity,
-					actor: authActor,
+					stablecoinMinter: authActor,
+					ckUsdc: authCkUsdcActor,
+					usdx: authUsdxActor,
 					identityProvider: 'ii',
 					principal: signIdentity.getPrincipal()
 				});
@@ -60,9 +75,11 @@ const init = async (): Promise<AuthStore> => {
 			return set({
 				isAuthenticated,
 				// identity: anonIdentity,
-				actor: anonActor,
+				stablecoinMinter: anonActor,
 				identityProvider: 'anonymous',
-				principal: anonPrincipal
+				principal: anonPrincipal,
+				ckUsdc: anonCkUsdcActor,
+				usdx: anonUsdxActor
 			});
 		},
 		signInWithII: async () =>
@@ -102,9 +119,11 @@ const init = async (): Promise<AuthStore> => {
 			set({
 				isAuthenticated: false,
 				// identity: anonIdentity,
-				actor: anonActor,
+				stablecoinMinter: anonActor,
 				identityProvider: 'anonymous',
-				principal: anonPrincipal
+				principal: anonPrincipal,
+				ckUsdc: anonCkUsdcActor,
+				usdx: anonUsdxActor
 			});
 		},
 		signInWithPlug: async () => {
@@ -115,6 +134,30 @@ const init = async (): Promise<AuthStore> => {
 
 // @ts-ignore: next-line
 const plug = window?.ic?.plug;
+
+const checkPlugConnectionIfTrueUpdateAuth = async (
+	set: (this: void, value: AuthStoreData) => void
+) => {
+	let isAuthenticated = await plug?.isConnected();
+	if (isAuthenticated) {
+		// let authActor = await plug.createActor({
+		// 	canisterId,
+		// 	interfaceFactory: idlFactory
+		// });
+
+		const principal = await plug.getPrincipal();
+
+		set({
+			isAuthenticated,
+			// identity: publicKey,
+			stablecoinMinter: anonActor,
+			identityProvider: 'plug',
+			principal,
+			ckUsdc: anonCkUsdcActor,
+			usdx: anonUsdxActor
+		});
+	}
+};
 
 const onConnectionUpdateHelper = async (set: (this: void, value: AuthStoreData) => void) => {
 	let isAuthenticated = await plug?.isConnected();
@@ -129,17 +172,21 @@ const onConnectionUpdateHelper = async (set: (this: void, value: AuthStoreData) 
 		set({
 			isAuthenticated,
 			// identity: publicKey,
-			actor: anonActor,
+			stablecoinMinter: anonActor,
 			identityProvider: 'plug',
-			principal
+			principal,
+			ckUsdc: anonCkUsdcActor,
+			usdx: anonUsdxActor
 		});
 	} else {
 		set({
 			isAuthenticated: false,
 			// identity: anonIdentity,
-			actor: anonActor,
+			stablecoinMinter: anonActor,
 			identityProvider: 'anonymous',
-			principal: anonPrincipal
+			principal: anonPrincipal,
+			ckUsdc: anonCkUsdcActor,
+			usdx: anonUsdxActor
 		});
 	}
 };
@@ -169,9 +216,11 @@ const connectPlug = async (set: (this: void, value: AuthStoreData) => void) => {
 			set({
 				isAuthenticated: false,
 				// identity: anonIdentity,
-				actor: anonActor,
+				stablecoinMinter: anonActor,
 				identityProvider: 'anonymous',
-				principal: anonPrincipal
+				principal: anonPrincipal,
+				ckUsdc: anonCkUsdcActor,
+				usdx: anonUsdxActor
 			});
 		}
 	} else {
@@ -179,14 +228,14 @@ const connectPlug = async (set: (this: void, value: AuthStoreData) => void) => {
 		set({
 			isAuthenticated: false,
 			// identity: anonIdentity,
-			actor: anonActor,
+			stablecoinMinter: anonActor,
 			identityProvider: 'anonymous',
-			principal: anonPrincipal
+			principal: anonPrincipal,
+			ckUsdc: anonCkUsdcActor,
+			usdx: anonUsdxActor
 		});
 	}
 };
 
 export const authStore: AuthStore = await init();
 const sync = async () => await authStore.sync();
-
-authStore.subscribe((value) => console.log(value.principal.toText()));

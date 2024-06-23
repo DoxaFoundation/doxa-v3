@@ -1,6 +1,5 @@
 type USDxBlockIndex = nat;
 type Tokens = variant {USDx;};
-type Subaccount = vec nat8;
 type NotifyMintWithCkusdcResult = 
  variant {
    err: NotifyError;
@@ -19,7 +18,7 @@ type CkUSDCBlockIndex = nat;
 type Account = 
  record {
    owner: principal;
-   subaccount: opt Subaccount;
+   subaccount: opt blob;
  };
 service : {
   get_ckusdc_reserve_account_of: (record {token: Tokens;}) -> (Account) query;

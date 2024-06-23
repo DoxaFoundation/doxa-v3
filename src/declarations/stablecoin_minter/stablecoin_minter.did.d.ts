@@ -4,7 +4,7 @@ import type { IDL } from '@dfinity/candid';
 
 export interface Account {
   'owner' : Principal,
-  'subaccount' : [] | [Subaccount],
+  'subaccount' : [] | [Uint8Array | number[]],
 }
 export type CkUSDCBlockIndex = bigint;
 export type NotifyError = { 'AlreadyProcessed' : { 'blockIndex' : bigint } } |
@@ -12,7 +12,6 @@ export type NotifyError = { 'AlreadyProcessed' : { 'blockIndex' : bigint } } |
   { 'Other' : { 'error_message' : string, 'error_code' : bigint } };
 export type NotifyMintWithCkusdcResult = { 'ok' : USDxBlockIndex } |
   { 'err' : NotifyError };
-export type Subaccount = Uint8Array | number[];
 export type Tokens = { 'USDx' : null };
 export type USDxBlockIndex = bigint;
 export interface _SERVICE {
