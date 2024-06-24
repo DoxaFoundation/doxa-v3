@@ -11,20 +11,19 @@
 	}
 </script>
 
-<div class="bg-[#1e1e2e] text-white p-5 font-sans">
-	<h1 class="mb-5">Showcase</h1>
+<div class=" text-black p-5 font-sans">
 	<div class="flex flex-col">
 		{#each steps as step, index}
 			<div class="flex items-start mb-[30px] relative">
 				<div
 					class="w-[30px] h-[30px] rounded-full flex items-center justify-center font-bold mr-[15px] relative flex-shrink-0 {step.status ===
 					'completed'
-						? 'bg-[#4caf50]'
+						? 'bg-green-500'
 						: step.status === 'in-progress'
-							? 'bg-[#7b68ee]'
+							? 'bg-indigo-500'
 							: step.status === 'error'
-								? 'bg-[#ff0000]'
-								: 'bg-[#808080]'}"
+								? 'bg-red-600'
+								: 'bg-gray-400'}"
 				>
 					{#if step.status === 'completed'}
 						<svg viewBox="0 0 24 24" class="w-5 h-5 fill-white">
@@ -35,7 +34,7 @@
 							class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"
 						></div>
 						<span
-							class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-sm"
+							class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-sm text-white"
 							>{step.id}</span
 						>
 					{:else if step.status === 'error'}
@@ -45,7 +44,9 @@
 							/>
 						</svg>
 					{:else}
-						{step.id}
+						<div class="text-white">
+							{step.id}
+						</div>
 					{/if}
 				</div>
 				<div class="flex-1 flex flex-col justify-center">
@@ -56,10 +57,10 @@
 					<div
 						class="absolute left-[15px] top-[30px] bottom-[-30px] w-[2px] {steps[index + 1]
 							.status === 'completed'
-							? 'bg-[#4caf50]'
+							? 'bg-green-500'
 							: steps[index + 1].status === 'error'
-								? 'bg-[#ff0000]'
-								: 'bg-[#808080]'}"
+								? 'bg-red-600'
+								: 'bg-gray-400'}"
 					></div>
 				{/if}
 			</div>

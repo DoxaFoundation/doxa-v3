@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Navbar, NavBrand, NavUl } from 'flowbite-svelte';
+	import { Navbar, NavBrand, NavUl, Tooltip } from 'flowbite-svelte';
 	import { page } from '$app/stores';
 	import NavHamburger from './Navbar/NavHamburger.svelte';
 	import NavLi from './Navbar/NavLi.svelte';
@@ -30,22 +30,26 @@
 		divClass="w-full lg:block lg:w-auto"
 		ulClass="flex flex-col p-2  mt-4 lg:flex-row lg:space-x-8 rtl:space-x-reverse lg:mt-0 lg:text-sm lg:font-medium"
 	>
-		<NavLi href="/test/">
-			<div class={activeUrl === '/test/' ? activeClass : nonActiveClass}>Home</div>
+		<NavLi href="/">
+			<div class={activeUrl === '/' ? activeClass : nonActiveClass}>Mint</div>
 		</NavLi>
-		<NavLi href="/mint/">
-			<div class={activeUrl === '/mint/' ? activeClass : nonActiveClass}>Mint</div>
-		</NavLi>
-		<NavLi href="/swap/">
+		<NavLi>
 			<div class={activeUrl === '/swap/' ? activeClass : nonActiveClass}>Swap</div>
+			<Tooltip type="light">Comming soon...</Tooltip>
 		</NavLi>
-		<NavLi href="/activity/">
-			<div class={activeUrl === '/activity/' ? activeClass : nonActiveClass}>Activity</div>
+		<NavLi>
+			<div class={activeUrl === '/redeem/' ? activeClass : nonActiveClass}>Redeem</div>
+			<Tooltip type="light">Comming soon...</Tooltip>
 		</NavLi>
-		<NavLi href="/stabilityPool/">
+		<NavLi>
 			<div class={activeUrl === '/stabilityPool/' ? activeClass : nonActiveClass}>
 				Stability Pool
 			</div>
+			<Tooltip type="light">Comming soon...</Tooltip>
+		</NavLi>
+		<NavLi>
+			<div class={activeUrl === '/activity/' ? activeClass : nonActiveClass}>Activity</div>
+			<Tooltip type="light">Comming soon...</Tooltip>
 		</NavLi>
 	</NavUl>
 </Navbar>

@@ -49,15 +49,17 @@ const init = async (): Promise<BalanceStore> => {
 
 async function getUsdxBalance(): Promise<bigint> {
 	if (get(authStore).identityProvider === 'anonymous') return BigInt(0);
-	return await get(authStore).usdx.balance({
-		owner: get(authStore).principal
+	return await get(authStore).usdx.icrc1_balance_of({
+		owner: get(authStore).principal,
+		subaccount: []
 	});
 }
 
 async function getCkUsdcBalance(): Promise<bigint> {
 	if (get(authStore).identityProvider === 'anonymous') return BigInt(0);
-	return await get(authStore).ckUsdc.balance({
-		owner: get(authStore).principal
+	return await get(authStore).ckUsdc.icrc1_balance_of({
+		owner: get(authStore).principal,
+		subaccount: []
 	});
 }
 
@@ -67,4 +69,8 @@ export const balanceStore: BalanceStore = await init();
 
 export function from6Decimals(value: bigint): number {
 	return Number(value) / 1000000;
+}
+
+export function to6Decimals(value: number): bigint {
+	return BigInt(value * 1000000);
 }
