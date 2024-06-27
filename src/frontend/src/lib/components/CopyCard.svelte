@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Badge, Card, Toast } from 'flowbite-svelte';
+	import { Badge, Card, Toast, Tooltip } from 'flowbite-svelte';
 	import { CheckCircleOutline } from 'flowbite-svelte-icons';
 
 	$: open = copied;
@@ -42,6 +42,7 @@
 			{text}
 		</p>
 	</button>
+	<Tooltip>Copy</Tooltip>
 </Card>
 
 <Toast color="none" bind:open position="top-right">

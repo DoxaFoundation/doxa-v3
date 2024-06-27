@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { ArrowRightToBracketOutline } from 'flowbite-svelte-icons';
+	import { ArrowRightToBracketOutline, ArrowUpFromBracketOutline } from 'flowbite-svelte-icons';
 	import { Modal, Button } from 'flowbite-svelte';
 	import CopyCard from './CopyCard.svelte';
 	import { authStore } from '$lib/stores/auth.store';
+	import TransferModal from './TransferModal.svelte';
 
 	export let open = false;
 
@@ -21,15 +22,23 @@
 	function displayBalanceInFormal(balance: bigint): string {
 		return formatNumber(from6Decimals(balance));
 	}
+
+	let openTransferModal = false;
 </script>
 
-<Modal size="sm" bind:open autoclose outsideclose placement="top-right" color="primary">
+<Modal size="sm" bind:open outsideclose placement="top-right" color="primary" class="pt-2">
 	<CopyCard badge="Principal" text={$authStore.principal.toText()} />
 	<!-- <CopyCard badge="Account ID" text={window.ic.plug.accountId} /> -->
+	<TransferModal bind:openTransferModal />
+	<div class="grid grid-cols-2 gap-2">
+		<Button outline color="alternative" class="w-full" on:click={() => (openTransferModal = true)}
+			><ArrowUpFromBracketOutline />Transfer Token</Button
+		>
 
-	<Button class="w-full" on:click={authStore.signOut}
-		><ArrowRightToBracketOutline class="pr-1" />Log Out</Button
-	>
+		<Button outline class="w-full" color="alternative" on:click={authStore.signOut}
+			><ArrowRightToBracketOutline class="pr-1" />Log Out</Button
+		>
+	</div>
 
 	<div class="grid grid-cols-2 gap-2">
 		<div class="border p-2 md:p-4 rounded-lg">

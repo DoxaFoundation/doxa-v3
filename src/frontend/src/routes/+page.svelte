@@ -99,7 +99,7 @@
 			let ckUSDCBlockIndex = await transferCkusdcToReserve();
 			let usdxBlockIndex = await notifyStablecoinMinter(ckUSDCBlockIndex);
 			steps[3].status = 'completed';
-			steps[3].text = 'USDX minted at blockIndex ' + usdxBlockIndex.toString();
+			steps[3].text = selectTokenAmount_ckUSDC + ' USDX minted in your Wallet ';
 			steps = [...steps]; // Trigger reactivity
 		} catch (error) {
 			steps[3].status = 'error';
