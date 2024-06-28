@@ -3,36 +3,31 @@
 		"ckusdc_pool": {
 			"main": "src/backend/ckusdc-pool/main.mo",
 			"type": "motoko",
-			"dependencies": [
-				"exchange_rate_canister",
-				"usdx_ledger",
-				"ckusdc_ledger",
-				"stablecoin_minter"
-			]
+			"dependencies": ["exchange_rate_canister"]
 		},
 		"usdx_ledger": {
 			"type": "custom",
-			"candid": "src/backend/doxa-dollar/ledger.did",
-			"wasm": "src/backend/doxa-dollar/ic-icrc1-ledger.wasm"
+			"candid": "https://raw.githubusercontent.com/dfinity/ic/5ba1412f9175d987661ae3c0d8dbd1ac3e092b7d/rs/rosetta-api/icrc1/ledger/ledger.did",
+			"wasm": "https://download.dfinity.systems/ic/5ba1412f9175d987661ae3c0d8dbd1ac3e092b7d/canisters/ic-icrc1-ledger.wasm.gz"
 		},
 		"stablecoin_minter": {
 			"main": "src/backend/stablecoin-minter/main.mo",
 			"type": "motoko",
-			"dependencies": ["icp_ledger", "usdx_ledger", "exchange_rate_canister", "ckusdc_ledger"]
+			"dependencies": ["icp_ledger", "exchange_rate_canister"]
 		},
 		"root_canister": {
 			"main": "src/backend/root-canister/main.mo",
 			"type": "motoko"
 		},
 		"frontend": {
-			"dependencies": ["internet-identity"],
+			"dependencies": ["internet_identity"],
 			"frontend": {
 				"entrypoint": "build/index.html"
 			},
 			"source": ["build/"],
 			"type": "assets"
 		},
-		"internet-identity": {
+		"internet_identity": {
 			"type": "pull",
 			"id": "rdmx6-jaaaa-aaaaa-aaadq-cai",
 			"frontend": {}

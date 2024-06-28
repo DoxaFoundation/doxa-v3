@@ -1,7 +1,5 @@
 import XRC "canister:exchange_rate_canister";
-import CkUSDC "canister:ckusdc_ledger";
-import USDx "canister:usdx_ledger";
-import StablecoinMinter "canister:stablecoin_minter";
+import Icrc "../service/icrc-interface";
 
 import Cycles "mo:base/ExperimentalCycles";
 import Timer "mo:base/Timer";
@@ -32,11 +30,14 @@ actor CkusdcPool {
 		timestamp : Nat64;
 		error : {
 			#ExchangeRateError : XRC.ExchangeRateError;
-			#CkUDSCTransferError : CkUSDC.TransferError;
-			#USDxBurnTransferError : USDx.TransferError;
+			#CkUDSCTransferError : Icrc.TransferError;
+			#USDxBurnTransferError : Icrc.TransferError;
 			#FailedToAdjustReserve : Tokens;
 		};
 	};
+
+	let ckUSDC : Icrc.Self = actor ("xevnm-gaaaa-aaaar-qafnq-cai");
+	let USDx : Icrc.Self = actor ("irorr-5aaaa-aaaak-qddsq-cai");
 
 	let errorResultLog = Buffer.Buffer<ResultErrorLog>(0);
 
@@ -130,7 +131,7 @@ actor CkusdcPool {
 	};
 
 	func transferCkusdcToReserve(amount : Nat) : async () {
-		let transferResult = await CkUSDC.icrc1_transfer({
+		let transferResult = await ckUSDC.icrc1_transfer({
 			to = getCkUsdcReserveAccount(#USDx);
 			amount;
 			fee = null;
@@ -190,7 +191,7 @@ actor CkusdcPool {
 	};
 
 	func getCkUsdcPoolBalance() : async Nat {
-		await CkUSDC.icrc1_balance_of({
+		await ckUSDC.icrc1_balance_of({
 			owner = Principal.fromText("i7m4z-gqaaa-aaaak-qddtq-cai");
 			subaccount = null;
 		});
@@ -208,8 +209,8 @@ actor CkusdcPool {
 	};
 
 	func getCurrentReserveOfUSDx() : async Nat {
-		await CkUSDC.icrc1_balance_of({
-			owner = Principal.fromActor(StablecoinMinter);
+		await ckUSDC.icrc1_balance_of({
+			owner = Principal.fromText("iyn2n-liaaa-aaaak-qddta-cai");
 			subaccount = U.toSubAccount(1);
 		});
 	};
@@ -226,16 +227,16 @@ actor CkusdcPool {
 	//     };
 	// };
 
-	func getCkUsdcReserveAccount(_token : Tokens) : CkUSDC.Account {
+	func getCkUsdcReserveAccount(_token : Tokens) : Icrc.Account {
 		{
-			owner = Principal.fromActor(StablecoinMinter);
+			owner = Principal.fromText("iyn2n-liaaa-aaaak-qddta-cai");
 			subaccount = U.toSubAccount(1);
 		};
 	};
 
-	func getUSDxMinterAccount() : USDx.Account {
+	func getUSDxMinterAccount() : Icrc.Account {
 		{
-			owner = Principal.fromActor(StablecoinMinter);
+			owner = Principal.fromText("iyn2n-liaaa-aaaak-qddta-cai");
 			subaccount = null;
 		};
 	};

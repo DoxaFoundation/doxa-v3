@@ -1,5 +1,3 @@
-import ckUSDC "canister:ckusdc_ledger";
-import USDx "canister:usdx_ledger";
 import Result "mo:base/Result";
 import Nat "mo:base/Nat";
 import Principal "mo:base/Principal";
@@ -7,12 +5,24 @@ import Nat64 "mo:base/Nat64";
 import Time "mo:base/Time";
 import Map "mo:map/Map";
 import U "../Utils";
+import Icrc "../service/icrc-interface";
 
 actor StablecoinMinter {
 	type Result<Ok, Err> = Result.Result<Ok, Err>;
 
-	type USDxBlockIndex = USDx.BlockIndex;
-	type CkUSDCBlockIndex = ckUSDC.BlockIndex;
+	type Account = { owner : Principal; subaccount : ?Blob };
+
+	type TransferArg = {
+		to : Account;
+		fee : ?Nat;
+		memo : ?Blob;
+		from_subaccount : ?Blob;
+		created_at_time : ?Nat64;
+		amount : Nat;
+	};
+
+	type USDxBlockIndex = Nat;
+	type CkUSDCBlockIndex = Nat;
 	type NotifyError = {
 		#AlreadyProcessed : { blockIndex : Nat };
 		#InvalidTransaction : Text;
@@ -26,11 +36,14 @@ actor StablecoinMinter {
 
 	type NotifyMintWithCkusdcResult = Result<USDxBlockIndex, NotifyError>;
 
+	let ckUSDC : Icrc.Self = actor ("xevnm-gaaaa-aaaar-qafnq-cai");
+	let USDx : Icrc.Self = actor ("irorr-5aaaa-aaaak-qddsq-cai");
+
 	let { nhash } = Map;
 
 	private stable let processedMintWithCkusdc = Map.new<CkUSDCBlockIndex, USDxBlockIndex>();
 
-	public query func get_ckusdc_reserve_account_of({ token : Tokens }) : async ckUSDC.Account {
+	public query func get_ckusdc_reserve_account_of({ token : Tokens }) : async Icrc.Account {
 		getCkUsdcReserveAccount(token);
 	};
 
@@ -48,17 +61,17 @@ actor StablecoinMinter {
 		};
 
 		let (mintAmount, mintTo) = switch (await validateCkUsdcBlockForMint(ckusdc_block_index, caller, minting_token)) {
-			case (#ok(value)) { value : (Nat, ckUSDC.Account) };
+			case (#ok(value)) { value : (Nat, Icrc.Account) };
 			case (#err(error)) { return #err(error) };
 		};
 
-		let transferArg : USDx.TransferArg = {
+		let transferArg : Icrc.TransferArg = {
 			amount = mintAmount;
 			created_at_time = ?Nat64.fromIntWrap(Time.now());
 			fee = null;
 			from_subaccount = null;
 			memo = null;
-			to = mintTo;
+			to = mintTo : Account;
 		};
 
 		let usdxBlockIndex = switch (await USDx.icrc1_transfer(transferArg)) {
@@ -71,7 +84,7 @@ actor StablecoinMinter {
 		#ok(usdxBlockIndex);
 	};
 
-	func getCkUsdcReserveAccount(_token : Tokens) : ckUSDC.Account {
+	func getCkUsdcReserveAccount(_token : Tokens) : Icrc.Account {
 		// switch (token) {
 		//     case (#USDx) {
 		{
@@ -88,7 +101,7 @@ actor StablecoinMinter {
 		};
 	};
 
-	func validateCkUsdcBlockForMint(ckusdcBI : CkUSDCBlockIndex, caller : Principal, token : Tokens) : async Result<(Nat, ckUSDC.Account), NotifyError> {
+	func validateCkUsdcBlockForMint(ckusdcBI : CkUSDCBlockIndex, caller : Principal, token : Tokens) : async Result<(Nat, Icrc.Account), NotifyError> {
 
 		let getTransactionsResponse = await ckUSDC.get_transactions({ start = ckusdcBI; length = 1 });
 

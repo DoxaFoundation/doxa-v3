@@ -1,7 +1,7 @@
 
 #Pull Internet Identity as a dependencies from the mainnet and deploy locally.
 dfx deps pull
-dfx deps init --argument '(null)' internet-identity
+dfx deps init --argument '(null)' internet_identity
 dfx deps init exchange_rate_canister
 dfx deps deploy 
 
@@ -41,7 +41,7 @@ dfx deploy icp_ledger --specified-id ryjl3-tyaaa-aaaaa-aaaba-cai --argument "
 ######################################################################################
 ######################################################################################
 
-dfx canister create ckusdc_pool --specified-id i7m4z-gqaaa-aaaak-qddtq-cai
+dfx canister create ckusdc_pool --specified-id ieja4-4iaaa-aaaak-qddra-cai
 
 # Creating Local USDx Ledger before deploying stablecoin_minter (stablecoin_minter is a dependency of usdx_ledger)
 dfx canister create usdx_ledger --specified-id irorr-5aaaa-aaaak-qddsq-cai
