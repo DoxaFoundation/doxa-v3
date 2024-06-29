@@ -43,11 +43,11 @@
 			buttonMessage = 'Connect to mint';
 			return;
 		} else if (selectedToken !== 'ckUSDC') {
-			buttonMessage = 'Minting using ' + selectedToken + ' is comming soon...';
+			buttonMessage = 'Minting using ' + selectedToken + ' is coming soon...';
 			mintButtonDisable = true;
 			return;
 		} else if (selectedMint !== 'USDx') {
-			buttonMessage = selectedMint + ' is comming soon...';
+			buttonMessage = selectedMint + ' is coming soon...';
 			mintButtonDisable = true;
 			return;
 		} else {
@@ -206,17 +206,17 @@
 	onDestroy(unsubscribe2);
 </script>
 
-<div class="flex flex-col items-center justify-center m-2">
-	<div class="md:p-8 p-4 dark:bg-sky-200 md:w-fit w-full rounded-2xl border">
+<div class="flex flex-col items-center justify-center mt-2">
+	<div class="md:p-8 p-4 dark:bg-sky-200 md:w-fit w-full rounded-2xl border box mb-4">
 		{#if toggleMintForm}
-			<div>
+			<div class="max-sm:flex max-sm:flex-col max-sm:items-center">
 				<Label class="m-6">
 					Minting using
 					<div class="md:flex gap-2">
 						<Select
 							placeholder="Choose token"
 							size="sm"
-							class="mt-2 w-fit shadow-md shadow-gray-400"
+							class="mt-2 w-fit box py-8 max-md:w-full bg-white border shadow-md"
 							items={mintUsing}
 							bind:value={selectedToken}
 							on:change={disableMintButton}
@@ -224,17 +224,17 @@
 						<div class="md:flex md:flex-col-reverse md:pl-2 max-md:mt-3">
 							<Input
 								bind:value={selectTokenAmount_ckUSDC}
-								class="py-2 w-fit shadow-md"
+								class="py-8 w-fit max-md:w-full box bg-white border shadow-md text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
 								type="number"
 								placeholder="Enter amount"
 								size="md"
 								on:input={disableMintButton}
 							>
-								<svelte:fragment slot="right">
+								<!-- <svelte:fragment slot="right">
 									{#if selectTokenAmount_ckUSDC + 0.01 !== from6Decimals($balanceStore.ckUsdc) && selectedToken === 'ckUSDC'}
 										<button class="text-center" on:click={setMaxCkUSDC}>Max</button>
 									{/if}
-								</svelte:fragment>
+								</svelte:fragment> -->
 							</Input>
 							<Tooltip>Enter amount</Tooltip>
 						</div>
@@ -247,7 +247,7 @@
 						<Select
 							placeholder="Choose token"
 							size="sm"
-							class="mt-2 w-fit shadow-inner "
+							class="mt-2 w-fit box py-8 max-md:w-full bg-white border shadow-md"
 							items={mintToken}
 							bind:value={selectedMint}
 							on:change={disableMintButton}
@@ -256,7 +256,7 @@
 						<div class="md:flex md:flex-col-reverse md:pl-2 max-md:mt-3">
 							<Input
 								bind:value={selectTokenAmount_ckUSDC}
-								class="py-2  shadow-inner block w-52 disabled:cursor-not-allowed disabled:opacity-50 rtl:text-right"
+								class="py-8 w-fit max-md:w-full box bg-white border shadow-md text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
 								type="number"
 								placeholder="Enter amount"
 								size="md"
@@ -266,16 +266,15 @@
 						</div>
 					</div>
 				</Label>
-
-				<div class="flex justify-center">
-					<Button
-						class="bg-black text-base p-6 w-44 md:w-60 rounded-3xl font-light  hover:bg-blue-400"
-						disabled={mintButtonDisable}
-						on:click={onClickMintButton}
-					>
-						{buttonMessage}
-					</Button>
-				</div>
+			</div>
+			<div class="flex justify-center">
+				<Button
+					class="bg-black text-base p-6 w-44 md:w-60 rounded-3xl font-light  hover:bg-blue-400"
+					disabled={mintButtonDisable}
+					on:click={onClickMintButton}
+				>
+					{buttonMessage}
+				</Button>
 			</div>
 		{:else}
 			<ProgressSteps {steps} />
@@ -293,5 +292,9 @@
 
 <style lang="postcss">
 	:global(html) {
+	}
+
+	.box {
+		box-shadow: 0px 1px 5px 0px rgba(0, 0, 0, 0.1);
 	}
 </style>

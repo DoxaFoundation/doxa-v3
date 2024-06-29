@@ -13,7 +13,7 @@
 
 <div class="relative px-8">
 	<Navbar />
-	<div class="overflow-scroll pb-16 mt-20">
+	<div class="overflow-scroll mt-20">
 		<slot />
 	</div>
 </div>

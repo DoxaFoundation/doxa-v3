@@ -7,9 +7,10 @@
 
 	$: activeUrl = $page.url.pathname;
 
-	let activeClass = 'text-white bg-black text-sm border border-black py-2 w-fit px-7 rounded-md';
+	let activeClass =
+		'text-white bg-black text-sm border border-black py-2 w-fit px-7 rounded-md box';
 	let nonActiveClass =
-		'text-black bg-white text-sm border border-black py-2 w-fit px-7 rounded-md hover:text-white hover:bg-black';
+		'text-black bg-white text-sm border border-black py-2 w-fit px-7 rounded-md hover:text-white hover:bg-black shadow';
 </script>
 
 <Navbar class="px-2 sm:px-4 py-2.5 fixed w-full z-20 top-0 start-0 border-b">
@@ -33,23 +34,33 @@
 		<NavLi href="/">
 			<div class={activeUrl === '/' ? activeClass : nonActiveClass}>Mint</div>
 		</NavLi>
+		<NavLi href="/earn/">
+			<div class={activeUrl === '/earn/' ? activeClass : nonActiveClass}>Earn</div>
+			<Tooltip type="light">Coming soon...</Tooltip>
+		</NavLi>
 		<NavLi>
 			<div class={activeUrl === '/swap/' ? activeClass : nonActiveClass}>Swap</div>
-			<Tooltip type="light">Comming soon...</Tooltip>
+			<Tooltip type="light">Coming soon...</Tooltip>
 		</NavLi>
-		<NavLi>
+		<!-- <NavLi>
 			<div class={activeUrl === '/redeem/' ? activeClass : nonActiveClass}>Redeem</div>
-			<Tooltip type="light">Comming soon...</Tooltip>
-		</NavLi>
+			<Tooltip type="light">Coming soon...</Tooltip>
+		</NavLi> -->
 		<NavLi>
 			<div class={activeUrl === '/stabilityPool/' ? activeClass : nonActiveClass}>
 				Stability Pool
 			</div>
-			<Tooltip type="light">Comming soon...</Tooltip>
+			<Tooltip type="light">Coming soon...</Tooltip>
 		</NavLi>
 		<NavLi>
 			<div class={activeUrl === '/activity/' ? activeClass : nonActiveClass}>Activity</div>
-			<Tooltip type="light">Comming soon...</Tooltip>
+			<Tooltip type="light">Coming soon...</Tooltip>
 		</NavLi>
 	</NavUl>
 </Navbar>
+
+<style lang="postcss">
+	.box {
+		box-shadow: 0px 1px 5px 0px rgba(0, 0, 0, 0.1);
+	}
+</style>
