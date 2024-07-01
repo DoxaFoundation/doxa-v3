@@ -8,14 +8,24 @@
 	import ProgressSteps from '$lib/components/ProgressSteps.svelte';
 	import type { Account, BlockIndex } from '@dfinity/ledger-icrc/dist/candid/icrc_ledger';
 	import { ArrowLeftOutline } from 'flowbite-svelte-icons';
+	import SelectDropDown from '$lib/components/SelectDropDown.svelte';
+	import { ckUsdcBase64 } from '../assets/base64-svg';
 
 	let selectedToken: string = 'ckUSDC';
 	let selectedMint: string = 'USDx';
 	let mintUsing = [
-		{ value: 'ckUSDC', name: 'ckUSDC' },
-		{ value: 'ICP', name: 'ICP' },
-		{ value: 'ckETH', name: 'ckETH' },
-		{ value: 'ckBTC', name: 'ckBTC' }
+		{ id: 1, value: 'ckUSDC', img: ckUsdcBase64, name: 'ckUSDC' },
+		{ id: 2, value: 'ICP', img: '/images/ICP-Token-dark.svg', name: 'ICP' },
+		{ id: 3, value: 'ckETH', img: '/images/ckETH-Token.svg', name: 'ckETH' },
+		{ id: 4, value: 'ckBTC', img: '/images/ckBTC-Token.svg', name: 'ckBTC' }
+	];
+	let mintToken_ = [
+		{
+			id: 1,
+			value: 'USDx',
+			name: 'Doxa Dollar',
+			img: '/images/USDx-black.svg'
+		}
 	];
 	let mintToken = [
 		{ value: 'USDx', name: 'Doxa Dollar' },
@@ -210,21 +220,20 @@
 	<div class="md:p-8 p-4 dark:bg-sky-200 md:w-fit w-full rounded-2xl border box mb-4">
 		{#if toggleMintForm}
 			<div class="max-sm:flex max-sm:flex-col max-sm:items-center">
-				<Label class="m-6">
-					Minting using
+				<div class="m-6">
+					<span class="font-bold">Minting using</span>
 					<div class="md:flex gap-2">
-						<Select
-							placeholder="Choose token"
-							size="sm"
-							class="mt-2 w-fit box py-8 max-md:w-full bg-white border shadow-md"
+						<SelectDropDown
 							items={mintUsing}
-							bind:value={selectedToken}
+							placeholder="Choose token"
+							class="mt-2 max-md:w-full"
 							on:change={disableMintButton}
+							bind:value={selectedToken}
 						/>
 						<div class="md:flex md:flex-col-reverse md:pl-2 max-md:mt-3">
 							<Input
 								bind:value={selectTokenAmount_ckUSDC}
-								class="py-8 w-fit max-md:w-full box bg-white border shadow-md text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+								class="h-16 font-medium text-base w-fit max-md:w-full box bg-white border shadow-md text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
 								type="number"
 								placeholder="Enter amount"
 								size="md"
@@ -239,24 +248,23 @@
 							<Tooltip>Enter amount</Tooltip>
 						</div>
 					</div>
-				</Label>
+				</div>
 
-				<Label class="m-6">
-					Select currency to mint
+				<div class="m-6">
+					<span class="font-bold">Select currency to mint</span>
 					<div class="md:flex gap-2">
-						<Select
+						<SelectDropDown
+							items={mintToken_}
 							placeholder="Choose token"
-							size="sm"
-							class="mt-2 w-fit box py-8 max-md:w-full bg-white border shadow-md"
-							items={mintToken}
-							bind:value={selectedMint}
+							class="mt-2 max-md:w-full"
 							on:change={disableMintButton}
+							bind:value={selectedMint}
 						/>
 
 						<div class="md:flex md:flex-col-reverse md:pl-2 max-md:mt-3">
 							<Input
 								bind:value={selectTokenAmount_ckUSDC}
-								class="py-8 w-fit max-md:w-full box bg-white border shadow-md text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+								class="h-16 font-medium text-base w-fit max-md:w-full box bg-white border shadow-md text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
 								type="number"
 								placeholder="Enter amount"
 								size="md"
@@ -265,7 +273,7 @@
 							/>
 						</div>
 					</div>
-				</Label>
+				</div>
 			</div>
 			<div class="flex justify-center">
 				<Button
