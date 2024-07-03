@@ -49,7 +49,7 @@
 	{value ? (selectName ? selectName : placeholder) : placeholder}
 	<ChevronDownOutline class="w-6 h-6 text-black dark:text-white" />
 </Button>
-<Dropdown activeContent={true} bind:open={dropdownOpen}>
+<Dropdown activeContent={true} bind:open={dropdownOpen} class="w-40 max-sm:w-[203px]">
 	{#each items as item (item.id)}
 		<DropdownItem
 			on:click={() => handleSelect(item)}
