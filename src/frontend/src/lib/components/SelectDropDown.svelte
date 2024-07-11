@@ -8,6 +8,7 @@
 
 	export let value: string;
 	export let placeholder: string = 'Select option...';
+	export let dropDownClass: string = '';
 
 	let activeClass = 'font-medium font-bold text-center py-2 px-4 text-sm bg-slate-300';
 	let defaultClass =
@@ -49,7 +50,11 @@
 	{value ? (selectName ? selectName : placeholder) : placeholder}
 	<ChevronDownOutline class="w-6 h-6 text-black dark:text-white" />
 </Button>
-<Dropdown activeContent={true} bind:open={dropdownOpen} class="w-40 max-sm:w-[203px]">
+<Dropdown
+	activeContent={true}
+	bind:open={dropdownOpen}
+	class={twMerge('w-40 max-sm:w-[203px]', dropDownClass)}
+>
 	{#each items as item (item.id)}
 		<DropdownItem
 			on:click={() => handleSelect(item)}

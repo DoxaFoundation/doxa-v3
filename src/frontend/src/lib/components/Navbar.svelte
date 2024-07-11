@@ -34,8 +34,8 @@
 		<NavLi href="/">
 			<div class={activeUrl === '/' ? activeClass : nonActiveClass}>Mint</div>
 		</NavLi>
-		<NavLi href="/earn/">
-			<div class={activeUrl === '/earn/' ? activeClass : nonActiveClass}>Earn</div>
+		<NavLi href="/stake/">
+			<div class={activeUrl === '/stake/' ? activeClass : nonActiveClass}>Stake</div>
 			<Tooltip type="light">Coming soon...</Tooltip>
 		</NavLi>
 		<NavLi>
