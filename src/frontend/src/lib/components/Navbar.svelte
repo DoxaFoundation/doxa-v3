@@ -52,8 +52,8 @@
 			</div>
 			<Tooltip type="light">Coming soon...</Tooltip>
 		</NavLi>
-		<NavLi>
-			<div class={activeUrl === '/activity/' ? activeClass : nonActiveClass}>Activity</div>
+		<NavLi href="/transactions/">
+			<div class={activeUrl === '/transactions/' ? activeClass : nonActiveClass}>Transactions</div>
 			<Tooltip type="light">Coming soon...</Tooltip>
 		</NavLi>
 	</NavUl>
