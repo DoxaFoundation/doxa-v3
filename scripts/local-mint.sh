@@ -8,17 +8,23 @@ dfx canister call ckusdc_ledger icrc1_balance_of '(record {owner= principal "5g2
 dfx canister call stablecoin_minter get_ckusdc_reserve_account_of '(record {token= variant {USDx}})'
 
 # Transfer ckUSDC from default identity to Reserve Account of USDx
-dfx canister call ckusdc_ledger icrc1_transfer '(record{ to=record {owner = principal "iyn2n-liaaa-aaaak-qddta-cai"; subaccount= opt blob "\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\01";} ; amount=9_000_000;})' --identity default
+dfx canister call ckusdc_ledger icrc1_transfer '(record{ to=record {owner = principal "iyn2n-liaaa-aaaak-qddta-cai"; subaccount= opt blob "\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\01";} ; amount=900_000_000;})' --identity default
 
 # dfx canister call ckusdc_ledger icrc1_transfer '(record{ to=record {owner = principal "5g24m-kxyrd-yb7wl-up5k6-4egww-miul7-gajat-e2d7i-mdpc7-6dduf-eae"; subaccount= opt blob "\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00";} ; amount=9_000_000;})' --identity default
 
-# dfx canister call usdx_ledger icrc1_transfer '(record{ to=record {owner = principal "5g24m-kxyrd-yb7wl-up5k6-4egww-miul7-gajat-e2d7i-mdpc7-6dduf-eae"; subaccount= opt vec{0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 1}}; amount = 9_000_000;})' --identity default
+# dfx canister call usdx_ledger icrc1_transfer '(record{ to=record {owner = principal "bd3sg-teaaa-aaaaa-qaaba-cai"; subaccount= opt vec{0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0}}; amount = 100_000_000;})' --identity default
 
 # Get ckUSDC Transaction
 dfx canister call ckusdc_ledger get_transactions '( record { start =0; length=3 })'
 
 # Notify stablecoin minter to mint USDx
-dfx canister call stablecoin_minter notify_mint_with_ckusdc '(record{ ckusdc_block_index=6; minting_token=variant {USDx}})' --identity default
+dfx canister call stablecoin_minter notify_mint_with_ckusdc '(record{ ckusdc_block_index=8; minting_token=variant {USDx}})' --identity default
 
 # Get USDx transactions
 dfx canister call usdx_ledger get_transactions '( record { start =0; length=3 })'
+
+# trnsfer to staking canister
+dfx canister call usdx_ledger icrc1_transfer '(record{ to=record {owner = principal "bd3sg-teaaa-aaaaa-qaaba-cai"; subaccount= null}; amount = 100_000_000;})' --identity default
+
+#notify to staking canister so it aware about to send usdx to it 
+dfx canister call staking_canister notifyStake

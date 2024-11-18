@@ -29,6 +29,10 @@
 			"main": "src/backend/root-canister/main.mo",
 			"type": "motoko"
 		},
+		"staking_canister": {
+			"main": "src/backend/staking/main.mo",
+			"type": "motoko"
+		},
 		"frontend": {
 			"dependencies": [
 				"internet_identity"
