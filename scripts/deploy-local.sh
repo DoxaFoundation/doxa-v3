@@ -64,3 +64,5 @@ dfx deploy stablecoin_minter
 dfx deploy root_canister
 
 dfx deploy ckusdc_pool
+
+dfx deploy staking_canister

@@ -1,3 +1,62 @@
+/*
+==============================================
+DOXA STAKING CANISTER DOCUMENTATION
+==============================================
+
+This canister implements staking functionality for USDx tokens. Here's what it does:
+
+1. STAKING:
+   - Users can stake USDx tokens by sending them to this canister
+   - Minimum stake amount: 100 USDx (100_000_000 with decimals)
+   - Lock period: 6 months
+   Example:
+   - Send 100 USDx to canister
+   - Call notifyStake() to register stake
+
+2. REWARDS:
+   - Users earn USDx rewards based on stake amount and time
+   - Rewards calculated as: (staked * rewardRate * time) / totalStaked
+   - Rewards distributed per second (configurable)
+   Example:
+   - If rewardPerSecond = 100_000
+   - User with 10% of total stake gets 10% of rewards
+
+3. HARVESTING:
+   - Users can harvest earned rewards anytime
+   - Minimum harvest amount enforced
+   Example:
+   - Call harvest() to claim rewards
+   - Rewards sent directly to user's wallet
+
+4. UNSTAKING:
+   - Users can unstake after lock period ends
+   - Final rewards are paid during unstake
+   Example:
+   - Call unstake() after 6 months
+   - Get back staked amount + final rewards
+
+5. ADMIN FUNCTIONS:
+   - Emergency withdraw (admin only)
+   - Update pool parameters (admin only)
+   Example:
+   - Admin can update rewardPerSecond, minimumStake, lockDuration
+   - Admin can withdraw all funds in emergency
+
+6. VIEW FUNCTIONS:
+   - getPoolStats(): Get overall pool statistics
+   - getStakeDetails(): Get user's stake info
+   - getUserTransactions(): Get user's transaction history
+   Example:
+   - Call getPoolStats() to see APR, total staked etc
+   - Call getStakeDetails() to see your stake amount and rewards
+
+IMPORTANT VARIABLES:
+- USDx Token: irorr-5aaaa-aaaak-qddsq-cai
+- Admin: 5g24m-kxyrd-yb7wl-up5k6-4egww-miul7-gajat-e2d7i-mdpc7-6dduf-eae
+- Lock Duration: 6 months (15_552_000 seconds)
+- Minimum Stake: 100 USDx
+*/
+
 import HashMap "mo:base/HashMap";
 import Principal "mo:base/Principal";
 import Time "mo:base/Time";
@@ -6,6 +65,8 @@ import Nat64 "mo:base/Nat64";
 import Result "mo:base/Result";
 import Nat32 "mo:base/Nat32";
 import Int "mo:base/Int";
+import Array "mo:base/Array";
+import Buffer "mo:base/Buffer";
 import Types "types";
 import Icrc "icrc-interface"; // ICRC token interface
 import Map "mo:map/Map";
@@ -13,12 +74,15 @@ import Map "mo:map/Map";
 actor class DoxaStaking() = this {
 	// Token interfaces
 	private let USDx : Icrc.Self = actor ("irorr-5aaaa-aaaak-qddsq-cai"); // USDx token canister
+	// Lock duration constant (6 months in seconds)
+	private let LOCK_DURATION : Nat = 15_552_000; // 182.625 days * 24 hours * 60 mins * 60 secs
+	private let ONE_YEAR : Nat = 31_536_000; // 365 days * 24 hours * 60 mins * 60 secs
 
 	// Pool configuration
 	private var pool : Types.StakingPool = {
 		name = "Doxa Staking";
 		startTime = Time.now();
-		endTime = Time.now() + 31_536_000_000_000_000; // 1 year
+		endTime = Time.now() + ONE_YEAR; // 1 year
 		totalStaked = 0;
 		rewardTokenFee = 0;
 		stakingSymbol = "USDx";
@@ -27,7 +91,7 @@ actor class DoxaStaking() = this {
 		rewardToken = "doxa-dollar"; // Same as staking token
 		rewardPerSecond = 100_000; // Adjust based on tokenomics
 		minimumStake = 100_000_000; // 100 tokens with 6 decimals
-		lockDuration = 15_780_000; // 6 months in seconds
+		lockDuration = LOCK_DURATION;
 	};
 
 	// Storage
@@ -119,7 +183,6 @@ actor class DoxaStaking() = this {
 
 		#ok();
 	};
-
 
 	// More functions to implement:
 	// - unstake()
@@ -292,4 +355,71 @@ actor class DoxaStaking() = this {
 		let rewardsPerYear = pool.rewardPerSecond * 31_536_000; // seconds in a year
 		(rewardsPerYear * 100) / pool.totalStaked;
 	};
+
+	// Get user stake details
+	public shared query ({ caller }) func getStakeDetails() : async ?Types.Stake {
+		stakes.get(caller);
+	};
+
+	// Get all transactions for a user
+	public shared query ({ caller }) func getUserTransactions() : async [Types.Transaction] {
+		let buffer = Buffer.Buffer<Types.Transaction>(transactions.size());
+		for ((_, txn) in transactions.entries()) {
+			if (txn.to == caller or txn.from == caller) {
+				buffer.add(txn);
+			};
+		};
+		Buffer.toArray(buffer);
+	};
+
+	// ======================= Admin Functions ======================= //
+
+	// Admin principal stored in stable variable
+	private stable var YOUR_ADMIN_PRINCIPAL : Text = "5g24m-kxyrd-yb7wl-up5k6-4egww-miul7-gajat-e2d7i-mdpc7-6dduf-eae";
+
+	// Emergency withdraw function for admin
+	public shared ({ caller }) func emergencyWithdraw() : async Result.Result<(), Text> {
+		// Verify caller is admin
+		if (caller != Principal.fromText(YOUR_ADMIN_PRINCIPAL)) {
+			return #err("Not authorized");
+		};
+
+		// Transfer all staked tokens back to admin
+		let transferResult = await USDx.icrc1_transfer({
+			to = { owner = caller; subaccount = null };
+			amount = pool.totalStaked;
+			fee = null;
+			memo = null;
+			from_subaccount = null;
+			created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
+		});
+
+		switch (transferResult) {
+			case (#Err(e)) return #err("Failed to transfer tokens");
+			case (#Ok(_)) {
+				// Reset pool state
+				pool := { pool with totalStaked = 0 };
+				stakes := HashMap.HashMap<Principal, Types.Stake>(10, Principal.equal, Principal.hash);
+				#ok();
+			};
+		};
+	};
+
+	// Update pool parameters (admin only)
+	public shared ({ caller }) func updatePoolParams(params : Types.PoolParams) : async Result.Result<(), Text> {
+		// Verify caller is admin
+		if (caller != Principal.fromText(YOUR_ADMIN_PRINCIPAL)) {
+			return #err("Not authorized");
+		};
+
+		pool := {
+			pool with
+			rewardPerSecond = params.rewardPerSecond;
+			minimumStake = params.minimumStake;
+			lockDuration = params.lockDuration;
+		};
+
+		#ok();
+	};
+
 };
