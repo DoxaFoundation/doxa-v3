@@ -28,3 +28,5 @@ dfx canister call usdx_ledger icrc1_transfer '(record{ to=record {owner = princi
 
 #notify to staking canister so it aware about to send usdx to it 
 dfx canister call staking_canister notifyStake
+
+# dfx canister call usdx_ledger icrc1_balance_of '(record {owner= principal "ieja4-4iaaa-aaaak-qddra-cai"})' --identity default

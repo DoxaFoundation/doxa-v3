@@ -65,33 +65,57 @@ import Nat64 "mo:base/Nat64";
 import Result "mo:base/Result";
 import Nat32 "mo:base/Nat32";
 import Int "mo:base/Int";
-import Array "mo:base/Array";
 import Buffer "mo:base/Buffer";
+import Float "mo:base/Float";
 import Types "types";
-import Icrc "icrc-interface"; // ICRC token interface
+import U "../Utils";
+import Icrc "../service/icrc-interface"; // ICRC token interface
 import Map "mo:map/Map";
 
 actor class DoxaStaking() = this {
 	// Token interfaces
 	private let USDx : Icrc.Self = actor ("irorr-5aaaa-aaaak-qddsq-cai"); // USDx token canister
-	// Lock duration constant (6 months in seconds)
-	private let LOCK_DURATION : Nat = 15_552_000; // 182.625 days * 24 hours * 60 mins * 60 secs
-	private let ONE_YEAR : Nat = 31_536_000; // 365 days * 24 hours * 60 mins * 60 secs
+	private let USDxIndex : actor {
+		get_account_transactions : shared query {
+			max_results : Nat;
+			start : ?Nat;
+			account : {
+				owner : Principal;
+				subaccount : ?Blob;
+			};
+		} -> async {
+			#Ok : {
+				transactions : [{
+					id : Nat;
+					transaction : {
+						burn : ?{
+							amount : Nat;
+						};
+					};
+				}];
+			};
+			#Err : Text;
+		};
+	} = actor ("br5f7-7uaaa-aaaaa-qaaca-cai");
+	// Lock duration constants
+	private let MIN_LOCK_DURATION : Nat = 2_592_000; // 30 days minimum
+	private let MAX_LOCK_DURATION : Nat = 31_536_000; // 365 days maximum
+	private let ONE_YEAR : Nat = 31_536_000; // For APR calculation
 
 	// Pool configuration
 	private var pool : Types.StakingPool = {
-		name = "Doxa Staking";
+		name = "Doxa Dynamic Staking";
 		startTime = Time.now();
-		endTime = Time.now() + ONE_YEAR; // 1 year
+		endTime = Time.now() + ONE_YEAR;
 		totalStaked = 0;
 		rewardTokenFee = 0;
 		stakingSymbol = "USDx";
 		stakingToken = "doxa-dollar";
-		rewardSymbol = "USDx"; // Same as staking symbol
-		rewardToken = "doxa-dollar"; // Same as staking token
-		rewardPerSecond = 100_000; // Adjust based on tokenomics
-		minimumStake = 100_000_000; // 100 tokens with 6 decimals
-		lockDuration = LOCK_DURATION;
+		rewardSymbol = "USDx";
+		rewardToken = "doxa-dollar";
+		rewardPerSecond = 100_000; // Base reward rate
+		minimumStake = 10_000_000; // 10 tokens with 6 decimals
+		lockDuration = MIN_LOCK_DURATION; // Default minimum duration
 	};
 
 	// Storage
@@ -104,15 +128,24 @@ actor class DoxaStaking() = this {
 	private stable var totalRewards : Nat64 = 0;
 	private stable var _tranIdx : Nat = 0;
 	private stable var _harvestIdx : Nat = 0;
-	private let s_heartbeatIntervalSeconds : Nat = 3600; // 1 hour
+	private let s_heartbeatIntervalSeconds : Nat = 3600;
 
-	// For tracking processed stake transactions
 	private let { nhash } = Map;
 	private stable let processedStakeTransactions = Map.new<Nat, Principal>();
 
-	// Stake tokens
 	type Tokens = {
 		#USDx;
+	};
+
+	// Helper function to calculate APR based on lock duration
+	private func calculateDynamicAPR(lockDurationSeconds : Nat) : Nat {
+		// Base APR is 10%
+		let baseAPR = 10;
+
+		// Additional APR based on lock duration (up to 20% more)
+		let durationBonus = (lockDurationSeconds * 20) / MAX_LOCK_DURATION;
+
+		baseAPR + durationBonus;
 	};
 
 	public func getStakingAccount(token : Tokens) : async Icrc.Account {
@@ -126,7 +159,24 @@ actor class DoxaStaking() = this {
 		};
 	};
 
-	public shared ({ caller }) func notifyStake(blockIndex : Nat) : async Result.Result<(), Text> {
+	// Modified stake notification to handle dynamic periods
+	public shared ({ caller }) func notifyStake(blockIndex : Nat, lockDuration : Nat) : async Result.Result<(), Text> {
+		// Check if caller already has an existing stake
+		switch (stakes.get(caller)) {
+			case (?existingStake) {
+				return #err("You already have an existing stake. Please use addStake() to increase your stake amount");
+			};
+			case (null) {};
+		};
+
+		// Validate lock duration
+		if (lockDuration < MIN_LOCK_DURATION) {
+			return #err("Lock duration must be at least 30 days");
+		};
+		if (lockDuration > MAX_LOCK_DURATION) {
+			return #err("Lock duration cannot exceed 365 days");
+		};
+
 		// Check if transaction already processed
 		switch (Map.get(processedStakeTransactions, nhash, blockIndex)) {
 			case (?existingCaller) {
@@ -135,17 +185,17 @@ actor class DoxaStaking() = this {
 			case (null) {};
 		};
 
-		// Get transaction details
-		let getTransactionsResponse = await USDx.get_transactions({ start = blockIndex; length = 1 });
-		let { transactions; log_length } = getTransactionsResponse;
-
-		if (blockIndex >= log_length) {
-			return #err("Invalid block index");
+		// Validate staking block
+		switch (await validateStakingBlock(blockIndex, caller)) {
+			case (#err(error)) { return #err(error) };
+			case (#ok()) {};
 		};
 
+		// Get transaction details
+		let getTransactionsResponse = await USDx.get_transactions({ start = blockIndex; length = 1 });
+		let { transactions } = getTransactionsResponse;
 		let transaction = transactions[0];
 
-		// Verify transaction type
 		let transfer = switch (transaction.transfer) {
 			case (?value) { value };
 			case (null) {
@@ -153,39 +203,150 @@ actor class DoxaStaking() = this {
 			};
 		};
 
-		// Verify destination is staking contract
-		let stakingAccount = getStakingAccount(#USDx);
-		if (stakingAccount != transfer.to) {
-			return #err("Transfer must be to staking contract");
-		};
+		// Calculate estimated APY based on lock duration
+		let estimatedAPY = calculateDynamicAPR(lockDuration);
 
-		// Verify amount meets minimum
-		if (transfer.amount < pool.minimumStake) {
-			return #err("Amount below minimum stake");
-		};
+		// Calculate weight based on lock duration
+		let weight : Float = Float.fromInt(lockDuration) / Float.fromInt(MAX_LOCK_DURATION);
 
-		// Create stake record
+		// Create initial stake record with custom lock duration
 		let stake : Types.Stake = {
 			staker = transfer.from.owner;
 			amount = transfer.amount;
 			stakeTime = Time.now();
-			lockEndTime = Time.now() + pool.lockDuration * 1_000_000_000;
+			lockEndTime = Time.now() + lockDuration * 1_000_000_000;
 			lastHarvestTime = Time.now();
 			earned = 0;
+			weight = weight;
+			estimatedAPY = Float.fromInt(estimatedAPY);
 		};
 
 		stakes.put(transfer.from.owner, stake);
 		var totalStaked = pool.totalStaked + transfer.amount;
-		pool := { pool with totalStaked = totalStaked };
+		pool := {
+			pool with
+			totalStaked = totalStaked;
+			totalRewards = totalRewards + stake.earned;
+			estimatedAPY = Float.fromInt(estimatedAPY);
+			weight = weight;
+			lockupPeriod = lockDuration * 1_000_000_000;
+		};
 
-		// Record processed transaction
 		Map.set(processedStakeTransactions, nhash, blockIndex, transfer.from.owner);
 
 		#ok();
 	};
 
-	// More functions to implement:
-	// - unstake()
+	/* This function validates a staking transaction
+    * Example call: validateStakingBlock(123, "xyz-principal-id")
+    *
+    * It performs these checks:
+    * 1. Validates block index exists
+    *    Example: If blockIndex=500 but total transactions is 400, returns error
+    *
+    * 2. Confirms transaction is a transfer type
+    *    Example: If transaction is burn/mint instead of transfer, returns error
+    *
+    * 3. Verifies transfer was sent to staking account
+    *    Example: If transferred to any other account, returns error
+    *
+    * 4. Checks transfer was made by caller
+    *    Example: If Alice made transfer but Bob is notifying, returns error
+    *    Exception: Works if Bob is approved spender for Alice
+    *
+    * 5. Validates transfer amount meets minimum stake
+    *    Example: If minimum stake is 100 USDx but only 50 USDx staked, returns error
+    */
+	func validateStakingBlock(blockIndex : Nat, caller : Principal) : async Result.Result<(), Text> {
+		// Get transaction details
+		let getTransactionsResponse = await USDx.get_transactions({ start = blockIndex; length = 1 });
+		let { transactions; log_length } = getTransactionsResponse;
+
+		if (blockIndex >= log_length) {
+			return #err("Invalid block index (" # Nat.toText(blockIndex) # ") log_length is " # Nat.toText(log_length));
+		};
+
+		let transaction = transactions[0];
+
+		// Check Transaction kind is transfer
+		let transfer = switch (transaction.transfer) {
+			case (?value) { value };
+			case (null) {
+				return #err("Notification transaction must be of type transfer not " # transaction.kind);
+			};
+		};
+
+		// Check transfer.to is staking account
+		let stakingAccount = await getStakingAccount(#USDx);
+		if (stakingAccount != transfer.to) {
+			return #err(
+				"Destination account (" # Principal.toText(transfer.to.owner) #
+				") in the transaction is not the staking account (" #
+				Principal.toText(stakingAccount.owner) # ")"
+			);
+		};
+
+		// Check transfer.from.owner is caller
+		// if notEqual check caller is spender
+		if (caller != transfer.from.owner) {
+			switch (transfer.spender) {
+				case (?spender) {
+					if (caller != spender.owner) {
+						return #err(
+							"Notifier (" # Principal.toText(caller) #
+							") is neither spender (" # Principal.toText(spender.owner) #
+							") nor originator(" # Principal.toText(transfer.from.owner) # ")"
+						);
+					};
+				};
+				case (null) {
+					return #err(
+						"Notifier principal (" # Principal.toText(caller) #
+						") and transaction originator principal (" #
+						Principal.toText(transfer.from.owner) # ") are not the same"
+					);
+				};
+			};
+		};
+
+		// Check amount is above minimum stake
+		if (transfer.amount < pool.minimumStake) {
+			return #err("Transaction amount is less than minimum stake amount");
+		};
+
+		#ok();
+	};
+
+	// Modified calculate rewards to account for dynamic APR
+	private func calculateRewards(staker : Principal) : async Nat {
+		switch (stakes.get(staker)) {
+			case (null) return 0;
+			case (?stake) {
+				let timeNow = Time.now();
+				let stakedSeconds = timeNow - stake.lastHarvestTime;
+
+				if (stakedSeconds < s_heartbeatIntervalSeconds * 1_000_000_000) return 0;
+				if (timeNow < pool.startTime or timeNow > pool.endTime) return 0;
+
+				// Calculate dynamic APR based on lock duration
+				let lockDurationSeconds = Int.abs(stake.lockEndTime - stake.stakeTime) / 1_000_000_000;
+				let dynamicAPR = calculateDynamicAPR(Int.abs(lockDurationSeconds));
+
+				// Adjust reward rate based on dynamic APR
+				let adjustedRewardRate = (pool.rewardPerSecond * dynamicAPR) / 100;
+
+				let rewardPerToken = if (pool.totalStaked == 0) {
+					0;
+				} else {
+					(adjustedRewardRate * Nat64.toNat(Nat64.fromIntWrap(stakedSeconds / 1_000_000_000))) / pool.totalStaked;
+				};
+
+				return stake.amount * rewardPerToken;
+			};
+		};
+	};
+
+	// Unstake function
 	public shared ({ caller }) func unstake() : async Result.Result<(), Text> {
 		switch (stakes.get(caller)) {
 			case (null) return #err("No active stake found");
@@ -241,32 +402,7 @@ actor class DoxaStaking() = this {
 		};
 	};
 
-	private func calculateRewards(staker : Principal) : async Nat {
-		switch (stakes.get(staker)) {
-			case (null) return 0;
-			case (?stake) {
-				let timeNow = Time.now();
-				let stakedSeconds = timeNow - stake.lastHarvestTime;
-
-				// Only calculate if minimum time has passed
-				if (stakedSeconds < s_heartbeatIntervalSeconds * 1_000_000_000) return 0;
-
-				// Check pool active time
-				if (timeNow < pool.startTime or timeNow > pool.endTime) return 0;
-
-				// Calculate rewards: (staked amount * reward rate * time) / total staked
-				let rewardPerToken = if (pool.totalStaked == 0) {
-					0;
-				} else {
-					(pool.rewardPerSecond * Nat64.toNat(Nat64.fromIntWrap(stakedSeconds / 1_000_000_000))) / pool.totalStaked;
-				};
-
-				return stake.amount * rewardPerToken;
-			};
-		};
-	};
-
-	// - harvest()
+	// Harvest function
 	public shared ({ caller }) func harvest() : async Result.Result<(), Text> {
 		switch (stakes.get(caller)) {
 			case (null) return #err("No active stake found");
@@ -277,7 +413,7 @@ actor class DoxaStaking() = this {
 					return #err("Rewards below minimum harvest amount");
 				};
 
-				// Transfer rewards using same token canister as staking
+				// Transfer rewards
 				let transferResult = await USDx.icrc1_transfer({
 					to = { owner = caller; subaccount = null };
 					amount = rewards;
@@ -299,7 +435,7 @@ actor class DoxaStaking() = this {
 								stakeTime = stake.stakeTime;
 								lockEndTime = stake.lockEndTime;
 								lastHarvestTime = Time.now();
-								earned = 0; // Reset earned after harvest
+								earned = 0;
 							}
 						);
 
@@ -323,15 +459,18 @@ actor class DoxaStaking() = this {
 		};
 	};
 
-	// - getPoolStats()
+	// Modified getPoolStats to include dynamic APR
 	public shared ({ caller }) func getPoolStats() : async Types.PoolStats {
 		var userStake : Nat = 0;
 		var userEarned : Nat64 = 0;
+		var dynamicAPR : Nat = 0;
 
 		switch (stakes.get(caller)) {
 			case (?stake) {
 				userStake := stake.amount;
 				userEarned := Nat64.fromNat(await calculateRewards(caller));
+				let lockDurationSeconds = Int.abs(stake.lockEndTime - stake.stakeTime) / 1_000_000_000;
+				dynamicAPR := calculateDynamicAPR(Int.abs(lockDurationSeconds));
 			};
 			case (null) {};
 		};
@@ -340,7 +479,7 @@ actor class DoxaStaking() = this {
 			totalStaked = pool.totalStaked;
 			totalStakers = stakes.size();
 			totalRewarded = totalRewards;
-			apr = calculateAPR();
+			apr = dynamicAPR;
 			userStake = userStake;
 			userEarned = userEarned;
 			minimumStake = pool.minimumStake;
@@ -348,12 +487,104 @@ actor class DoxaStaking() = this {
 		};
 	};
 
-	private func calculateAPR() : Nat {
-		if (pool.totalStaked == 0) return 0;
+	// Add stake to existing position
+	public shared ({ caller }) func addStake(blockIndex : Nat) : async Result.Result<(), Text> {
+		// Check if transaction already processed
+		switch (Map.get(processedStakeTransactions, nhash, blockIndex)) {
+			case (?existingCaller) {
+				return #err("Transaction already processed for caller: " # Principal.toText(existingCaller));
+			};
+			case (null) {};
+		};
 
-		// APR = (rewards per year / total staked) * 100
-		let rewardsPerYear = pool.rewardPerSecond * 31_536_000; // seconds in a year
-		(rewardsPerYear * 100) / pool.totalStaked;
+		// Validate staking block
+		switch (await validateStakingBlock(blockIndex, caller)) {
+			case (#err(error)) { return #err(error) };
+			case (#ok()) {};
+		};
+
+		// Get transaction details
+		let getTransactionsResponse = await USDx.get_transactions({ start = blockIndex; length = 1 });
+		let { transactions } = getTransactionsResponse;
+		let transaction = transactions[0];
+
+		let transfer = switch (transaction.transfer) {
+			case (?value) { value };
+			case (null) {
+				return #err("Transaction must be a transfer");
+			};
+		};
+
+		// Get existing stake
+		switch (stakes.get(caller)) {
+			case (?existingStake) {
+				// Calculate current rewards before updating stake
+				let currentRewards = await calculateRewards(caller);
+
+				// Calculate lock duration and APY
+				let lockDurationSeconds = Int.abs(existingStake.lockEndTime - existingStake.stakeTime) / 1_000_000_000;
+				let estimatedAPY = calculateDynamicAPR(Int.abs(lockDurationSeconds));
+
+				// Update stake amount and rewards
+				let updatedStake : Types.Stake = {
+					staker = existingStake.staker;
+					amount = existingStake.amount + transfer.amount;
+					stakeTime = existingStake.stakeTime;
+					lockEndTime = existingStake.lockEndTime;
+					lastHarvestTime = existingStake.lastHarvestTime;
+					earned = existingStake.earned + Nat64.fromNat(currentRewards);
+				};
+
+				stakes.put(caller, updatedStake);
+				pool := {
+					pool with
+					totalStaked = pool.totalStaked + transfer.amount;
+					apr = estimatedAPY;
+				};
+
+				Map.set(processedStakeTransactions, nhash, blockIndex, caller);
+				#ok();
+			};
+			case (null) {
+				#err("No existing stake found. Please use notifyStake() first");
+			};
+		};
+	};
+
+	// Update lock duration for existing stake
+	public shared ({ caller }) func updateLockDuration(newDuration : Nat) : async Result.Result<(), Text> {
+		if (newDuration < MIN_LOCK_DURATION) {
+			return #err("Lock duration must be at least 30 days");
+		};
+		if (newDuration > MAX_LOCK_DURATION) {
+			return #err("Lock duration cannot exceed 365 days");
+		};
+
+		switch (stakes.get(caller)) {
+			case (?existingStake) {
+				let currentTime = Time.now();
+				let newLockEndTime = currentTime + newDuration * 1_000_000_000;
+
+				if (newLockEndTime <= existingStake.lockEndTime) {
+					return #err("New lock duration must be longer than current duration");
+				};
+
+				let updatedStake : Types.Stake = {
+					staker = existingStake.staker;
+					amount = existingStake.amount;
+					stakeTime = existingStake.stakeTime;
+					lockEndTime = newLockEndTime;
+					lastHarvestTime = existingStake.lastHarvestTime;
+					earned = existingStake.earned;
+				};
+
+				stakes.put(caller, updatedStake);
+				#ok();
+			};
+			case (null) {
+				#err("No existing stake found");
+			};
+		};
 	};
 
 	// Get user stake details
@@ -372,19 +603,14 @@ actor class DoxaStaking() = this {
 		Buffer.toArray(buffer);
 	};
 
-	// ======================= Admin Functions ======================= //
-
-	// Admin principal stored in stable variable
+	// Admin Functions
 	private stable var YOUR_ADMIN_PRINCIPAL : Text = "5g24m-kxyrd-yb7wl-up5k6-4egww-miul7-gajat-e2d7i-mdpc7-6dduf-eae";
 
-	// Emergency withdraw function for admin
 	public shared ({ caller }) func emergencyWithdraw() : async Result.Result<(), Text> {
-		// Verify caller is admin
 		if (caller != Principal.fromText(YOUR_ADMIN_PRINCIPAL)) {
 			return #err("Not authorized");
 		};
 
-		// Transfer all staked tokens back to admin
 		let transferResult = await USDx.icrc1_transfer({
 			to = { owner = caller; subaccount = null };
 			amount = pool.totalStaked;
@@ -397,7 +623,6 @@ actor class DoxaStaking() = this {
 		switch (transferResult) {
 			case (#Err(e)) return #err("Failed to transfer tokens");
 			case (#Ok(_)) {
-				// Reset pool state
 				pool := { pool with totalStaked = 0 };
 				stakes := HashMap.HashMap<Principal, Types.Stake>(10, Principal.equal, Principal.hash);
 				#ok();
@@ -405,9 +630,7 @@ actor class DoxaStaking() = this {
 		};
 	};
 
-	// Update pool parameters (admin only)
 	public shared ({ caller }) func updatePoolParams(params : Types.PoolParams) : async Result.Result<(), Text> {
-		// Verify caller is admin
 		if (caller != Principal.fromText(YOUR_ADMIN_PRINCIPAL)) {
 			return #err("Not authorized");
 		};
@@ -422,4 +645,130 @@ actor class DoxaStaking() = this {
 		#ok();
 	};
 
+	// Lockup period constants in seconds
+	private let LOCKUP_90_DAYS : Nat = 7_776_000; // 90 days
+	private let LOCKUP_180_DAYS : Nat = 15_552_000; // 180 days
+	private let LOCKUP_270_DAYS : Nat = 23_328_000; // 270 days
+	private let LOCKUP_360_DAYS : Nat = 31_104_000; // 360 days
+
+	// Weight factors for different lockup periods
+	private func getLockupWeight(duration : Nat) : Nat {
+		if (duration >= LOCKUP_360_DAYS) return 4;
+		if (duration >= LOCKUP_270_DAYS) return 3;
+		if (duration >= LOCKUP_180_DAYS) return 2;
+		return 1; // Default for 90 days
+	};
+
+	// Fee collector balance
+	public func getFeeCollectorBalance() : async Nat {
+		let feeCollectorId = Principal.fromText("ieja4-4iaaa-aaaak-qddra-cai");
+		let balance = await USDx.icrc1_balance_of({
+			owner = feeCollectorId;
+			subaccount = null;
+		});
+		return balance;
+	};
+
+	// Store total fee collected till now
+	private stable var totalFeeCollected : Nat = 0;
+	private stable var lastProcessedTxId : Nat = 0;
+
+	// Get total fee collected from fee collector transactions
+	public func getTotalFeeCollected() : async Nat {
+		let feeCollectorId = Principal.fromText("ieja4-4iaaa-aaaak-qddra-cai");
+
+		// Get transactions from USDx index
+		let result = await USDxIndex.get_account_transactions({
+			max_results = 100;
+			start = ?lastProcessedTxId;
+			account = {
+				owner = feeCollectorId;
+				subaccount = null;
+			};
+		});
+
+		switch (result) {
+			case (#Ok(data)) {
+				// Process new transactions
+				for (tx in data.transactions.vals()) {
+					switch (tx.transaction.burn) {
+						case (?burn) {
+							// Add burn amount to total fee
+							totalFeeCollected += burn.amount;
+						};
+						case (null) {};
+					};
+					lastProcessedTxId := tx.id;
+				};
+
+				// Verify burned amount matches total fee collected minus current balance
+				let currentBalance = await getFeeCollectorBalance();
+				let burnedAmount = Nat.sub(totalFeeCollected, currentBalance);
+				assert (burnedAmount >= 0); // Sanity check
+
+				return totalFeeCollected;
+			};
+			case (#Err(_)) {
+				// Return existing total on error
+				return totalFeeCollected;
+			};
+		};
+	};
+
+	// Calculate total rewards based on total fee collected
+	private func calculateTotalRewards() : Nat {
+		// 30% of total fee collected
+		return (totalFeeCollected * 30) / 100;
+	};
+
+	// Calculate user's stake weight
+	private func calculateUserStakeWeight(userStake : Nat, totalStaked : Nat, lockupDuration : Nat) : Float {
+		let proportion : Float = Float.fromInt(userStake) / Float.fromInt(totalStaked);
+		let weight = Float.fromInt(getLockupWeight(lockupDuration));
+		return proportion * weight;
+	};
+
+	// Calculate user's reward share
+	private func calculateUserReward(totalRewards : Nat, userWeight : Float, totalWeight : Float) : Nat {
+		let rewardShare = Float.fromInt(totalRewards) * (userWeight / totalWeight);
+		return Int.abs(Float.toInt(rewardShare));
+	};
+
+	// Calculate APY for a user
+	private func calculateAPY(weeklyReward : Nat, stakedAmount : Nat) : Float {
+		let weeklyRate = Float.fromInt(weeklyReward) / Float.fromInt(stakedAmount);
+		// (1 + weekly_rate)^52 - 1
+		let annualRate = Float.pow(1.0 + weeklyRate, 52.0) - 1.0;
+		return annualRate * 100.0; // Convert to percentage
+	};
+
+	// Get staking stats for a user
+	public shared ({ caller }) func getStakingStats() : async {
+		lockupPeriod : Nat;
+		weight : Float;
+		estimatedAPY : Float;
+		totalRewards : Nat;
+	} {
+		switch (stakes.get(caller)) {
+			case (null) return {
+				lockupPeriod = 0;
+				weight = 0;
+				estimatedAPY = 0;
+				totalRewards = 0;
+			};
+			case (?stake) {
+				let duration = Int.abs(stake.lockEndTime - stake.stakeTime); // Convert Int to Nat using Int.abs
+				let weight = calculateUserStakeWeight(stake.amount, pool.totalStaked, duration);
+				let weeklyReward = stake.earned / 52; // Simplified weekly reward calc
+				let apy = calculateAPY(Nat64.toNat(weeklyReward), stake.amount);
+
+				return {
+					lockupPeriod = duration;
+					weight = weight;
+					estimatedAPY = apy;
+					totalRewards = Nat64.toNat(stake.earned);
+				};
+			};
+		};
+	};
 };
