@@ -10,9 +10,9 @@ dfx canister call stablecoin_minter get_ckusdc_reserve_account_of '(record {toke
 # Transfer ckUSDC from default identity to Reserve Account of USDx
 dfx canister call ckusdc_ledger icrc1_transfer '(record{ to=record {owner = principal "iyn2n-liaaa-aaaak-qddta-cai"; subaccount= opt blob "\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\01";} ; amount=900_000_000;})' --identity default
 
-# dfx canister call ckusdc_ledger icrc1_transfer '(record{ to=record {owner = principal "5g24m-kxyrd-yb7wl-up5k6-4egww-miul7-gajat-e2d7i-mdpc7-6dduf-eae"; subaccount= opt blob "\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00";} ; amount=9_000_000;})' --identity default
+# dfx canister call ckusdc_ledger icrc1_transfer '(record{ to=record {owner = principal "5g24m-kxyrd-yb7wl-up5k6-4egww-miul7-gajat-e2d7i-mdpc7-6dduf-eae"; subaccount= opt blob "\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00";} ; amount=100_000_000;})' --identity default
 
-# dfx canister call usdx_ledger icrc1_transfer '(record{ to=record {owner = principal "bd3sg-teaaa-aaaaa-qaaba-cai"; subaccount= opt vec{0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0}}; amount = 100_000_000;})' --identity default
+# dfx canister call usdx_ledger icrc1_transfer '(record{ to=record {owner = principal "bd3sg-teaaa-aaaaa-qaaba-cai"; subaccount= opt vec{0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0}}; amount = 10_000_000;})' --identity default
 
 # Get ckUSDC Transaction
 dfx canister call ckusdc_ledger get_transactions '( record { start =0; length=3 })'

@@ -68,3 +68,5 @@ dfx deploy ckusdc_pool
 dfx deploy usdx_index
 
 dfx deploy staking_canister
+
+./scripts/deploy-usdx-index.sh 
