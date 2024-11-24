@@ -3,58 +3,60 @@
 DOXA STAKING CANISTER DOCUMENTATION
 ==============================================
 
-This canister implements staking functionality for USDx tokens. Here's what it does:
+This canister implements staking functionality for USDx tokens. Here are the main features:
 
 1. STAKING:
    - Users can stake USDx tokens by sending them to this canister
    - Minimum stake amount: 100 USDx (100_000_000 with decimals)
-   - Lock period: 6 months
+   - Lock period: Flexible - from 1 week up to 52 weeks
    Example:
-   - Send 100 USDx to canister
+   - Send USDx tokens to canister
    - Call notifyStake() to register stake
 
 2. REWARDS:
-   - Users earn USDx rewards based on stake amount and time
-   - Rewards calculated as: (staked * rewardRate * time) / totalStaked
-   - Rewards distributed per second (configurable)
+   - Users earn rewards based on stake amount and time
+   - Weekly rewards are 30% of total collected fees
+   - Rewards are calculated and distributed per second
    Example:
-   - If rewardPerSecond = 100_000
-   - User with 10% of total stake gets 10% of rewards
+   - If weekly fees are 1000 USDx
+   - Weekly rewards will be 300 USDx
+   - Distributed per second to stakers
 
 3. HARVESTING:
-   - Users can harvest earned rewards anytime
-   - Minimum harvest amount enforced
+   - Users can harvest earned rewards at any time
+   - Minimum harvest amount is enforced
    Example:
    - Call harvest() to claim rewards
    - Rewards sent directly to user's wallet
 
 4. UNSTAKING:
-   - Users can unstake after lock period ends
-   - Final rewards are paid during unstake
+   - Users can unstake after their lock period ends
+   - Final rewards are paid during unstaking
    Example:
-   - Call unstake() after 6 months
-   - Get back staked amount + final rewards
+   - Call unstake() after lock period
+   - Receive staked amount + final rewards
 
 5. ADMIN FUNCTIONS:
    - Emergency withdraw (admin only)
    - Update pool parameters (admin only)
    Example:
-   - Admin can update rewardPerSecond, minimumStake, lockDuration
+   - Admin can update reward rates, minimum stake amounts
    - Admin can withdraw all funds in emergency
 
 6. VIEW FUNCTIONS:
-   - getPoolStats(): Get overall pool statistics
-   - getStakeDetails(): Get user's stake info
+   - getUserStakingPosition(): Get overall pool statistics
+   - getStakingStats(): Get user's stake info
    - getUserTransactions(): Get user's transaction history
    Example:
-   - Call getPoolStats() to see APR, total staked etc
-   - Call getStakeDetails() to see your stake amount and rewards
+   - Call getUserStakingPosition() to see APY, total staked etc
+   - Call getStakingStats() to see your stake amount and rewards
 
 IMPORTANT VARIABLES:
 - USDx Token: irorr-5aaaa-aaaak-qddsq-cai
 - Admin: 5g24m-kxyrd-yb7wl-up5k6-4egww-miul7-gajat-e2d7i-mdpc7-6dduf-eae
-- Lock Duration: 6 months (15_552_000 seconds)
+- Lock Duration: 1-52 weeks (flexible)
 - Minimum Stake: 100 USDx
+- Weekly Rewards: 30% of total fees
 */
 
 import HashMap "mo:base/HashMap";
@@ -189,15 +191,15 @@ actor class DoxaStaking() = this {
 			};
 		};
 
-		// Calculate estimated APY based on lock duration
-		let estimatedAPY = calculateDynamicAPR(caller, lockDuration);
-
 		// Calculate weight based on lock duration
 		let weight : Float = Float.fromInt(lockDuration) / Float.fromInt(MAX_LOCK_DURATION);
 
 		// Create new stake with unique ID
 		let stakeId = nextStakeId;
 		nextStakeId += 1;
+
+		// Calculate estimated APY based on lock duration and amount
+		let estimatedAPY = calculateDynamicAPR(caller, lockDuration);
 
 		// Create initial stake record with custom lock duration
 		let stake : Types.Stake = {
@@ -488,8 +490,8 @@ actor class DoxaStaking() = this {
 	/////////////////////////////////////  getter Functions ////////////////////////////////////////////////
 	///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	// Modified getPoolStats to include dynamic APR
-	public shared ({ caller }) func getPoolStats() : async Types.PoolStats {
+	// Modified getUserStakingPosition to include dynamic APR
+	public shared ({ caller }) func getUserStakingPosition() : async Types.PoolStats {
 		var userStake : Nat = 0;
 		var userEarned : Nat64 = 0;
 		var dynamicAPR : Nat = 10;
@@ -531,16 +533,19 @@ actor class DoxaStaking() = this {
 	};
 
 	// Get user stake details 
-	public shared query ({ caller }) func getStakeDetails() : async ?Types.Stake {
+	public shared query ({ caller }) func getStakeDetails() : async [Types.Stake] {
 		switch (Map.get(userStakes, phash, caller)) {
 			case (?userStakeIds) {
-				if (Array.size(userStakeIds) > 0) {
-					Map.get(stakes, nhash, userStakeIds[0]);
-				} else {
-					null;
+				let buffer = Buffer.Buffer<Types.Stake>(Array.size(userStakeIds));
+				for (stakeId in userStakeIds.vals()) {
+					switch (Map.get(stakes, nhash, stakeId)) {
+						case (?stake) { buffer.add(stake) };
+						case (null) {};
+					};
 				};
+				Buffer.toArray(buffer);
 			};
-			case (null) { null };
+			case (null) { [] };
 		};
 	};
 
@@ -1008,5 +1013,77 @@ actor class DoxaStaking() = this {
 			};
 		};
 	};
+
+/*
+VARIABLES:
+
+1. pool : Types.StakingPool
+   - Stores main staking pool configuration 
+   - Initial values:
+     name = "Doxa Dynamic Staking"
+     startTime = current time
+     endTime = current time + 1 year
+     totalStaked = 0
+     rewardTokenFee = 0
+     stakingSymbol = "USDx" 
+     stakingToken = "doxa-dollar"
+     rewardSymbol = "USDx"
+     rewardToken = "doxa-dollar"
+     rewardPerSecond = 100_000
+     minimumStake = 10_000_000
+     lockDuration = 30 days
+   - State transitions:
+     - totalStaked increases when users stake tokens
+     - totalStaked decreases when users unstake
+     - rewardTokenFee can be updated by admin
+     - rewardPerSecond can be adjusted based on pool performance
+
+2. stakes : Map<StakeId, Stake>
+   - Stores individual stake details
+   - Initial value: Empty map
+   - State transitions:
+     - New entries added when users stake
+     - Entries removed when users unstake
+     - Stake.earned updated when rewards calculated
+     - Stake.lastHarvestTime updated on harvest
+
+3. userStakes : Map<Principal, [StakeId]>
+   - Maps users to their stake IDs
+   - Initial value: Empty map
+   - State transitions:
+     - Array grows when user creates new stakes
+     - Array shrinks when stakes are removed
+     - Maximum one stake per user currently
+
+4. transactions/harvestTransactions : Map<Nat, Transaction>
+   - Store transaction history
+   - Initial value: Empty maps
+   - State transitions:
+     - New entries added for stake/unstake/harvest actions
+     - Never removed or modified after creation
+
+5. Counters:
+   nextStakeId : Nat
+   - Tracks unique stake IDs
+   - Initial value: 0
+   - Only increases, never decreases
+   
+   totalRewards : Nat64
+   - Total rewards distributed
+   - Initial value: 0
+   - Only increases when rewards harvested
+   
+   _tranIdx/_harvestIdx : Nat
+   - Transaction counters
+   - Initial value: 0
+   - Only increase when new transactions added
+
+6. processedStakeTransactions : Map<Nat, Principal>
+   - Tracks processed stake notifications
+   - Initial value: Empty map
+   - State transitions:
+     - New entries added when stakes processed
+     - Prevents double-processing of same transaction
+*/
 
 };
