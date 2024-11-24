@@ -95,6 +95,13 @@ actor class DoxaStaking() = this {
 						burn : ?{
 							amount : Nat;
 						};
+						transfer : ?{
+							amount : Nat;
+							to : {
+								owner : Principal;
+								subaccount : ?Blob;
+							};
+						};
 					};
 				}];
 			};
@@ -665,23 +672,32 @@ actor class DoxaStaking() = this {
 			};
 		});
 
-		var burnedAmount : Nat = 0;
+		var totalAmount : Nat = 0;
 		switch (result) {
 			case (#Ok(data)) {
 				// Process new transactions
 				for (tx in data.transactions.vals()) {
 					switch (tx.transaction.burn) {
 						case (?burn) {
-							// Add burn amount to total burned
-							burnedAmount += burn.amount;
+							// Add burn amount to total
+							totalAmount += burn.amount;
+						};
+						case (null) {};
+					};
+					switch (tx.transaction.transfer) {
+						case (?transfer) {
+							// Add transfer amount to total if fee collector is recipient
+							if (transfer.to.owner == feeCollectorId) {
+								totalAmount += transfer.amount;
+							};
 						};
 						case (null) {};
 					};
 					lastProcessedTxId := tx.id;
 				};
 
-				// Total fee collected should be current balance plus burned amount
-				totalFeeCollected := currentBalance + burnedAmount;
+				// Total fee collected should be current balance plus total amount
+				totalFeeCollected := currentBalance + totalAmount;
 				return totalFeeCollected;
 			};
 			case (#Err(_)) {
