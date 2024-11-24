@@ -107,7 +107,7 @@ actor class DoxaStaking() = this {
 	private let ONE_YEAR : Nat = 31_536_000; // For APR calculation
 
 	// Pool configuration
-	private var pool : Types.StakingPool = {
+	private stable var pool : Types.StakingPool = {
 		name = "Doxa Dynamic Staking";
 		startTime = Time.now();
 		endTime = Time.now() + ONE_YEAR;
@@ -121,6 +121,7 @@ actor class DoxaStaking() = this {
 		minimumStake = 10_000_000; // 10 tokens with 6 decimals
 		lockDuration = MIN_LOCK_DURATION; // Default minimum duration
 	};
+
 	let { nhash; phash } = Map;
 
 	// Storage
@@ -205,21 +206,29 @@ actor class DoxaStaking() = this {
 		};
 
 		Map.set(stakes, phash, transfer.from.owner, stake);
-		var totalStaked = pool.totalStaked + transfer.amount;
+
+		// Update pool totalStaked
+		let newTotalStaked = pool.totalStaked + transfer.amount;
+
 		pool := {
-			pool with
-			totalStaked = totalStaked;
-			totalRewards = totalRewards + stake.earned;
-			estimatedAPY = estimatedAPY;
-			weight = weight;
-			lockupPeriod = lockDuration * 1_000_000_000;
+			name = pool.name;
+			startTime = pool.startTime;
+			endTime = pool.endTime;
+			totalStaked = newTotalStaked; // Update total staked amount
+			rewardTokenFee = pool.rewardTokenFee;
+			stakingSymbol = pool.stakingSymbol;
+			stakingToken = pool.stakingToken;
+			rewardSymbol = pool.rewardSymbol;
+			rewardToken = pool.rewardToken;
+			rewardPerSecond = pool.rewardPerSecond;
+			minimumStake = pool.minimumStake;
+			lockDuration = pool.lockDuration;
 		};
 
 		Map.set(processedStakeTransactions, nhash, blockIndex, transfer.from.owner);
 
 		#ok();
 	};
-	// Harvest function
 	public shared ({ caller }) func harvest() : async Result.Result<(), Text> {
 		switch (Map.get(stakes, phash, caller)) {
 			case (null) return #err("No active stake found");
@@ -338,34 +347,6 @@ actor class DoxaStaking() = this {
 		};
 	};
 
-	// Modified getPoolStats to include dynamic APR
-	public shared ({ caller }) func getPoolStats() : async Types.PoolStats {
-		var userStake : Nat = 0;
-		var userEarned : Nat64 = 0;
-		var dynamicAPR : Nat = 10;
-
-		switch (Map.get(stakes, phash, caller)) {
-			case (?stake) {
-				userStake := stake.amount;
-				userEarned := Nat64.fromNat(await calculateRewards(caller));
-				let lockDurationSeconds = Int.abs(stake.lockEndTime - stake.stakeTime) / 1_000_000_000;
-				dynamicAPR := Int.abs(Float.toInt(calculateDynamicAPR(caller, Int.abs(lockDurationSeconds))));
-			};
-			case (null) {};
-		};
-
-		{
-			totalStaked = pool.totalStaked;
-			totalStakers = stakes.size();
-			totalRewarded = totalRewards;
-			apr = dynamicAPR;
-			userStake = userStake;
-			userEarned = userEarned;
-			minimumStake = pool.minimumStake;
-			lockDuration = pool.lockDuration;
-		};
-	};
-
 	// Add stake to existing position
 	public shared ({ caller }) func addStake(blockIndex : Nat) : async Result.Result<(), Text> {
 		// Check if transaction already processed
@@ -467,6 +448,42 @@ actor class DoxaStaking() = this {
 		};
 	};
 
+	///////////////////////////////////////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////  getter Functions ////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	// Modified getPoolStats to include dynamic APR
+	public shared ({ caller }) func getPoolStats() : async Types.PoolStats {
+		var userStake : Nat = 0;
+		var userEarned : Nat64 = 0;
+		var dynamicAPR : Nat = 10;
+
+		switch (Map.get(stakes, phash, caller)) {
+			case (?stake) {
+				userStake := stake.amount;
+				userEarned := Nat64.fromNat(await calculateRewards(caller));
+				let lockDurationSeconds = Int.abs(stake.lockEndTime - stake.stakeTime) / 1_000_000_000;
+				dynamicAPR := Int.abs(Float.toInt(calculateDynamicAPR(caller, Int.abs(lockDurationSeconds))));
+			};
+			case (null) {};
+		};
+
+		{
+			totalStaked = pool.totalStaked;
+			totalStakers = stakes.size();
+			totalRewarded = totalRewards;
+			apr = dynamicAPR;
+			userStake = userStake;
+			userEarned = userEarned;
+			minimumStake = pool.minimumStake;
+			lockDuration = pool.lockDuration;
+		};
+	};
+
+	// Public getter function for all pool data
+	public query func getPoolData() : async Types.StakingPool {
+		pool;
+	};
 	// Get user stake details
 	public shared query ({ caller }) func getStakeDetails() : async ?Types.Stake {
 		Map.get(stakes, phash, caller);
@@ -684,13 +701,6 @@ actor class DoxaStaking() = this {
 	private let WEEK_IN_NANOSECONDS : Nat = 7 * 24 * 60 * 60 * 1_000_000_000;
 	private var rewardUpdateTimer : Timer.TimerId = 0;
 
-	// Timer initialization in constructor
-	private func startRewardTimer() : async () {
-		rewardUpdateTimer := Timer.recurringTimer<system>(
-			#nanoseconds(WEEK_IN_NANOSECONDS),
-			updateWeeklyRewards
-		);
-	};
 
 	// Weekly reward update function
 	private func updateWeeklyRewards() : async () {
@@ -721,16 +731,10 @@ actor class DoxaStaking() = this {
 		};
 	};
 
-	// // Add system functions
-	// system func preupgrade() {
-	//     // Save timer state if needed
-	//     Timer.cancelTimer(rewardUpdateTimer);
-	// };
-
-	// system func postupgrade() {
-	//     // Restart timer after upgrade
-	//    ignore startRewardTimer();
-	// };
+	rewardUpdateTimer := Timer.recurringTimer<system>(
+		#nanoseconds(WEEK_IN_NANOSECONDS),
+		updateWeeklyRewards
+	);
 
 	// Get staking stats for a user
 	public shared ({ caller }) func getStakingStats() : async {
@@ -738,6 +742,7 @@ actor class DoxaStaking() = this {
 		weight : Float;
 		estimatedAPY : Float;
 		totalRewards : Nat;
+		rewardPerSec : Float;
 	} {
 		switch (Map.get(stakes, phash, caller)) {
 			case (null) return {
@@ -745,6 +750,7 @@ actor class DoxaStaking() = this {
 				weight = 0;
 				estimatedAPY = 0;
 				totalRewards = 0;
+				rewardPerSec = 0;
 			};
 			case (?stake) {
 				let duration = Int.abs(stake.lockEndTime - stake.stakeTime);
@@ -757,6 +763,7 @@ actor class DoxaStaking() = this {
 						weight = 0;
 						estimatedAPY = 0;
 						totalRewards = Nat64.toNat(stake.earned);
+						rewardPerSec = 0;
 					};
 				};
 
@@ -781,11 +788,19 @@ actor class DoxaStaking() = this {
 					Reward.calculateAPY(userRewards, stake.amount);
 				};
 
+				// Calculate reward per second as float
+				let rewardPerSec = if (stake.amount == 0) {
+					0.0;
+				} else {
+					Float.fromInt(userRewards) / Float.fromInt(7 * 24 * 60 * 60); // Weekly rewards divided by seconds in a week
+				};
+
 				return {
 					lockupPeriod = duration;
 					weight = userWeight;
 					estimatedAPY = apy;
 					totalRewards = Nat64.toNat(stake.earned);
+					rewardPerSec = rewardPerSec;
 				};
 			};
 		};
