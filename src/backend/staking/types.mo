@@ -21,14 +21,20 @@ module {
 		lockDuration : Nat; // Lock duration in seconds
 	};
 
-	// Individual stake record
+	// Add a unique ID for each stake
+	public type StakeId = Nat;
+
+	// Modified Stake type to include ID
 	public type Stake = {
-		staker : Principal; // Staker's principal
-		amount : Nat; // Staked amount
-		stakeTime : Time.Time; // When stake was created
-		lockEndTime : Time.Time; // When lock period ends
-		lastHarvestTime : Time.Time; // Last reward harvest time
-		earned : Nat64; // Unclaimed rewards
+		id : StakeId;
+		staker : Principal;
+		amount : Nat;
+		stakeTime : Int;
+		lockEndTime : Int;
+		lastHarvestTime : Int;
+		earned : Nat64;
+		weight : Float;
+		estimatedAPY : Float;
 	};
 
 	// Transaction record
