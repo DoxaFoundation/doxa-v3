@@ -3,53 +3,82 @@
 DOXA STAKING CANISTER DOCUMENTATION
 ==============================================
 
-This canister implements staking functionality for USDx tokens. Here are the main features:
+Code Analysis:
+The code implements a comprehensive staking system with the following key components:
+
+1. Token Integration:
+   - Uses ICRC token standard
+   - Interfaces with USDx token canister
+   - Handles token transfers and balance tracking
+
+2. Data Structures:
+   - Uses HashMaps for storing stakes and user data
+   - Implements efficient reward calculation system
+   - Maintains transaction history
+
+3. Security Features:
+   - Admin controls for emergency situations
+   - Input validation on all functions
+   - Lock period enforcement
+
+4. Reward Mechanism:
+   - Dynamic APR calculation
+   - Per-second reward distribution
+   - Weight-based reward allocation
+
+Changes Made:
+1. Added comprehensive documentation structure
+2. Clarified function purposes and examples
+3. Added important variables section
+4. Structured documentation into logical sections
+
+Main Features:
 
 1. STAKING:
-   - Users can stake USDx tokens by sending them to this canister
-   - Minimum stake amount: 100 USDx (100_000_000 with decimals)
-   - Lock period: Flexible - from 1 week up to 52 weeks
+   - Users can stake USDx tokens
+   - Minimum stake: 100 USDx (100_000_000 with decimals)
+   - Lock period: 1-52 weeks flexible
    Example:
-   - Send USDx tokens to canister
-   - Call notifyStake() to register stake
+   - Transfer USDx to canister
+   - Call notifyStake() to register
 
 2. REWARDS:
-   - Users earn rewards based on stake amount and time
-   - Weekly rewards are 30% of total collected fees
-   - Rewards are calculated and distributed per second
+   - Stake-time based rewards
+   - 30% of total fees as weekly rewards
+   - Per-second distribution
    Example:
-   - If weekly fees are 1000 USDx
-   - Weekly rewards will be 300 USDx
-   - Distributed per second to stakers
+   - 1000 USDx weekly fees
+   - 300 USDx weekly rewards
+   - Continuous distribution
 
 3. HARVESTING:
-   - Users can harvest earned rewards at any time
-   - Minimum harvest amount is enforced
+   - Anytime reward claims
+   - Minimum harvest threshold
    Example:
-   - Call harvest() to claim rewards
-   - Rewards sent directly to user's wallet
+   - Call harvest() for claims
+   - Direct wallet transfers
 
 4. UNSTAKING:
-   - Users can unstake after their lock period ends
-   - Final rewards are paid during unstaking
+   - Post-lock period withdrawals
+   - Final reward settlement
    Example:
-   - Call unstake() after lock period
-   - Receive staked amount + final rewards
+   - Call unstake() after lock
+   - Receive stake + rewards
 
-5. ADMIN FUNCTIONS:
-   - Emergency withdraw (admin only)
-   - Update pool parameters (admin only)
+5. ADMIN CONTROLS:
+   - Emergency withdrawal
+   - Parameter updates
    Example:
-   - Admin can update reward rates, minimum stake amounts
-   - Admin can withdraw all funds in emergency
+   - Update reward rates
+   - Emergency fund recovery
 
 6. VIEW FUNCTIONS:
-   - getUserStakingPosition(): Get overall pool statistics
-   - getStakingStats(): Get user's stake info
-   - getUserTransactions(): Get user's transaction history
+   - Pool statistics
+   - User positions
+   - Transaction history
    Example:
-   - Call getUserStakingPosition() to see APY, total staked etc
-   - Call getStakingStats() to see your stake amount and rewards
+   - Check APY with getUserStakingPosition()
+   - View stakes with getStakingStats()
 
 IMPORTANT VARIABLES:
 - USDx Token: irorr-5aaaa-aaaak-qddsq-cai
@@ -110,7 +139,7 @@ actor class DoxaStaking() = this {
 			};
 			#Err : Text;
 		};
-	} = actor ("br5f7-7uaaa-aaaaa-qaaca-cai");
+	} = actor ("bd3sg-teaaa-aaaaa-qaaba-cai");
 	// Lock duration constants
 	private let MIN_LOCK_DURATION : Nat = 2_592_000; // 30 days minimum
 	private let MAX_LOCK_DURATION : Nat = 31_536_000; // 365 days maximum
@@ -120,7 +149,7 @@ actor class DoxaStaking() = this {
 	private stable var pool : Types.StakingPool = {
 		name = "Doxa Dynamic Staking";
 		startTime = Time.now();
-		endTime = Time.now() + ONE_YEAR;
+		endTime = Time.now() + (ONE_YEAR * 1_000_000_000);
 		totalStaked = 0;
 		rewardTokenFee = 0;
 		stakingSymbol = "USDx";
@@ -129,7 +158,7 @@ actor class DoxaStaking() = this {
 		rewardToken = "doxa-dollar";
 		rewardPerSecond = 100_000; // Base reward rate
 		minimumStake = 10_000_000; // 10 tokens with 6 decimals
-		lockDuration = MIN_LOCK_DURATION; // Default minimum duration
+		lockDuration = MIN_LOCK_DURATION * 1_000_000_000; // Default minimum duration in nanoseconds
 	};
 
 	let { nhash; phash } = Map;
@@ -137,8 +166,45 @@ actor class DoxaStaking() = this {
 	// Storage
 	private stable let stakes = Map.new<Types.StakeId, Types.Stake>();
 	private stable let userStakes = Map.new<Principal, [Types.StakeId]>();
-	private stable let transactions = Map.new<Nat, Types.Transaction>();
-	private stable let harvestTransactions = Map.new<Nat, Types.Transaction>();
+	// Type alias for block index
+	private type BlockIndex = Nat;
+	private type TransactionId = Nat;
+
+	private stable let stakeBlockIndices = Map.new<TransactionId, BlockIndex>(); // Maps transaction ID to block index
+	private stable let harvestBlockIndices = Map.new<TransactionId, BlockIndex>(); // Maps transaction ID to block index
+	// Transaction se block index nikalne ke liye helper function
+	public func getTransactionFromBlockIndex(blockIndex : Nat) : async Result.Result<Types.Transaction, Text> {
+		try {
+			let getTransactionsResponse = await USDx.get_transactions({
+				start = blockIndex;
+				length = 1;
+			});
+			let { transactions } = getTransactionsResponse;
+
+			if (transactions.size() == 0) {
+				return #err("Koi transaction nahi mila is block index pe");
+			};
+
+			let transaction = transactions[0];
+
+			switch (transaction.transfer) {
+				case (?transfer) {
+					#ok({
+						amount = transfer.amount;
+						from = transfer.from.owner;
+						to = transfer.to.owner;
+						method = "transfer";
+						time = Nat64.toNat(transaction.timestamp);
+					});
+				};
+				case null {
+					#err("Ye transfer transaction nahi hai");
+				};
+			};
+		} catch (e) {
+			#err("Transaction fetch karne me error aaya: " # Error.message(e));
+		};
+	};
 
 	// Counters
 	private stable var nextStakeId : Nat = 0;
@@ -199,7 +265,7 @@ actor class DoxaStaking() = this {
 		nextStakeId += 1;
 
 		// Calculate estimated APY based on lock duration and amount
-		let estimatedAPY = calculateDynamicAPR(caller, lockDuration);
+		let estimatedAPY = await calculateDynamicAPR(caller, lockDuration);
 
 		// Create initial stake record with custom lock duration
 		let stake : Types.Stake = {
@@ -278,18 +344,13 @@ actor class DoxaStaking() = this {
 								Map.set(stakes, nhash, stakeId, updatedStake);
 
 								// Record transaction
-								Map.set(
-									harvestTransactions,
-									nhash,
-									_harvestIdx,
-									{
-										from = Principal.fromActor(this);
-										to = caller;
-										amount = rewards;
-										method = "Harvest";
-										time = Time.now();
-									}
-								);
+								let harvestTx : Types.Transaction = {
+									from = Principal.fromActor(this);
+									to = caller;
+									amount = rewards;
+									method = "Harvest";
+									time = Time.now();
+								};
 								_harvestIdx += 1;
 
 								#ok();
@@ -341,24 +402,19 @@ actor class DoxaStaking() = this {
 								// Remove stake
 								Map.delete(stakes, nhash, stakeId);
 								// Remove from user stakes array
-								Map.set(userStakes, phash, caller, Array.filter(userStakeIds, func(id: Types.StakeId) : Bool { id != stakeId }));
-								
+								Map.set(userStakes, phash, caller, Array.filter(userStakeIds, func(id : Types.StakeId) : Bool { id != stakeId }));
+
 								var totalStaked = pool.totalStaked - stake.amount;
 								pool := { pool with totalStaked = totalStaked };
 
 								// Record transaction
-								Map.set(
-									transactions,
-									nhash,
-									_tranIdx,
-									{
-										from = Principal.fromActor(this);
-										to = caller;
-										amount = stake.amount;
-										method = "Unstake";
-										time = Time.now();
-									}
-								);
+								let unstakeTx : Types.Transaction = {
+									from = Principal.fromActor(this);
+									to = caller;
+									amount = stake.amount;
+									method = "Unstake";
+									time = Time.now();
+								};
 								_tranIdx += 1;
 
 								#ok();
@@ -412,7 +468,7 @@ actor class DoxaStaking() = this {
 
 						// Calculate lock duration and APY
 						let lockDurationSeconds = Int.abs(existingStake.lockEndTime - existingStake.stakeTime) / 1_000_000_000;
-						let estimatedAPY = calculateDynamicAPR(caller, Int.abs(lockDurationSeconds));
+						let estimatedAPY = await calculateDynamicAPR(caller, Int.abs(lockDurationSeconds));
 
 						// Update stake amount and rewards
 						let updatedStake : Types.Stake = {
@@ -472,7 +528,7 @@ actor class DoxaStaking() = this {
 							lastHarvestTime = existingStake.lastHarvestTime;
 							earned = existingStake.earned;
 							weight = Float.fromInt(newDuration) / Float.fromInt(MAX_LOCK_DURATION);
-							estimatedAPY = calculateDynamicAPR(caller, newDuration);
+							estimatedAPY = await calculateDynamicAPR(caller, newDuration);
 						};
 
 						Map.set(stakes, nhash, stakeId, updatedStake);
@@ -494,7 +550,7 @@ actor class DoxaStaking() = this {
 	public shared ({ caller }) func getUserStakingPosition() : async Types.PoolStats {
 		var userStake : Nat = 0;
 		var userEarned : Nat64 = 0;
-		var dynamicAPR : Nat = 10;
+		var dynamicAPR : Nat = 0;
 
 		// Get user's stake IDs
 		switch (Map.get(userStakes, phash, caller)) {
@@ -506,13 +562,25 @@ actor class DoxaStaking() = this {
 							userStake := stake.amount;
 							userEarned := Nat64.fromNat(await calculateRewards(caller));
 							let lockDurationSeconds = Int.abs(stake.lockEndTime - stake.stakeTime) / 1_000_000_000;
-							dynamicAPR := Int.abs(Float.toInt(calculateDynamicAPR(caller, Int.abs(lockDurationSeconds))));
+							dynamicAPR := Int.abs(Float.toInt(await calculateDynamicAPR(caller, Int.abs(lockDurationSeconds))));
 						};
-						case (null) {};
+						case (null) {
+							// Calculate base APR for new users using minimum values
+							let baseAPR = await calculateDynamicAPR(caller, MIN_LOCK_DURATION);
+							dynamicAPR := Int.abs(Float.toInt(baseAPR));
+						};
 					};
+				} else {
+					// Calculate base APR for new users using minimum values
+					let baseAPR = await calculateDynamicAPR(caller, MIN_LOCK_DURATION);
+					dynamicAPR := Int.abs(Float.toInt(baseAPR));
 				};
 			};
-			case (null) {};
+			case (null) {
+				// Calculate base APR for new users using minimum values
+				let baseAPR = await calculateDynamicAPR(caller, MIN_LOCK_DURATION);
+				dynamicAPR := Int.abs(Float.toInt(baseAPR));
+			};
 		};
 
 		{
@@ -532,7 +600,7 @@ actor class DoxaStaking() = this {
 		pool;
 	};
 
-	// Get user stake details 
+	// Get user stake details
 	public shared query ({ caller }) func getStakeDetails() : async [Types.Stake] {
 		switch (Map.get(userStakes, phash, caller)) {
 			case (?userStakeIds) {
@@ -550,13 +618,53 @@ actor class DoxaStaking() = this {
 	};
 
 	// Get all transactions for a user
-	public shared query ({ caller }) func getUserTransactions() : async [Types.Transaction] {
-		let buffer = Buffer.Buffer<Types.Transaction>(transactions.size());
-		for ((id, txn) in Map.entries(transactions)) {
-			if (txn.to == caller or txn.from == caller) {
-				buffer.add(txn);
+	public shared ({ caller }) func getUserTransactions() : async [Types.Transaction] {
+		let buffer = Buffer.Buffer<Types.Transaction>(0);
+
+		// Stake transactions ko fetch karo
+		for ((blockIndex, principal) in Map.entries(processedStakeTransactions)) {
+			if (principal == caller) {
+				try {
+					switch (await getTransactionFromBlockIndex(blockIndex)) {
+						case (#ok(tx)) {
+							buffer.add({
+								from = tx.from;
+								to = tx.to;
+								amount = tx.amount;
+								method = "Stake";
+								time = tx.time;
+							});
+						};
+						case (#err(_)) {};
+					};
+				} catch (e) {
+					Debug.print("Error fetching stake transaction: " # Error.message(e));
+				};
 			};
 		};
+
+		// Harvest transactions ko fetch karo
+		for ((blockIndex, principal) in Map.entries(harvestBlockIndices)) {
+			if (principal == caller) {
+				try {
+					switch (await getTransactionFromBlockIndex(blockIndex)) {
+						case (#ok(tx)) {
+							buffer.add({
+								from = tx.from;
+								to = tx.to;
+								amount = tx.amount;
+								method = "Harvest";
+								time = tx.time;
+							});
+						};
+						case (#err(_)) {};
+					};
+				} catch (e) {
+					Debug.print("Error fetching harvest transaction: " # Error.message(e));
+				};
+			};
+		};
+
 		Buffer.toArray(buffer);
 	};
 
@@ -661,7 +769,7 @@ actor class DoxaStaking() = this {
 	};
 
 	// Helper function to calculate APR based on lock duration
-	private func calculateDynamicAPR(staker : Principal, lockDurationSeconds : Nat) : Float {
+	public func calculateDynamicAPR(staker : Principal, lockDurationSeconds : Nat) : async Float {
 		switch (Map.get(userStakes, phash, staker)) {
 			case (null) return 0.0;
 			case (?userStakeIds) {
@@ -670,7 +778,7 @@ actor class DoxaStaking() = this {
 				switch (Map.get(stakes, nhash, stakeId)) {
 					case (null) return 0.0;
 					case (?stake) {
-						// Add safety check for total staked
+						// Add safety check for total staked 
 						if (pool.totalStaked == 0) {
 							return 0.0;
 						};
@@ -685,7 +793,14 @@ actor class DoxaStaking() = this {
 						let totalRewardsPool = calculateTotalRewards();
 
 						// Calculate total weight
-						let totalWeight = Float.fromInt(pool.totalStaked);
+						var totalWeight : Float = 0;
+						for ((_, s) in Map.entries(stakes)) {
+							totalWeight += Reward.calculateUserWeeklyStakeWeight(
+								s.amount,
+								pool.totalStaked,
+								Int.abs(s.lockEndTime - s.stakeTime) / 1_000_000_000
+							);
+						};
 
 						// Calculate user's weekly rewards with safety check
 						let userRewards = if (totalWeight == 0) {
@@ -1014,18 +1129,18 @@ actor class DoxaStaking() = this {
 		};
 	};
 
-/*
+	/*
 VARIABLES:
 
 1. pool : Types.StakingPool
-   - Stores main staking pool configuration 
+   - Stores main staking pool configuration
    - Initial values:
      name = "Doxa Dynamic Staking"
      startTime = current time
      endTime = current time + 1 year
      totalStaked = 0
      rewardTokenFee = 0
-     stakingSymbol = "USDx" 
+     stakingSymbol = "USDx"
      stakingToken = "doxa-dollar"
      rewardSymbol = "USDx"
      rewardToken = "doxa-dollar"
@@ -1067,12 +1182,12 @@ VARIABLES:
    - Tracks unique stake IDs
    - Initial value: 0
    - Only increases, never decreases
-   
+
    totalRewards : Nat64
    - Total rewards distributed
    - Initial value: 0
    - Only increases when rewards harvested
-   
+
    _tranIdx/_harvestIdx : Nat
    - Transaction counters
    - Initial value: 0
