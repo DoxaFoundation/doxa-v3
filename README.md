@@ -48,29 +48,64 @@ Weekly Reward Pool: 150 tokens
 
 ### User Breakdown:
 
-1. Alice (3 months):
-   - Staked: 100,000 tokens
-   - Weight: (100,000 ÷ 700,000) × 1 = 0.143
-   - Weekly Reward: 150 × 0.143 ÷ 2.85 = 7.52 tokens
-   - APY: 3.92%
+Example for 3-Month Staking (Alice):
+• Staked Amount: 100,000 tokens
+• Weekly Reward: 7.52 tokens
+• Weekly Return Rate (r) = 7.52 ÷ 100,000 = 0.0000752
+• APY = ((1 + 0.0000752)^52 - 1) × 100%
+• APY = 3.92%
 
-2. Bob (6 months):
-   - Staked: 150,000 tokens
-   - Weight: (150,000 ÷ 700,000) × 2 = 0.429
-   - Weekly Reward: 150 × 0.429 ÷ 2.85 = 22.57 tokens
-   - APY: 7.85%
+Example for 6-Month Staking (Bob):
+• Staked Amount: 150,000 tokens
+• Weekly Reward: 22.57 tokens
+• Weekly Return Rate (r) = 22.57 ÷ 150,000 = 0.000150
+• APY = ((1 + 0.000150)^52 - 1) × 100%
+• APY = 7.85%
 
-3. Carol (9 months):
-   - Staked: 200,000 tokens
-   - Weight: (200,000 ÷ 700,000) × 3 = 0.857
-   - Weekly Reward: 150 × 0.857 ÷ 2.85 = 45.14 tokens
-   - APY: 11.78%
+Example for 9-Month Staking (Carol):
+• Staked Amount: 200,000 tokens
+• Weekly Reward: 45.14 tokens
+• Weekly Return Rate (r) = 45.14 ÷ 200,000 = 0.000226
+• APY = ((1 + 0.000226)^52 - 1) × 100%
+• APY = 11.78%
 
-4. Dave (12 months):
-   - Staked: 250,000 tokens
-   - Weight: (250,000 ÷ 700,000) × 4 = 1.429
-   - Weekly Reward: 150 × 1.429 ÷ 2.85 = 75.21 tokens
-   - APY: 15.71%
+Example for 12-Month Staking (Dave):
+• Staked Amount: 250,000 tokens
+• Weekly Reward: 75.21 tokens
+• Weekly Return Rate (r) = 75.21 ÷ 250,000 = 0.000301
+• APY = ((1 + 0.000301)^52 - 1) × 100%
+• APY = 15.71%
+
+###  APY Calculation Factors:
+1. Base Reward Components:
+   • Initial stake amount
+   • Staking period weight
+   • Transaction volume
+   • Total staked in system
+
+2. Compounding Effects:
+   • Weekly compounding (52 times per year)
+   • Assumes rewards are restaked
+   • Compounds more effectively with longer staking periods
+
+3. Variable Factors:
+   • Transaction volume fluctuations
+   • Total staked amount changes
+   • Network activity variations
+
+### APY Range by Staking Period:
+Summary Table:
+Period    Weight    Typical APY Range
+3 months    1       3.5% - 4.5%
+6 months    2       7.0% - 8.5%
+9 months    3       11.0% - 12.5%
+12 months   4       15.0% - 16.5%
+
+Note: Actual APY may vary based on:
+• Network activity
+• Total staked tokens
+• Transaction volume
+• Market conditions
 
 ### Key Takeaways:
 1. Longer staking periods get higher weights, leading to larger rewards

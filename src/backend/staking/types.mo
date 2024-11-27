@@ -34,7 +34,7 @@ module {
 		lastHarvestTime : Int;
 		earned : Nat64;
 		weight : Float;
-		estimatedAPY : Float;
+		estimatedAPY : Text;
 	};
 
 	// Transaction record
