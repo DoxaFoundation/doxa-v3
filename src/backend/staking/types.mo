@@ -32,9 +32,6 @@ module {
 		stakeTime : Int;
 		lockEndTime : Int;
 		lastHarvestTime : Int;
-		earned : Nat64;
-		weight : Float;
-		estimatedAPY : Text;
 	};
 
 	// Transaction record
