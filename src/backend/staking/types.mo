@@ -16,7 +16,7 @@ module {
 		stakingToken : Text; // doxa dollar
 		rewardSymbol : Text; // Reward token symbol
 		rewardToken : Text; // Reward token canister ID
-		rewardPerSecond : Nat; // Rewards distributed per second
+		totalRewardPerSecond : Nat; // Rewards distributed per second
 		minimumStake : Nat; // Minimum stake amount
 		lockDuration : Nat; // Lock duration in seconds
 	};
@@ -57,7 +57,7 @@ module {
 
 	// Pool parameters that can be updated by admin
 	public type PoolParams = {
-		rewardPerSecond : Nat; // Rewards distributed per second
+		totalRewardPerSecond : Nat; // Rewards distributed per second
 		minimumStake : Nat; // Minimum stake amount
 		lockDuration : Nat; // Lock duration in seconds
 	};

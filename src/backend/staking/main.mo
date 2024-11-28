@@ -158,7 +158,7 @@ actor class DoxaStaking() = this {
 		stakingToken = "doxa-dollar";
 		rewardSymbol = "USDx";
 		rewardToken = "doxa-dollar";
-		rewardPerSecond = 100_000; // Base reward rate
+		totalRewardPerSecond = 100_000; // Base reward rate
 		minimumStake = 10_000_000; // 10 tokens with 6 decimals
 		lockDuration = MIN_LOCK_DURATION_IN_SEC * 1_000_000_000; // Default minimum duration in nanoseconds
 	};
@@ -213,7 +213,7 @@ actor class DoxaStaking() = this {
 	private stable var totalRewards : Nat64 = 0;
 	private stable var _tranIdx : Nat = 0;
 	private stable var _harvestIdx : Nat = 0;
-	private let s_heartbeatIntervalSeconds : Nat = 3600;
+	private let MIN_REWARD_INTERVAL_IN_SECONDS : Nat = 3600;
 
 	private stable let processedStakeTransactions = Map.new<Nat, Principal>();
 
@@ -311,7 +311,7 @@ actor class DoxaStaking() = this {
 
 				// Get total fees collected for APY calculation
 				let totalFees = await getTotalFeeCollected();
-				let weeklyRewards = (totalFees * 30) / 100; // 30% of fees as rewards
+				let totalWeeklyRewards = (totalFees * 30) / 100; // 30% of fees as rewards
 
 				for (stakeId in userStakeIds.vals()) {
 					switch (Map.get(stakes, nhash, stakeId)) {
@@ -321,28 +321,35 @@ actor class DoxaStaking() = this {
 							let weight = Float.fromInt(lockDuration) / Float.fromInt(MAX_LOCK_DURATION_IN_SEC);
 
 							// Calculate earned rewards
-							let timeNow = Time.now();
-							let stakedSeconds = timeNow - stake.lastHarvestTime;
+							let timeNow = Time.now(); // In nanoseconds
+							let stakedNanoSeconds = timeNow - stake.lastHarvestTime; // Time diff in nanoseconds
 
 							let earned = if (
-								stakedSeconds < s_heartbeatIntervalSeconds * 1_000_000_000 or
+								stakedNanoSeconds < MIN_REWARD_INTERVAL_IN_SECONDS * 1_000_000_000 or
 								timeNow < pool.startTime or timeNow > pool.endTime
 							) {
 								0;
 							} else {
-								// Calculate per-second reward based on user's share
-								let secondsSinceLastHarvest = stakedSeconds / 1_000_000_000;
+								// Convert nanoseconds to seconds for reward calculation
+								let secondsSinceLastHarvest = stakedNanoSeconds / 1_000_000_000;
+
+								let totalRewardPerSecond = Float.fromInt(totalWeeklyRewards) / (7.0 * 24.0 * 3600.0);
+
+								// Calculate user's share with proper decimal handling
 								let userShare = Float.fromInt(stake.amount) / Float.fromInt(pool.totalStaked);
-								let rewardPerSecond = Float.fromInt(weeklyRewards) / (7.0 * 24.0 * 3600.0); // Weekly rewards to per second
-								let earnedAmount = rewardPerSecond * userShare * Float.fromInt(secondsSinceLastHarvest);
 
-								// Apply weight multiplier based on lock duration
+								// Calculate earned amount
+								let earnedAmount = totalRewardPerSecond * userShare * Float.fromInt(secondsSinceLastHarvest);
+
+								// Apply weight multiplier and handle decimals
 								let weightMultiplier = Float.fromInt(Reward.getLockupWeight(lockDuration));
-								Int.abs(Float.toInt(earnedAmount * weightMultiplier));
-							};
+								let finalAmount = earnedAmount * weightMultiplier;
 
+								// Convert back to proper decimal representation
+								Int.abs(Float.toInt(finalAmount)) / 1_000_000;
+							};
 							// Calculate APY based on actual rewards
-							let estimatedAPY = if (pool.totalStaked == 0 or weeklyRewards == 0) {
+							let estimatedAPY = if (pool.totalStaked == 0 or totalWeeklyRewards == 0) {
 								"0%";
 							} else {
 								let userWeight = Reward.calculateUserWeeklyStakeWeight(
@@ -360,7 +367,7 @@ actor class DoxaStaking() = this {
 									);
 								};
 
-								let userRewards = Reward.calculateUserWeeklyReward(weeklyRewards, userWeight, totalWeight);
+								let userRewards = Reward.calculateUserWeeklyReward(totalWeeklyRewards, userWeight, totalWeight);
 								let apy = Reward.calculateAPY(userRewards, stake.amount);
 
 								if (apy < 0.000001) {
@@ -803,7 +810,7 @@ actor class DoxaStaking() = this {
 
 		pool := {
 			pool with
-			rewardPerSecond = params.rewardPerSecond;
+			totalRewardPerSecond = params.totalRewardPerSecond;
 			minimumStake = params.minimumStake;
 			lockDuration = params.lockDuration;
 		};
@@ -828,7 +835,7 @@ actor class DoxaStaking() = this {
 	//                     let timeNow = Time.now();
 	//                     let stakedSeconds = timeNow - stake.lastHarvestTime;
 
-	//                     if (stakedSeconds < s_heartbeatIntervalSeconds * 1_000_000_000) return 0;
+	//                     if (stakedSeconds < MIN_REWARD_INTERVAL_IN_SECONDS * 1_000_000_000) return 0;
 	//                     if (timeNow < pool.startTime or timeNow > pool.endTime) return 0;
 
 	//                     // Calculate user's stake weight based on lock duration
@@ -849,7 +856,7 @@ actor class DoxaStaking() = this {
 	//                     };
 
 	//                     // Calculate total rewards for the period
-	//                     let totalRewards = pool.rewardPerSecond * Nat64.toNat(Nat64.fromIntWrap(stakedSeconds / 1_000_000_000));
+	//                     let totalRewards = pool.totalRewardPerSecond * Nat64.toNat(Nat64.fromIntWrap(stakedSeconds / 1_000_000_000));
 
 	//                     // Calculate user's share of rewards
 	//                     return Reward.calculateUserWeeklyReward(totalRewards, userWeight, totalWeight);
@@ -1023,12 +1030,12 @@ actor class DoxaStaking() = this {
 				let totalFees = await getTotalFeeCollected();
 
 				// Calculate weekly rewards (30% of fees)
-				let weeklyRewards = (totalFees * 30) / 100;
+				let totalWeeklyRewards = (totalFees * 30) / 100;
 
 				// Update pool rewards
 				pool := {
 					pool with
-					rewardPerSecond = weeklyRewards / (7 * 24 * 60 * 60); // Convert to per second
+					totalRewardPerSecond = totalWeeklyRewards / (7 * 24 * 60 * 60); // Convert to per second
 				};
 
 				// Update last reward time
@@ -1260,14 +1267,14 @@ VARIABLES:
      stakingToken = "doxa-dollar"
      rewardSymbol = "USDx"
      rewardToken = "doxa-dollar"
-     rewardPerSecond = 100_000
+     totalRewardPerSecond = 100_000
      minimumStake = 10_000_000
      lockDuration = 30 days
    - State transitions:
      - totalStaked increases when users stake tokens
      - totalStaked decreases when users unstake
      - rewardTokenFee can be updated by admin
-     - rewardPerSecond can be adjusted based on pool performance
+     - totalRewardPerSecond can be adjusted based on pool performance
 
 2. stakes : Map<StakeId, Stake>
    - Stores individual stake details
