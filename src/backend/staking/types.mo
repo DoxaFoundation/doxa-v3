@@ -10,7 +10,7 @@ module {
 		startTime : Time.Time; // Pool start time
 		endTime : Time.Time; // Pool end time
 		totalStaked : Nat; // Total tokens staked
-		rewardTokenFee : Nat; // Fee for reward withdrawal
+		rewardTokenFee : Float; // Fee for reward withdrawal
 
 		stakingSymbol : Text; // USDx
 		stakingToken : Text; // doxa dollar

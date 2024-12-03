@@ -14,11 +14,12 @@ import Error "mo:base/Error";
 import Array "mo:base/Array";
 import Option "mo:base/Option";
 import Text "mo:base/Text";
+import Iter "mo:base/Iter";
+import Int64 "mo:base/Int64";
 import Types "types";
 import U "../Utils";
 import Icrc "../service/icrc-interface"; // ICRC token interface
 import Map "mo:map/Map";
-import Reward "reward";
 
 actor class DoxaStaking() = this {
 	// Token interfaces
@@ -52,10 +53,21 @@ actor class DoxaStaking() = this {
 			#Err : Text;
 		};
 	} = actor ("bd3sg-teaaa-aaaaa-qaaba-cai");
-	// Lock duration constants
+
+	// Lock duration and bootstrap constants
 	private let MIN_LOCK_DURATION_IN_SEC : Nat = 2_592_000; // 30 days minimum
 	private let MAX_LOCK_DURATION_IN_SEC : Nat = 31_536_000; // 365 days maximum
 	private let ONE_YEAR : Nat = 31_536_000; // For APR calculation
+	private let COOLDOWN_PERIOD : Nat = 259_200; // 72 hours between unstaking
+	private let BOOTSTRAP_MULTIPLIER_DURATION : Nat = 7_776_000; // 90 days for multiplier validity
+
+	// Bootstrap phase requirements
+	private let MIN_STAKERS : Nat = 20;
+	private let MIN_TOTAL_STAKE : Nat = 100_000_000_000; // 100,000 tokens with 6 decimals
+	private let BOOTSTRAP_PERIOD : Nat = 2_592_000; // 30 days in seconds
+	private let MAX_STAKE_PER_ADDRESS : Nat = MIN_TOTAL_STAKE / 5; // 20% of minimum total stake
+	private let RESERVE_POOL_PERCENTAGE : Nat = 20; // 20% of rewards go to reserve pool
+	private let MAX_DAILY_REWARD_CAP : Nat = 30; // 30% cap of daily reward pool during bootstrap
 
 	// Pool configuration
 	private stable var pool : Types.StakingPool = {
@@ -63,14 +75,14 @@ actor class DoxaStaking() = this {
 		startTime = Time.now();
 		endTime = Time.now() + (ONE_YEAR * 1_000_000_000);
 		totalStaked = 0;
-		rewardTokenFee = 0;
+		rewardTokenFee = 50_000; // 0.05 tokens with 6 decimals
 		stakingSymbol = "USDx";
 		stakingToken = "doxa-dollar";
 		rewardSymbol = "USDx";
 		rewardToken = "doxa-dollar";
 		totalRewardPerSecond = 100_000; // Base reward rate
 		minimumStake = 10_000_000; // 10 tokens with 6 decimals
-		lockDuration = MIN_LOCK_DURATION_IN_SEC * 1_000_000_000; // Default minimum duration in nanoseconds
+		lockDuration = MIN_LOCK_DURATION_IN_SEC * 1_000_000_000;
 	};
 
 	let { nhash; phash } = Map;
@@ -78,21 +90,26 @@ actor class DoxaStaking() = this {
 	// Storage
 	private stable let stakes = Map.new<Types.StakeId, Types.Stake>();
 	private stable let userStakes = Map.new<Principal, [Types.StakeId]>();
-	// Type alias for block index
+	private stable let earlyStakers = Map.new<Principal, Float>(); // Maps early stakers to their multiplier
+	private stable var bootstrapStartTime : Time.Time = 0;
+	private stable var isBootstrapPhase : Bool = true;
+	private stable var reservePool : Nat = 0;
+	private stable var lastUnstakeTime = Map.new<Principal, Time.Time>(); // For cooldown tracking
+
+	// Type aliases
 	private type BlockIndex = Nat;
 	private type TransactionId = Nat;
 
-	private stable let stakeBlockIndices = Map.new<TransactionId, BlockIndex>(); // Maps transaction ID to block index
-	private stable let harvestBlockIndices = Map.new<TransactionId, BlockIndex>(); // Maps transaction ID to block index
+	// Transaction tracking
+	private stable let stakeBlockIndices = Map.new<TransactionId, BlockIndex>();
+	private stable let harvestBlockIndices = Map.new<TransactionId, BlockIndex>();
+	private stable let processedStakeTransactions = Map.new<Nat, Principal>();
 
-	// Counters
+	// Counters and timers
 	private stable var nextStakeId : Nat = 0;
-	private stable var totalRewards : Nat64 = 0;
 	private stable var _tranIdx : Nat = 0;
 	private stable var _harvestIdx : Nat = 0;
 	private let MIN_REWARD_INTERVAL_IN_SECONDS : Nat = 3600;
-
-	private stable let processedStakeTransactions = Map.new<Nat, Principal>();
 
 	type Tokens = {
 		#USDx;
@@ -108,53 +125,259 @@ actor class DoxaStaking() = this {
 	let LOCKUP_270_DAYS : Nat = 23_328_000; // 270 days
 	let LOCKUP_360_DAYS : Nat = 31_104_000; // 360 days
 
+	// Get bootstrap multiplier based on staker position
+	// Get bootstrap multiplier based on staker position
+	public shared ({ caller }) func getBootstrapMultiplier() : async Result.Result<Float, Text> {
+		// Get staker position from caller's stake history
+		let stakerPosition = switch (Map.get(userStakes, phash, caller)) {
+			case (null) return #err("No stakes found for user");
+			case (?stakeIds) stakeIds.size();
+		};
+
+		if (stakerPosition <= 5) return #ok(1.5);
+		if (stakerPosition <= 10) return #ok(1.3);
+		if (stakerPosition <= 20) return #ok(1.1);
+		return #ok(1.0);
+	};
+
 	// Weight factors for different lockup periods
-	func getLockupWeight(duration : Nat) : Nat {
-		if (duration >= LOCKUP_360_DAYS) return 4;
-		if (duration >= LOCKUP_270_DAYS) return 3;
-		if (duration >= LOCKUP_180_DAYS) return 2;
-		return 1; // Default for 90 days
+	public shared ({ caller }) func getLockupWeight(duration : Nat) : async Result.Result<Nat, Text> {
+		// Validate caller has active stakes
+		switch (Map.get(userStakes, phash, caller)) {
+			case (null) return #err("No stakes found for user");
+			case (?_) {};
+		};
+
+		if (duration >= LOCKUP_360_DAYS) return #ok(4);
+		if (duration >= LOCKUP_270_DAYS) return #ok(3);
+		if (duration >= LOCKUP_180_DAYS) return #ok(2);
+		return #ok(1); // Default for 90 days
 	};
 
-	// Calculate user's stake weight - modified
-	func calculateUserWeeklyStakeWeight(userStake : Nat, totalStaked : Nat, lockupDuration : Nat) : Float {
-		let proportion : Float = Float.fromInt(userStake) / Float.fromInt(totalStaked);
-		let weight = Float.fromInt(getLockupWeight(lockupDuration));
-		Debug.print("User stake weight calculation:");
-		Debug.print("Proportion: " # debug_show (proportion));
-		Debug.print("Weight: " # debug_show (weight));
-		return proportion * weight;
+	/*
+    calculateUserWeeklyStakeWeight function ka kaam hai:
+    1. User ke stake ka weight calculate karna based on:
+        - User ka stake amount vs total staked amount ratio
+        - Lock duration ka weight multiplier (1x to 4x)
+        - Early staker bonus multiplier (1x to 1.5x)
+    2. Debug info print karna calculation ke baare mein
+    3. Final weighted stake value return karna
+    */
+	public shared ({ caller }) func calculateUserWeeklyStakeWeight(stakeId : Types.StakeId) : async Result.Result<Float, Text> {
+		// Verify stake belongs to caller
+		switch (Map.get(userStakes, phash, caller)) {
+			case (null) return #err("Aapka koi stake nahi hai");
+			case (?userStakeIds) {
+				let userStakeIdsBuffer = Buffer.fromArray<Nat>(userStakeIds);
+				if (not Buffer.contains<Nat>(userStakeIdsBuffer, stakeId, Nat.equal)) {
+					return #err("Ye stake ID aapka nahi hai");
+				};
+			};
+		};
+
+		// Get stake details from stakes map
+		let stake = switch (Map.get(stakes, nhash, stakeId)) {
+			case (null) return #err("Stake ID galat hai");
+			case (?s) {
+				if (s.staker != caller) return #err("Ye stake access karne ka adhikar nahi hai");
+				s;
+			};
+		};
+
+		if (pool.totalStaked == 0) {
+			return #err("Total staked amount zero nahi ho sakta");
+		};
+
+		let proportion : Float = Float.fromInt(stake.amount) / Float.fromInt(pool.totalStaked);
+		let lockDuration = (stake.lockEndTime - stake.stakeTime) / 1_000_000_000; // Convert nanoseconds to seconds
+		let userLockupWeight = if (Int.abs(lockDuration) >= LOCKUP_360_DAYS) {
+			#ok(4);
+		} else if (Int.abs(lockDuration) >= LOCKUP_270_DAYS) {
+			#ok(3);
+		} else if (Int.abs(lockDuration) >= LOCKUP_180_DAYS) {
+			#ok(2);
+		} else {
+			#ok(1) // Default for 90 days
+		};
+
+		switch (userLockupWeight) {
+			case (#err(e)) return #err(e);
+			case (#ok(weight)) {
+				let bootstrapMultiplier = switch (Map.get(earlyStakers, phash, caller)) {
+					case (?multiplier) {
+						if (Time.now() <= bootstrapStartTime + (BOOTSTRAP_MULTIPLIER_DURATION * 1_000_000_000)) {
+							multiplier;
+						} else {
+							1.0;
+						};
+					};
+					case (null) { 1.0 };
+				};
+
+				return #ok(proportion * Float.fromInt(weight) * bootstrapMultiplier);
+			};
+		};
 	};
 
-	// Calculate user's weekly reward share - modified
-	func calculateUserWeeklyReward(totalRewards : Nat, userWeight : Float, totalWeight : Float) : Nat {
-		if (totalWeight == 0) return 0;
-		let rewardShare = Float.fromInt(totalRewards) * (userWeight / totalWeight);
-		Debug.print("Weekly reward calculation:");
-		Debug.print("Total rewards: " # debug_show (totalRewards));
-		Debug.print("User weight: " # debug_show (userWeight));
-		Debug.print("Total weight: " # debug_show (totalWeight));
-		Debug.print("Reward share: " # debug_show (rewardShare));
-		return Int.abs(Float.toInt(rewardShare));
+	/*
+    calculateUserWeeklyReward function ka kaam hai:
+    1. User ka weekly reward calculate karna based on:
+        - Total available rewards
+        - User ka weighted stake vs total weighted stakes
+    2. Bootstrap phase mein:
+        - 20% reserve pool mein allocate karna
+        - Maximum daily reward cap apply karna
+    3. Debug info print karna calculation ke baare mein
+    4. Final reward amount return karna
+    */
+	public shared ({ caller }) func calculateUserWeeklyReward(stakeId : Types.StakeId) : async Result.Result<Nat, Text> {
+		// Pehle check karo ki user ke paas ye stake ID hai ya nahi
+		let userStakeIds = switch (Map.get(userStakes, phash, caller)) {
+			case (null) return #err("No stakes found for user");
+			case (?ids) ids;
+		};
+
+		// Check if stakeId exists in user's stakes
+		let validStakeId = Array.find<Types.StakeId>(userStakeIds, func(id) { id == stakeId });
+		if (validStakeId == null) {
+			return #err("This stake ID does not belong to caller");
+		};
+
+		// Get stake details from stakes map
+		let stake = switch (Map.get(stakes, nhash, stakeId)) {
+			case (null) return #err("Stake not found");
+			case (?s) {
+				if (s.staker != caller) return #err("Not authorized to access this stake");
+				s;
+			};
+		};
+
+		if (pool.totalStaked == 0) {
+			return #err("Total staked amount zero nahi ho sakta");
+		};
+
+		// Calculate user weight directly
+		let proportion : Float = Float.fromInt(stake.amount) / Float.fromInt(pool.totalStaked);
+		let lockDuration = (stake.lockEndTime - stake.stakeTime) / 1_000_000_000; // Convert nanoseconds to seconds
+		
+		let weight = if (Int.abs(lockDuration) >= LOCKUP_360_DAYS) {
+			4;
+		} else if (Int.abs(lockDuration) >= LOCKUP_270_DAYS) {
+			3;
+		} else if (Int.abs(lockDuration) >= LOCKUP_180_DAYS) {
+			2;
+		} else {
+			1; // Default for 90 days
+		};
+
+		let bootstrapMultiplier = switch (Map.get(earlyStakers, phash, caller)) {
+			case (?multiplier) {
+				if (Time.now() <= bootstrapStartTime + (BOOTSTRAP_MULTIPLIER_DURATION * 1_000_000_000)) {
+					multiplier;
+				} else {
+					1.0;
+				};
+			};
+			case (null) { 1.0 };
+		};
+
+		let userWeight = proportion * Float.fromInt(weight) * bootstrapMultiplier;
+		let totalWeight = Float.fromInt(pool.totalStaked);
+
+		// Use MIN_TOTAL_STAKE if total weight is less
+		let effectiveTotalWeight = if (totalWeight < Float.fromInt(MIN_TOTAL_STAKE)) {
+			Float.fromInt(MIN_TOTAL_STAKE);
+		} else {
+			totalWeight;
+		};
+
+		let totalRewards = pool.totalRewardPerSecond * 604800; // Weekly rewards
+		let adjustedTotalRewards = if (isBootstrapPhase) {
+			let reserveAmount = totalRewards * RESERVE_POOL_PERCENTAGE / 100;
+			reservePool += reserveAmount;
+			totalRewards - reserveAmount;
+		} else {
+			totalRewards;
+		};
+
+		var rewardShare : Float = 0.0;
+		if (userWeight == totalWeight) {
+			rewardShare := Float.fromInt(adjustedTotalRewards);
+		} else {
+			rewardShare := Float.fromInt(adjustedTotalRewards) * (userWeight / effectiveTotalWeight);
+		};
+
+		if (isBootstrapPhase) {
+			let maxReward = adjustedTotalRewards * MAX_DAILY_REWARD_CAP / 100;
+			let finalReward = Int.abs(Float.toInt(rewardShare));
+			if (finalReward > maxReward) {
+				return #ok(maxReward);
+			};
+		};
+
+		let finalReward = Int.abs(Float.toInt(rewardShare));
+		if (finalReward == 0) {
+			return #err("Reward amount zero hai. Kripya apna stake amount badhaye ya lockup duration badhaye");
+		};
+
+		return #ok(finalReward);
 	};
 
-	// Calculate APY for a user - modified
-	func calculateAPY(weeklyReward : Nat, stakedAmount : Nat) : Float {
-		if (stakedAmount == 0) return 0;
-		let weeklyRate = Float.fromInt(weeklyReward) / Float.fromInt(stakedAmount);
-		// (1 + weekly_rate)^52 - 1
+	/*
+    calculateAPY function ka kaam hai:
+    1. Weekly rewards se Annual Percentage Yield (APY) calculate karna:
+        - Weekly return rate calculate karna
+        - Compound interest formula use karke annual rate calculate karna
+    2. Debug info print karna calculation ke baare mein
+    3. Final APY percentage return karna
+    */
+	public shared ({ caller }) func calculateAPY(stakeId : Types.StakeId) : async Result.Result<Float, Text> {
+		// Pehle check karo ki user ke paas stake IDs hain
+		switch (Map.get(userStakes, phash, caller)) {
+			case (null) return #err("Aapka koi stake nahi hai");
+			case (?userStakeIds) {
+				let userStakeIdsBuffer = Buffer.fromArray<Nat>(userStakeIds);
+				if (not Buffer.contains<Nat>(userStakeIdsBuffer, stakeId, Nat.equal)) {
+					return #err("Ye stake ID aapka nahi hai");
+				};
+			};
+		};
+
+		// Ab stake details nikalo
+		let stake = switch (Map.get(stakes, nhash, stakeId)) {
+			case (null) return #err("Stake ID galat hai");
+			case (?s) {
+				if (s.staker != caller) return #err("Ye stake access karne ka adhikar nahi hai");
+				s;
+			};
+		};
+
+		let weeklyRewardResult = await calculateUserWeeklyReward(stakeId);
+		let weeklyReward = switch (weeklyRewardResult) {
+			case (#err(e)) return #err(e);
+			case (#ok(r)) r;
+		};
+
+		if (stake.amount == 0) return #err("Stake amount zero nahi ho sakta");
+
+		let weeklyRate = Float.fromInt(weeklyReward) / Float.fromInt(stake.amount);
 		let annualRate = Float.pow(1.0 + weeklyRate, 52.0) - 1.0;
-		Debug.print("APY calculation:");
-		Debug.print("Weekly rate: " # debug_show (weeklyRate));
-		Debug.print("Annual rate: " # debug_show (annualRate));
-		return annualRate * 100.0; // Convert to percentage
+		return #ok(annualRate * 100.0); // Percentage mein convert karo
 	};
-
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	////////////////////////////////////// api  //////////////////////////////////////////////////
 	//////////////////////////////////////////////////////////////////////////////////////////////
 
-	// Modified stake notification to handle dynamic periods
+	/*
+    notifyStake function ka kaam hai:
+    1. New stake ko process karna:
+        - Lock duration validate karna
+        - Transaction ko verify karna
+        - New stake record create karna
+        - Pool metrics update karna
+    2. Duplicate transactions ko handle karna
+    3. User ke stake list ko update karna
+    */
 	public shared ({ caller }) func notifyStake(blockIndex : Nat, lockDuration : Nat) : async Result.Result<(), Text> {
 		// Validate lock duration
 		if (lockDuration < MIN_LOCK_DURATION_IN_SEC) {
@@ -228,99 +451,139 @@ actor class DoxaStaking() = this {
 		#ok();
 	};
 
-	// Calculate stake metrics for a specific user
-	public shared ({ caller }) func calculateStakeMetrics() : async Result.Result<[{ stakeId : Nat; earned : Nat64; weight : Float; estimatedAPY : Text }], Text> {
+	/*
+    calculateStakeMetrics function ka kaam hai:
+    1. User ke saare stakes ke metrics calculate karna:
+        - Earned rewards
+        - Stake weight
+        - Estimated APY
+    2. Har stake ke liye:
+        - Lock duration ka effect calculate karna
+        - Time-based rewards calculate karna
+        - APY estimate karna
+    3. Metrics array return karna
+    */
+	public shared ({ caller }) func calculateStakeMetrics(stakeId : Nat) : async Result.Result<{ stakeId : Nat; earned : Nat64; weight : Float; estimatedAPY : Text }, Text> {
+		// Verify stake belongs to caller
 		switch (Map.get(userStakes, phash, caller)) {
-			case (null) return #err("Koi stake nahi mila");
+			case (null) return #err("Aapka koi stake nahi hai");
 			case (?userStakeIds) {
-				if (Array.size(userStakeIds) == 0) return #err("Active stake nahi hai");
+				let userStakeIdsBuffer = Buffer.fromArray<Nat>(userStakeIds);
+				if (not Buffer.contains<Nat>(userStakeIdsBuffer, stakeId, Nat.equal)) {
+					return #err("Ye stake ID aapka nahi hai");
+				};
+			};
+		};
 
-				var stakeMetrics : [{
-					stakeId : Nat;
-					earned : Nat64;
-					weight : Float;
-					estimatedAPY : Text;
-				}] = [];
+		switch (Map.get(stakes, nhash, stakeId)) {
+			case (null) return #err("Stake ID galat hai");
+			case (?stake) {
+				let lockDuration = Int.abs(stake.lockEndTime - stake.stakeTime) / 1_000_000_000;
+				let userLockupWeight = await getLockupWeight(lockDuration);
 
-				// Get total fees collected for APY calculation
-				let totalFees = await getTotalFeeCollected();
-				let totalWeeklyRewards = (totalFees * 30) / 100; // 30% of fees as rewards
+				// Debug prints to track values
+				Debug.print("User stake amount: " # debug_show (stake.amount));
+				Debug.print("Total staked: " # debug_show (pool.totalStaked));
 
-				for (stakeId in userStakeIds.vals()) {
-					switch (Map.get(stakes, nhash, stakeId)) {
-						case (null) {};
-						case (?stake) {
-							let lockDuration = Int.abs(stake.lockEndTime - stake.stakeTime) / 1_000_000_000;
-							let weight = Float.fromInt(lockDuration) / Float.fromInt(MAX_LOCK_DURATION_IN_SEC);
+				// Get total fees (0.05 tokens)
+				let totalFees = await getTotalFeeCollected(); // 50,000 (0.05 tokens)
 
-							// Calculate earned rewards
-							let timeNow = Time.now(); // In nanoseconds
-							let stakedNanoSeconds = timeNow - stake.lastHarvestTime; // Time diff in nanoseconds
+				// Calculate earned rewards
+				let timeNow = Time.now();
+				let stakedNanoSeconds = timeNow - stake.lastHarvestTime;
 
-							let earned = if (
-								stakedNanoSeconds < MIN_REWARD_INTERVAL_IN_SECONDS * 1_000_000_000 or
-								timeNow < pool.startTime or timeNow > pool.endTime
-							) {
-								0;
-							} else {
-								// Convert nanoseconds to seconds for reward calculation
-								let secondsSinceLastHarvest = stakedNanoSeconds / 1_000_000_000;
+				let earned = if (
+					stakedNanoSeconds < MIN_REWARD_INTERVAL_IN_SECONDS * 1_000_000_000 or
+					timeNow < pool.startTime or timeNow > pool.endTime
+				) {
+					0;
+				} else {
+					// Convert time to seconds
+					let secondsSinceLastHarvest = stakedNanoSeconds / 1_000_000_000;
 
-								let totalRewardPerSecond = Float.fromInt(totalWeeklyRewards) / (7.0 * 24.0 * 3600.0);
+					// Calculate daily reward amount (30% of fees)
+					let dailyRewardAmount = (totalFees * 30) / 100; // Daily reward in token units
 
-								// Calculate user's share with proper decimal handling
-								let userShare = Float.fromInt(stake.amount) / Float.fromInt(pool.totalStaked);
+					// Calculate per-second reward
+					let rewardPerSecond = dailyRewardAmount / (24 * 3600); // Divide by seconds in a day
 
-								// Calculate earned amount
-								let earnedAmount = totalRewardPerSecond * userShare * Float.fromInt(secondsSinceLastHarvest);
-
-								// Apply weight multiplier and handle decimals
-								let weightMultiplier = Float.fromInt(getLockupWeight(lockDuration));
-								let finalAmount = earnedAmount * weightMultiplier;
-
-								// Convert back to proper decimal representation
-								Int.abs(Float.toInt(finalAmount)) / 1_000_000;
-							};
-							// Calculate APY based on actual rewards
-							let estimatedAPY = if (pool.totalStaked == 0 or totalWeeklyRewards == 0) {
-								"0%";
-							} else {
-								let userWeight = calculateUserWeeklyStakeWeight(
-									stake.amount,
-									pool.totalStaked,
-									lockDuration
-								);
-
-								var totalWeight : Float = 0;
-								for ((_, s) in Map.entries(stakes)) {
-									totalWeight += calculateUserWeeklyStakeWeight(
-										s.amount,
-										pool.totalStaked,
-										Int.abs(s.lockEndTime - s.stakeTime) / 1_000_000_000
-									);
-								};
-
-								let userRewards = calculateUserWeeklyReward(totalWeeklyRewards, userWeight, totalWeight);
-								let apy = calculateAPY(userRewards, stake.amount);
-
-								if (apy < 0.000001) {
-									"0.000001%";
-								} else {
-									Float.toText(apy) # "%";
-								};
-							};
-
-							stakeMetrics := Array.append(stakeMetrics, [{ stakeId = stakeId; earned = Nat64.fromNat(earned); weight = weight; estimatedAPY = estimatedAPY }]);
-						};
+					// Calculate user's share based on MIN_TOTAL_STAKE during bootstrap
+					let effectiveTotalStaked = if (isBootstrapPhase) {
+						MIN_TOTAL_STAKE;
+					} else {
+						pool.totalStaked;
 					};
+
+					let userShare = Float.fromInt(stake.amount) / Float.fromInt(effectiveTotalStaked);
+
+					// Calculate earned amount for the time period
+					let earnedAmount = Float.fromInt(rewardPerSecond) * userShare * Float.fromInt(secondsSinceLastHarvest);
+
+					// Apply weight multiplier
+					let weightMultiplier = switch (userLockupWeight) {
+						case (#ok(w)) Float.fromInt(w);
+						case (#err(_)) 1.0;
+					};
+
+					let finalAmount = earnedAmount * weightMultiplier;
+					Int.abs(Float.toInt(finalAmount));
 				};
 
-				#ok(stakeMetrics);
+				// Calculate APY using MIN_TOTAL_STAKE during bootstrap
+				let estimatedAPY = if (pool.totalStaked == 0 or totalFees == 0) {
+					"0%";
+				} else {
+					// Calculate daily reward
+					let dailyReward = (Float.fromInt(totalFees) * 0.30) / 1_000_000.0; // Convert to actual tokens
+
+					// Calculate annual reward (daily * 365)
+					let annualReward = dailyReward * 365.0;
+
+					// Use MIN_TOTAL_STAKE for APY calculation during bootstrap
+					let effectiveStakeAmount = if (isBootstrapPhase) {
+						Float.fromInt(MIN_TOTAL_STAKE) / 1_000_000.0;
+					} else {
+						Float.fromInt(stake.amount) / 1_000_000.0;
+					};
+
+					// Calculate APY
+					let apy = (annualReward / effectiveStakeAmount) * 100.0;
+
+					// Format APY with 2 decimal places
+					let apyFormatted = Text.join("", Iter.fromArray([Float.toText(apy), "%"]));
+
+					apyFormatted;
+				};
+
+				let weight = switch (userLockupWeight) {
+					case (#ok(w)) Float.fromInt(w);
+					case (#err(_)) 1.0;
+				};
+
+				Debug.print("Earned amount: " # debug_show (earned));
+				Debug.print("APY: " # debug_show (estimatedAPY));
+
+				#ok({
+					stakeId = stakeId;
+					earned = Nat64.fromNat(earned);
+					weight = weight;
+					estimatedAPY = estimatedAPY;
+				});
 			};
 		};
 	};
 
-	// Unstake function
+	/*
+    unstake function ka kaam hai:
+    1. User ke saare eligible stakes ko process karna:
+        - Lock period check karna
+        - Final rewards calculate karna
+        - Tokens + rewards transfer karna
+    2. Pool metrics update karna:
+        - Total staked amount adjust karna
+        - Stakes remove karna
+    3. User ke stake list update karna
+    */
 	public shared ({ caller }) func unstake() : async Result.Result<(), Text> {
 		// Get user's stake IDs
 		switch (Map.get(userStakes, phash, caller)) {
@@ -339,48 +602,44 @@ actor class DoxaStaking() = this {
 							};
 
 							// Calculate final rewards before unstaking
-							let stakeMetricsResult = await calculateStakeMetrics();
+							let stakeMetricsResult = await calculateStakeMetrics(stakeId);
 							switch (stakeMetricsResult) {
-								case (#err(e)) {}; // Skip if error calculating rewards
+								case (#err(_)) {}; // Skip if error calculating rewards
 								case (#ok(metrics)) {
 									// Find matching metric for current stake
-									for (metric in metrics.vals()) {
-										if (metric.stakeId == stakeId) {
-											let finalRewards = metric.earned;
+									let finalRewards = metrics.earned;
 
-											// Transfer staked tokens + rewards back
-											let totalAmount = stake.amount + Nat64.toNat(finalRewards);
-											let transferResult = await USDx.icrc1_transfer({
-												to = { owner = caller; subaccount = null };
-												amount = totalAmount;
-												fee = null;
-												memo = null;
-												from_subaccount = null;
-												created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
-											});
+									// Transfer staked tokens + rewards back
+									let totalAmount = stake.amount + Nat64.toNat(finalRewards);
+									let transferResult = await USDx.icrc1_transfer({
+										to = { owner = caller; subaccount = null };
+										amount = totalAmount;
+										fee = null;
+										memo = null;
+										from_subaccount = null;
+										created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
+									});
 
-											switch (transferResult) {
-												case (#Err(e)) {}; // Skip if transfer fails
-												case (#Ok(_)) {
-													// Update pool total staked
-													pool := {
-														pool with totalStaked = pool.totalStaked - stake.amount
-													};
-
-													// Remove stake
-													Map.delete(stakes, nhash, stakeId);
-
-													// Record transaction
-													let unstakeTx : Types.Transaction = {
-														from = Principal.fromActor(this);
-														to = caller;
-														amount = totalAmount;
-														method = "Unstake";
-														time = Time.now();
-													};
-													_tranIdx += 1;
-												};
+									switch (transferResult) {
+										case (#Err(_)) {}; // Skip if transfer fails
+										case (#Ok(_)) {
+											// Update pool total staked
+											pool := {
+												pool with totalStaked = pool.totalStaked - stake.amount
 											};
+
+											// Remove stake
+											Map.delete(stakes, nhash, stakeId);
+
+											// Record transaction
+											let unstakeTx : Types.Transaction = {
+												from = Principal.fromActor(this);
+												to = caller;
+												amount = totalAmount;
+												method = "Unstake";
+												time = Time.now();
+											};
+											_tranIdx += 1;
 										};
 									};
 								};
@@ -406,76 +665,17 @@ actor class DoxaStaking() = this {
 		};
 	};
 
-	// public shared ({ caller }) func harvest() : async Result.Result<(), Text> {
-	//     // Get user's stake IDs
-	//     switch (Map.get(userStakes, phash, caller)) {
-	//         case (null) return #err("No stakes found for user");
-	//         case (?userStakeIds) {
-	//             if (Array.size(userStakeIds) == 0) return #err("No active stakes found");
-	//             let stakeId = userStakeIds[0]; // Get first stake ID
-	//             switch (Map.get(stakes, nhash, stakeId)) {
-	//                 case (null) return #err("No active stake found");
-	//                 case (?stake) {
-	//                     let rewards = await calculateRewards(caller);
-
-	//                     if (rewards < pool.minimumStake) {
-	//                         return #err("Rewards below minimum harvest amount");
-	//                     };
-
-	//                     // Transfer rewards
-	//                     let transferResult = await USDx.icrc1_transfer({
-	//                         to = { owner = caller; subaccount = null };
-	//                         amount = rewards;
-	//                         fee = null;
-	//                         memo = null;
-	//                         from_subaccount = null;
-	//                         created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
-	//                     });
-
-	//                     switch (transferResult) {
-	//                         case (#Err(_)) return #err("Failed to transfer rewards");
-	//                         case (#Ok(_)) {
-	//                             // Update stake record
-	//                             let updatedStake : Types.Stake = {
-	//                                 id = stake.id;
-	//                                 staker = stake.staker;
-	//                                 amount = stake.amount;
-	//                                 stakeTime = stake.stakeTime;
-	//                                 lockEndTime = stake.lockEndTime;
-	//                                 lastHarvestTime = Time.now();
-	//                                 earned = 0;
-	//                                 weight = stake.weight;
-	//                                 estimatedAPY = stake.estimatedAPY;
-	//                             };
-	//                             Map.set(stakes, nhash, stakeId, updatedStake);
-
-	//                             // Record transaction
-	//                             let harvestTx : Types.Transaction = {
-	//                                 from = Principal.fromActor(this);
-	//                                 to = caller;
-	//                                 amount = rewards;
-	//                                 method = "Harvest";
-	//                                 time = Time.now();
-	//                             };
-	//                             _harvestIdx += 1;
-
-	//                             #ok();
-	//                         };
-	//                     };
-	//                 };
-	//             };
-	//         };
-	//     };
-	// };
-
 	///////////////////////////////////////////////////////////////////////////////////////////////////////
 	/////////////////////////////////////  getter Functions ////////////////////////////////////////////////
 	///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
 	// Public getter function for all pool data
-	public query func getPoolData() : async Types.StakingPool {
-		pool;
+	public func getPoolData() : async Types.StakingPool {
+		let totalFee = await getTotalFeeCollectedAmount();
+		{
+			pool with
+			rewardTokenFee = Float.fromInt(totalFee) / 1_000_000
+		};
 	};
 
 	// Get user stake details
