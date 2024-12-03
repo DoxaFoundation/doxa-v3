@@ -66,8 +66,6 @@ actor class DoxaStaking() = this {
 	private let MIN_TOTAL_STAKE : Nat = 100_000_000_000; // 100,000 tokens with 6 decimals
 	private let BOOTSTRAP_PERIOD : Nat = 2_592_000; // 30 days in seconds
 	private let MAX_STAKE_PER_ADDRESS : Nat = MIN_TOTAL_STAKE / 5; // 20% of minimum total stake
-	private let RESERVE_POOL_PERCENTAGE : Nat = 20; // 20% of rewards go to reserve pool
-	private let MAX_DAILY_REWARD_CAP : Nat = 30; // 30% cap of daily reward pool during bootstrap
 
 	// Pool configuration
 	private stable var pool : Types.StakingPool = {
@@ -93,7 +91,6 @@ actor class DoxaStaking() = this {
 	private stable let earlyStakers = Map.new<Principal, Float>(); // Maps early stakers to their multiplier
 	private stable var bootstrapStartTime : Time.Time = 0;
 	private stable var isBootstrapPhase : Bool = true;
-	private stable var reservePool : Nat = 0;
 	private stable var lastUnstakeTime = Map.new<Principal, Time.Time>(); // For cooldown tracking
 
 	// Type aliases
@@ -155,13 +152,13 @@ actor class DoxaStaking() = this {
 	};
 
 	/*
-    calculateUserWeeklyStakeWeight function ka kaam hai:
-    1. User ke stake ka weight calculate karna based on:
-        - User ka stake amount vs total staked amount ratio
-        - Lock duration ka weight multiplier (1x to 4x)
+    The calculateUserWeeklyStakeWeight function is responsible for:
+    1. Calculating user's stake weight based on:
+        - Ratio of user's stake amount vs total staked amount
+        - Lock duration weight multiplier (1x to 4x)
         - Early staker bonus multiplier (1x to 1.5x)
-    2. Debug info print karna calculation ke baare mein
-    3. Final weighted stake value return karna
+    2. Printing debug info about the calculation
+    3. Returning the final weighted stake value
     */
 	public shared ({ caller }) func calculateUserWeeklyStakeWeight(stakeId : Types.StakeId) : async Result.Result<Float, Text> {
 		// Verify stake belongs to caller
@@ -220,17 +217,14 @@ actor class DoxaStaking() = this {
 	};
 
 	/*
-    calculateUserWeeklyReward function ka kaam hai:
-    1. User ka weekly reward calculate karna based on:
+    The calculateUserWeeklyReward function is responsible for:
+    1. Calculating user's weekly reward based on:
         - Total available rewards
-        - User ka weighted stake vs total weighted stakes
-    2. Bootstrap phase mein:
-        - 20% reserve pool mein allocate karna
-        - Maximum daily reward cap apply karna
-    3. Debug info print karna calculation ke baare mein
-    4. Final reward amount return karna
+        - User's weighted stake vs total weighted stakes
+    3. Printing debug info about calculations
+    4. Returning final reward amount
     */
-	public shared ({ caller }) func calculateUserWeeklyReward(stakeId : Types.StakeId) : async Result.Result<Nat, Text> {
+	public shared ({ caller }) func calculateUserWeeklyReward(stakeId : Types.StakeId) : async Result.Result<Float, Text> {
 		// Pehle check karo ki user ke paas ye stake ID hai ya nahi
 		let userStakeIds = switch (Map.get(userStakes, phash, caller)) {
 			case (null) return #err("No stakes found for user");
@@ -259,7 +253,7 @@ actor class DoxaStaking() = this {
 		// Calculate user weight directly
 		let proportion : Float = Float.fromInt(stake.amount) / Float.fromInt(pool.totalStaked);
 		let lockDuration = (stake.lockEndTime - stake.stakeTime) / 1_000_000_000; // Convert nanoseconds to seconds
-		
+
 		let weight = if (Int.abs(lockDuration) >= LOCKUP_360_DAYS) {
 			4;
 		} else if (Int.abs(lockDuration) >= LOCKUP_270_DAYS) {
@@ -291,31 +285,18 @@ actor class DoxaStaking() = this {
 			totalWeight;
 		};
 
-		let totalRewards = pool.totalRewardPerSecond * 604800; // Weekly rewards
-		let adjustedTotalRewards = if (isBootstrapPhase) {
-			let reserveAmount = totalRewards * RESERVE_POOL_PERCENTAGE / 100;
-			reservePool += reserveAmount;
-			totalRewards - reserveAmount;
-		} else {
-			totalRewards;
-		};
+		// Get total fee collected and calculate 30% as total rewards
+		let totalFeeCollected = await getTotalFeeCollectedAmount();
+		let totalRewards = (totalFeeCollected * 30) / 100; // 30% of total fees
 
 		var rewardShare : Float = 0.0;
 		if (userWeight == totalWeight) {
-			rewardShare := Float.fromInt(adjustedTotalRewards);
+			rewardShare := Float.fromInt(totalRewards);
 		} else {
-			rewardShare := Float.fromInt(adjustedTotalRewards) * (userWeight / effectiveTotalWeight);
+			rewardShare := Float.fromInt(totalRewards) * (userWeight / effectiveTotalWeight);
 		};
 
-		if (isBootstrapPhase) {
-			let maxReward = adjustedTotalRewards * MAX_DAILY_REWARD_CAP / 100;
-			let finalReward = Int.abs(Float.toInt(rewardShare));
-			if (finalReward > maxReward) {
-				return #ok(maxReward);
-			};
-		};
-
-		let finalReward = Int.abs(Float.toInt(rewardShare));
+		let finalReward = rewardShare;
 		if (finalReward == 0) {
 			return #err("Reward amount zero hai. Kripya apna stake amount badhaye ya lockup duration badhaye");
 		};
@@ -323,60 +304,19 @@ actor class DoxaStaking() = this {
 		return #ok(finalReward);
 	};
 
-	/*
-    calculateAPY function ka kaam hai:
-    1. Weekly rewards se Annual Percentage Yield (APY) calculate karna:
-        - Weekly return rate calculate karna
-        - Compound interest formula use karke annual rate calculate karna
-    2. Debug info print karna calculation ke baare mein
-    3. Final APY percentage return karna
-    */
-	public shared ({ caller }) func calculateAPY(stakeId : Types.StakeId) : async Result.Result<Float, Text> {
-		// Pehle check karo ki user ke paas stake IDs hain
-		switch (Map.get(userStakes, phash, caller)) {
-			case (null) return #err("Aapka koi stake nahi hai");
-			case (?userStakeIds) {
-				let userStakeIdsBuffer = Buffer.fromArray<Nat>(userStakeIds);
-				if (not Buffer.contains<Nat>(userStakeIdsBuffer, stakeId, Nat.equal)) {
-					return #err("Ye stake ID aapka nahi hai");
-				};
-			};
-		};
-
-		// Ab stake details nikalo
-		let stake = switch (Map.get(stakes, nhash, stakeId)) {
-			case (null) return #err("Stake ID galat hai");
-			case (?s) {
-				if (s.staker != caller) return #err("Ye stake access karne ka adhikar nahi hai");
-				s;
-			};
-		};
-
-		let weeklyRewardResult = await calculateUserWeeklyReward(stakeId);
-		let weeklyReward = switch (weeklyRewardResult) {
-			case (#err(e)) return #err(e);
-			case (#ok(r)) r;
-		};
-
-		if (stake.amount == 0) return #err("Stake amount zero nahi ho sakta");
-
-		let weeklyRate = Float.fromInt(weeklyReward) / Float.fromInt(stake.amount);
-		let annualRate = Float.pow(1.0 + weeklyRate, 52.0) - 1.0;
-		return #ok(annualRate * 100.0); // Percentage mein convert karo
-	};
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	////////////////////////////////////// api  //////////////////////////////////////////////////
 	//////////////////////////////////////////////////////////////////////////////////////////////
 
 	/*
-    notifyStake function ka kaam hai:
-    1. New stake ko process karna:
-        - Lock duration validate karna
-        - Transaction ko verify karna
-        - New stake record create karna
-        - Pool metrics update karna
-    2. Duplicate transactions ko handle karna
-    3. User ke stake list ko update karna
+    The notifyStake function is responsible for:
+    1. Processing new stakes:
+        - Validating lock duration
+        - Verifying transactions
+        - Creating new stake records
+        - Updating pool metrics
+    2. Handling duplicate transactions
+    3. Updating user's stake list
     */
 	public shared ({ caller }) func notifyStake(blockIndex : Nat, lockDuration : Nat) : async Result.Result<(), Text> {
 		// Validate lock duration
@@ -452,16 +392,16 @@ actor class DoxaStaking() = this {
 	};
 
 	/*
-    calculateStakeMetrics function ka kaam hai:
-    1. User ke saare stakes ke metrics calculate karna:
+    The calculateStakeMetrics function is responsible for:
+    1. Calculating metrics for all user stakes:
         - Earned rewards
-        - Stake weight
+        - Stake weight 
         - Estimated APY
-    2. Har stake ke liye:
-        - Lock duration ka effect calculate karna
-        - Time-based rewards calculate karna
-        - APY estimate karna
-    3. Metrics array return karna
+    2. For each stake:
+        - Calculate lock duration effect
+        - Calculate time-based rewards
+        - Estimate APY
+    3. Return metrics array
     */
 	public shared ({ caller }) func calculateStakeMetrics(stakeId : Nat) : async Result.Result<{ stakeId : Nat; earned : Nat64; weight : Float; estimatedAPY : Text }, Text> {
 		// Verify stake belongs to caller
@@ -572,95 +512,94 @@ actor class DoxaStaking() = this {
 			};
 		};
 	};
-
+	
 	/*
-    unstake function ka kaam hai:
-    1. User ke saare eligible stakes ko process karna:
-        - Lock period check karna
-        - Final rewards calculate karna
-        - Tokens + rewards transfer karna
-    2. Pool metrics update karna:
-        - Total staked amount adjust karna
-        - Stakes remove karna
-    3. User ke stake list update karna
+    The unstake function is responsible for:
+    1. Processing all eligible stakes for a user:
+        - Checking lock period
+        - Calculating final rewards
+        - Transferring tokens + rewards
+    2. Updating pool metrics:
+        - Adjusting total staked amount
+        - Removing stakes
+    3. Updating user's stake list
     */
-	public shared ({ caller }) func unstake() : async Result.Result<(), Text> {
+	public shared ({ caller }) func unstake(stakeId : Types.StakeId) : async Result.Result<(), Text> {
 		// Get user's stake IDs
-		switch (Map.get(userStakes, phash, caller)) {
+		let userStakeIds = switch (Map.get(userStakes, phash, caller)) {
 			case (null) return #err("No stakes found for user");
-			case (?userStakeIds) {
-				if (Array.size(userStakeIds) == 0) return #err("No active stakes found");
+			case (?ids) ids;
+		};
 
-				// Loop through all user stakes
-				for (stakeId in userStakeIds.vals()) {
-					switch (Map.get(stakes, nhash, stakeId)) {
-						case (null) {}; // Skip if stake not found
-						case (?stake) {
-							// Check lock period
-							if (Time.now() < stake.lockEndTime) {
-								// Skip if still locked
-							};
+		// Check if stakeId exists in user's stakes
+		let validStakeId = Array.find<Types.StakeId>(userStakeIds, func(id) { id == stakeId });
+		if (validStakeId == null) {
+			return #err("This stake ID does not belong to caller");
+		};
 
-							// Calculate final rewards before unstaking
-							let stakeMetricsResult = await calculateStakeMetrics(stakeId);
-							switch (stakeMetricsResult) {
-								case (#err(_)) {}; // Skip if error calculating rewards
-								case (#ok(metrics)) {
-									// Find matching metric for current stake
-									let finalRewards = metrics.earned;
+		// Get stake details
+		let stake = switch (Map.get(stakes, nhash, stakeId)) {
+			case (null) return #err("Stake not found");
+			case (?s) {
+				if (s.staker != caller) return #err("Not authorized to access this stake");
+				s;
+			};
+		};
 
-									// Transfer staked tokens + rewards back
-									let totalAmount = stake.amount + Nat64.toNat(finalRewards);
-									let transferResult = await USDx.icrc1_transfer({
-										to = { owner = caller; subaccount = null };
-										amount = totalAmount;
-										fee = null;
-										memo = null;
-										from_subaccount = null;
-										created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
-									});
+		// Check lock period
+		if (Time.now() < stake.lockEndTime) {
+			return #err("Stake is still locked");
+		};
 
-									switch (transferResult) {
-										case (#Err(_)) {}; // Skip if transfer fails
-										case (#Ok(_)) {
-											// Update pool total staked
-											pool := {
-												pool with totalStaked = pool.totalStaked - stake.amount
-											};
+		// Calculate final rewards before unstaking
+		let stakeMetricsResult = await calculateStakeMetrics(stakeId);
+		switch (stakeMetricsResult) {
+			case (#err(e)) return #err(e);
+			case (#ok(metrics)) {
+				let finalRewards = metrics.earned;
 
-											// Remove stake
-											Map.delete(stakes, nhash, stakeId);
+				// Transfer staked tokens + rewards back
+				let totalAmount = stake.amount + Nat64.toNat(finalRewards);
+				let transferResult = await USDx.icrc1_transfer({
+					to = { owner = caller; subaccount = null };
+					amount = totalAmount;
+					fee = null;
+					memo = null;
+					from_subaccount = null;
+					created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
+				});
 
-											// Record transaction
-											let unstakeTx : Types.Transaction = {
-												from = Principal.fromActor(this);
-												to = caller;
-												amount = totalAmount;
-												method = "Unstake";
-												time = Time.now();
-											};
-											_tranIdx += 1;
-										};
-									};
-								};
-							};
+				switch (transferResult) {
+					case (#Err(e)) return #err("Transfer failed");
+					case (#Ok(_)) {
+						// Update pool total staked
+						pool := {
+							pool with totalStaked = pool.totalStaked - stake.amount
 						};
+
+						// Remove stake
+						Map.delete(stakes, nhash, stakeId);
+
+						// Record transaction
+						let unstakeTx : Types.Transaction = {
+							from = Principal.fromActor(this);
+							to = caller;
+							amount = totalAmount;
+							method = "Unstake";
+							time = Time.now();
+						};
+						_tranIdx += 1;
+
+						// Update user stakes array to remove unstaked position
+						let remainingStakes = Array.filter(
+							userStakeIds,
+							func(id : Types.StakeId) : Bool { id != stakeId }
+						);
+						Map.set(userStakes, phash, caller, remainingStakes);
+
+						#ok();
 					};
 				};
-
-				// Update user stakes array to remove all unstaked positions
-				let remainingStakes = Array.filter(
-					userStakeIds,
-					func(id : Types.StakeId) : Bool {
-						switch (Map.get(stakes, nhash, id)) {
-							case (null) false;
-							case (?stake) Time.now() < stake.lockEndTime;
-						};
-					}
-				);
-				Map.set(userStakes, phash, caller, remainingStakes);
-
-				#ok();
 			};
 		};
 	};
