@@ -54,24 +54,23 @@ actor class DoxaStaking() = this {
 		};
 	} = actor ("bd3sg-teaaa-aaaaa-qaaba-cai");
 
-	// Lock duration and bootstrap constants
-	private let MIN_LOCK_DURATION_IN_SEC : Nat = 2_592_000; // 30 days minimum
-	private let MAX_LOCK_DURATION_IN_SEC : Nat = 31_536_000; // 365 days maximum
-	private let ONE_YEAR : Nat = 31_536_000; // For APR calculation
-	private let COOLDOWN_PERIOD : Nat = 259_200; // 72 hours between unstaking
-	private let BOOTSTRAP_MULTIPLIER_DURATION : Nat = 7_776_000; // 90 days for multiplier validity
+	// Lock duration and bootstrap constants in nanoseconds
+	private let MIN_LOCK_DURATION_IN_NANOS : Nat = 2_592_000_000_000_000; // 30 days minimum
+	private let MAX_LOCK_DURATION_IN_NANOS : Nat = 31_536_000_000_000_000; // 365 days maximum
+	private let ONE_YEAR_IN_NANOS : Nat = 31_536_000_000_000_000; // For APR calculation
+	private let BOOTSTRAP_MULTIPLIER_DURATION_IN_NANOS : Nat = 7_776_000_000_000_000; // 90 days for multiplier validity
 
 	// Bootstrap phase requirements
 	private let MIN_STAKERS : Nat = 20;
 	private let MIN_TOTAL_STAKE : Nat = 100_000_000_000; // 100,000 tokens with 6 decimals
-	private let BOOTSTRAP_PERIOD : Nat = 2_592_000; // 30 days in seconds
+	private let BOOTSTRAP_PERIOD_IN_NANOS : Nat = 2_592_000_000_000_000; // 30 days in nanoseconds
 	private let MAX_STAKE_PER_ADDRESS : Nat = MIN_TOTAL_STAKE / 5; // 20% of minimum total stake
 
 	// Pool configuration
 	private stable var pool : Types.StakingPool = {
 		name = "Doxa Dynamic Staking";
 		startTime = Time.now();
-		endTime = Time.now() + (ONE_YEAR * 1_000_000_000);
+		endTime = Time.now() + ONE_YEAR_IN_NANOS;
 		totalStaked = 0;
 		rewardTokenFee = 50_000; // 0.05 tokens with 6 decimals
 		stakingSymbol = "USDx";
@@ -80,7 +79,7 @@ actor class DoxaStaking() = this {
 		rewardToken = "doxa-dollar";
 		totalRewardPerSecond = 100_000; // Base reward rate
 		minimumStake = 10_000_000; // 10 tokens with 6 decimals
-		lockDuration = MIN_LOCK_DURATION_IN_SEC * 1_000_000_000;
+		lockDuration = MIN_LOCK_DURATION_IN_NANOS;
 	};
 
 	let { nhash; phash } = Map;
@@ -91,22 +90,21 @@ actor class DoxaStaking() = this {
 	private stable let earlyStakers = Map.new<Principal, Float>(); // Maps early stakers to their multiplier
 	private stable var bootstrapStartTime : Time.Time = 0;
 	private stable var isBootstrapPhase : Bool = true;
-	private stable var lastUnstakeTime = Map.new<Principal, Time.Time>(); // For cooldown tracking
 
 	// Type aliases
 	private type BlockIndex = Nat;
-	private type TransactionId = Nat;
 
 	// Transaction tracking
-	private stable let stakeBlockIndices = Map.new<TransactionId, BlockIndex>();
-	private stable let harvestBlockIndices = Map.new<TransactionId, BlockIndex>();
+	private stable let stakeBlockIndices = Map.new<Principal, [BlockIndex]>();
+	private stable let unStakeBlockIndices = Map.new<Principal, [BlockIndex]>();
+	private stable let harvestBlockIndices = Map.new<Principal, [BlockIndex]>();
 	private stable let processedStakeTransactions = Map.new<Nat, Principal>();
 
 	// Counters and timers
 	private stable var nextStakeId : Nat = 0;
 	private stable var _tranIdx : Nat = 0;
 	private stable var _harvestIdx : Nat = 0;
-	private let MIN_REWARD_INTERVAL_IN_SECONDS : Nat = 3600;
+	private let MIN_REWARD_INTERVAL_IN_NANOS : Nat = 3600_000_000_000; // 1 hour in nanoseconds
 
 	type Tokens = {
 		#USDx;
@@ -116,13 +114,12 @@ actor class DoxaStaking() = this {
 	///////////////////////////////  reward  /////////////////////////////////////////////////////
 	//////////////////////////////////////////////////////////////////////////////////////////////
 
-	// Lockup period constants in seconds
-	let LOCKUP_90_DAYS : Nat = 7_776_000; // 90 days
-	let LOCKUP_180_DAYS : Nat = 15_552_000; // 180 days
-	let LOCKUP_270_DAYS : Nat = 23_328_000; // 270 days
-	let LOCKUP_360_DAYS : Nat = 31_104_000; // 360 days
+	// Lockup period constants in nanoseconds
+	let _LOCKUP_90_DAYS_IN_NANOS : Nat = 7_776_000_000_000_000; // 90 days
+	let LOCKUP_180_DAYS_IN_NANOS : Nat = 15_552_000_000_000_000; // 180 days
+	let LOCKUP_270_DAYS_IN_NANOS : Nat = 23_328_000_000_000_000; // 270 days
+	let LOCKUP_360_DAYS_IN_NANOS : Nat = 31_104_000_000_000_000; // 360 days
 
-	// Get bootstrap multiplier based on staker position
 	// Get bootstrap multiplier based on staker position
 	public shared ({ caller }) func getBootstrapMultiplier() : async Result.Result<Float, Text> {
 		// Get staker position from caller's stake history
@@ -137,6 +134,151 @@ actor class DoxaStaking() = this {
 		return #ok(1.0);
 	};
 
+	/*
+    The notifyStake function is responsible for:
+    1. Processing new stakes:
+        - Validating lock duration
+        - Verifying transactions
+        - Creating new stake records
+        - Updating pool metrics
+    2. Handling duplicate transactions
+    3. Updating user's stake list
+    4. also handle early 20 sataker
+    5. During bootstrap, user only stake once
+
+    */
+	public shared ({ caller }) func notifyStake(blockIndex : Nat, lockDuration : Nat) : async Result.Result<(), Text> {
+		// Validate lock duration
+		if (lockDuration < MIN_LOCK_DURATION_IN_NANOS) {
+			return #err("Lock duration must be at least 30 days");
+		};
+		if (lockDuration > MAX_LOCK_DURATION_IN_NANOS) {
+			return #err("Lock duration cannot exceed 365 days");
+		};
+
+		// Check if transaction already processed
+		switch (Map.get(processedStakeTransactions, nhash, blockIndex)) {
+			case (?existingCaller) {
+				return #err("Transaction already processed for caller: " # Principal.toText(existingCaller));
+			};
+			case (null) {};
+		};
+
+		// Validate staking block
+		let validationResult = await validateStakingBlock(blockIndex, caller);
+		switch (validationResult) {
+			case (#err(error)) { return #err(error) };
+			case (#ok()) {};
+		};
+
+		// Get transaction details
+		let getTransactionsResponse = await USDx.get_transactions({ start = blockIndex; length = 1 });
+		let { transactions } = getTransactionsResponse;
+		let transaction = transactions[0];
+
+		let transfer = switch (transaction.transfer) {
+			case (?value) { value };
+			case (null) {
+				return #err("Transaction must be a transfer");
+			};
+		};
+
+		// Check if bootstrap period is active
+		let currentTime = Time.now();
+		if (currentTime <= BOOTSTRAP_PERIOD_IN_NANOS) {
+			// Check if max stakers limit reached
+			if (Map.size(userStakes) >= MIN_STAKERS) {
+				return #err("Bootstrap period max stakers limit reached");
+			};
+
+			// During bootstrap, check if user has already staked
+			switch (Map.get(userStakes, phash, caller)) {
+				case (?existingStakes) {
+					if (existingStakes.size() > 0) {
+						return #err("During bootstrap period you can only stake once. Please wait for bootstrap period to end for additional stakes");
+					};
+				};
+				case (null) {};
+			};
+
+			// Check max stake per address during bootstrap
+			let userTotalStake = switch (Map.get(userStakes, phash, caller)) {
+				case (?existingStakes) {
+					var total = 0;
+					for (stakeId in existingStakes.vals()) {
+						switch (Map.get(stakes, nhash, stakeId)) {
+							case (?stake) { total += stake.amount };
+							case (null) {};
+						};
+					};
+					total + transfer.amount;
+				};
+				case (null) { transfer.amount };
+			};
+
+			if (userTotalStake > MAX_STAKE_PER_ADDRESS) {
+				return #err("Exceeds maximum stake allowed per address during bootstrap period");
+			};
+		};
+
+		// Create new stake with unique ID
+		let stakeId = nextStakeId;
+		nextStakeId += 1;
+
+		// Create initial stake record
+		let stake : Types.Stake = {
+			id = stakeId;
+			staker = transfer.from.owner;
+			amount = transfer.amount;
+			stakeTime = Time.now();
+			lockEndTime = Time.now() + lockDuration;
+			lastHarvestTime = 0;
+		};
+
+		Map.set(stakes, nhash, stakeId, stake);
+		// Update user's stake list
+		switch (Map.get(userStakes, phash, caller)) {
+			case (?existingStakes) {
+				Map.set(userStakes, phash, caller, Array.append(existingStakes, [stakeId]));
+			};
+			case (null) {
+				Map.set(userStakes, phash, caller, [stakeId]);
+			};
+		};
+
+		// Update pool totalStaked
+		let newTotalStaked = pool.totalStaked + transfer.amount;
+
+		pool := { pool with totalStaked = newTotalStaked };
+
+		// Stotransactionre  block index for later query
+		switch (Map.get(stakeBlockIndices, phash, transfer.from.owner)) {
+			case (?existingIndices) {
+				Map.set(stakeBlockIndices, phash, transfer.from.owner, Array.append(existingIndices, [blockIndex]));
+			};
+			case (null) {
+				Map.set(stakeBlockIndices, phash, transfer.from.owner, [blockIndex]);
+			};
+		};
+
+		Map.set(processedStakeTransactions, nhash, blockIndex, transfer.from.owner);
+
+		// Add early staker multiplier if less than 20 stakers
+		let earlyStakerCount = Map.size(earlyStakers);
+		if (earlyStakerCount < 20) {
+			let multiplier = if (earlyStakerCount < 5) {
+				1.5;
+			} else if (earlyStakerCount < 10) {
+				1.3;
+			} else {
+				1.1;
+			};
+			Map.set(earlyStakers, phash, caller, multiplier);
+		};
+
+		#ok();
+	};
+
 	// Weight factors for different lockup periods
 	public shared ({ caller }) func getLockupWeight(duration : Nat) : async Result.Result<Nat, Text> {
 		// Validate caller has active stakes
@@ -144,10 +286,9 @@ actor class DoxaStaking() = this {
 			case (null) return #err("No stakes found for user");
 			case (?_) {};
 		};
-
-		if (duration >= LOCKUP_360_DAYS) return #ok(4);
-		if (duration >= LOCKUP_270_DAYS) return #ok(3);
-		if (duration >= LOCKUP_180_DAYS) return #ok(2);
+		if (duration >= 31_104_000) return #ok(4); // 360 days in seconds
+		if (duration >= 23_328_000) return #ok(3); // 270 days in seconds
+		if (duration >= 15_552_000) return #ok(2); // 180 days in seconds
 		return #ok(1); // Default for 90 days
 	};
 
@@ -187,11 +328,11 @@ actor class DoxaStaking() = this {
 
 		let proportion : Float = Float.fromInt(stake.amount) / Float.fromInt(pool.totalStaked);
 		let lockDuration = (stake.lockEndTime - stake.stakeTime) / 1_000_000_000; // Convert nanoseconds to seconds
-		let userLockupWeight = if (Int.abs(lockDuration) >= LOCKUP_360_DAYS) {
+		let userLockupWeight = if (Int.abs(lockDuration) >= LOCKUP_360_DAYS_IN_NANOS) {
 			#ok(4);
-		} else if (Int.abs(lockDuration) >= LOCKUP_270_DAYS) {
+		} else if (Int.abs(lockDuration) >= LOCKUP_270_DAYS_IN_NANOS) {
 			#ok(3);
-		} else if (Int.abs(lockDuration) >= LOCKUP_180_DAYS) {
+		} else if (Int.abs(lockDuration) >= LOCKUP_180_DAYS_IN_NANOS) {
 			#ok(2);
 		} else {
 			#ok(1) // Default for 90 days
@@ -202,7 +343,7 @@ actor class DoxaStaking() = this {
 			case (#ok(weight)) {
 				let bootstrapMultiplier = switch (Map.get(earlyStakers, phash, caller)) {
 					case (?multiplier) {
-						if (Time.now() <= bootstrapStartTime + (BOOTSTRAP_MULTIPLIER_DURATION * 1_000_000_000)) {
+						if (Time.now() <= bootstrapStartTime + (BOOTSTRAP_MULTIPLIER_DURATION_IN_NANOS)) {
 							multiplier;
 						} else {
 							1.0;
@@ -254,11 +395,11 @@ actor class DoxaStaking() = this {
 		let proportion : Float = Float.fromInt(stake.amount) / Float.fromInt(pool.totalStaked);
 		let lockDuration = (stake.lockEndTime - stake.stakeTime) / 1_000_000_000; // Convert nanoseconds to seconds
 
-		let weight = if (Int.abs(lockDuration) >= LOCKUP_360_DAYS) {
+		let weight = if (Int.abs(lockDuration) >= LOCKUP_360_DAYS_IN_NANOS) {
 			4;
-		} else if (Int.abs(lockDuration) >= LOCKUP_270_DAYS) {
+		} else if (Int.abs(lockDuration) >= LOCKUP_270_DAYS_IN_NANOS) {
 			3;
-		} else if (Int.abs(lockDuration) >= LOCKUP_180_DAYS) {
+		} else if (Int.abs(lockDuration) >= LOCKUP_180_DAYS_IN_NANOS) {
 			2;
 		} else {
 			1; // Default for 90 days
@@ -266,7 +407,7 @@ actor class DoxaStaking() = this {
 
 		let bootstrapMultiplier = switch (Map.get(earlyStakers, phash, caller)) {
 			case (?multiplier) {
-				if (Time.now() <= bootstrapStartTime + (BOOTSTRAP_MULTIPLIER_DURATION * 1_000_000_000)) {
+				if (Time.now() <= bootstrapStartTime + BOOTSTRAP_MULTIPLIER_DURATION_IN_NANOS) {
 					multiplier;
 				} else {
 					1.0;
@@ -309,93 +450,10 @@ actor class DoxaStaking() = this {
 	//////////////////////////////////////////////////////////////////////////////////////////////
 
 	/*
-    The notifyStake function is responsible for:
-    1. Processing new stakes:
-        - Validating lock duration
-        - Verifying transactions
-        - Creating new stake records
-        - Updating pool metrics
-    2. Handling duplicate transactions
-    3. Updating user's stake list
-    */
-	public shared ({ caller }) func notifyStake(blockIndex : Nat, lockDuration : Nat) : async Result.Result<(), Text> {
-		// Validate lock duration
-		if (lockDuration < MIN_LOCK_DURATION_IN_SEC) {
-			return #err("Lock duration must be at least 30 days");
-		};
-		if (lockDuration > MAX_LOCK_DURATION_IN_SEC) {
-			return #err("Lock duration cannot exceed 365 days");
-		};
-
-		// Check if transaction already processed
-		switch (Map.get(processedStakeTransactions, nhash, blockIndex)) {
-			case (?existingCaller) {
-				return #err("Transaction already processed for caller: " # Principal.toText(existingCaller));
-			};
-			case (null) {};
-		};
-
-		// Validate staking block
-		let validationResult = await validateStakingBlock(blockIndex, caller);
-		switch (validationResult) {
-			case (#err(error)) { return #err(error) };
-			case (#ok()) {};
-		};
-
-		let lockDurationNanos = lockDuration * 1_000_000_000;
-
-		// Get transaction details
-		let getTransactionsResponse = await USDx.get_transactions({ start = blockIndex; length = 1 });
-		let { transactions } = getTransactionsResponse;
-		let transaction = transactions[0];
-
-		let transfer = switch (transaction.transfer) {
-			case (?value) { value };
-			case (null) {
-				return #err("Transaction must be a transfer");
-			};
-		};
-
-		// Create new stake with unique ID
-		let stakeId = nextStakeId;
-		nextStakeId += 1;
-
-		// Create initial stake record
-		let stake : Types.Stake = {
-			id = stakeId;
-			staker = transfer.from.owner;
-			amount = transfer.amount;
-			stakeTime = Time.now();
-			lockEndTime = Time.now() + (lockDuration * 1_000_000_000);
-			lastHarvestTime = 0;
-		};
-
-		Map.set(stakes, nhash, stakeId, stake);
-		// Update user's stake list
-		switch (Map.get(userStakes, phash, caller)) {
-			case (?existingStakes) {
-				Map.set(userStakes, phash, caller, Array.append(existingStakes, [stakeId]));
-			};
-			case (null) {
-				Map.set(userStakes, phash, caller, [stakeId]);
-			};
-		};
-
-		// Update pool totalStaked
-		let newTotalStaked = pool.totalStaked + transfer.amount;
-
-		pool := { pool with totalStaked = newTotalStaked };
-
-		Map.set(processedStakeTransactions, nhash, blockIndex, transfer.from.owner);
-
-		#ok();
-	};
-
-	/*
     The calculateStakeMetrics function is responsible for:
     1. Calculating metrics for all user stakes:
         - Earned rewards
-        - Stake weight 
+        - Stake weight
         - Estimated APY
     2. For each stake:
         - Calculate lock duration effect
@@ -433,7 +491,7 @@ actor class DoxaStaking() = this {
 				let stakedNanoSeconds = timeNow - stake.lastHarvestTime;
 
 				let earned = if (
-					stakedNanoSeconds < MIN_REWARD_INTERVAL_IN_SECONDS * 1_000_000_000 or
+					stakedNanoSeconds < MIN_REWARD_INTERVAL_IN_NANOS or
 					timeNow < pool.startTime or timeNow > pool.endTime
 				) {
 					0;
@@ -512,7 +570,7 @@ actor class DoxaStaking() = this {
 			};
 		};
 	};
-	
+
 	/*
     The unstake function is responsible for:
     1. Processing all eligible stakes for a user:
@@ -523,6 +581,7 @@ actor class DoxaStaking() = this {
         - Adjusting total staked amount
         - Removing stakes
     3. Updating user's stake list
+    4. stroing transaction in unstake
     */
 	public shared ({ caller }) func unstake(stakeId : Types.StakeId) : async Result.Result<(), Text> {
 		// Get user's stake IDs
@@ -558,19 +617,27 @@ actor class DoxaStaking() = this {
 			case (#ok(metrics)) {
 				let finalRewards = metrics.earned;
 
-				// Transfer staked tokens + rewards back
-				let totalAmount = stake.amount + Nat64.toNat(finalRewards);
+				// Record transaction first
+				let unstakeTx : Types.Transaction = {
+					from = Principal.fromActor(this);
+					to = caller;
+					amount = stake.amount + Nat64.toNat(finalRewards);
+					method = "Unstake";
+					time = Time.now();
+				};
+
+				// Transfer staked tokens + rewards back using unstakeTx details
 				let transferResult = await USDx.icrc1_transfer({
-					to = { owner = caller; subaccount = null };
-					amount = totalAmount;
+					to = { owner = unstakeTx.to; subaccount = null };
+					amount = unstakeTx.amount;
 					fee = null;
 					memo = null;
 					from_subaccount = null;
-					created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
+					created_at_time = ?Nat64.fromNat(Int.abs(unstakeTx.time));
 				});
 
 				switch (transferResult) {
-					case (#Err(e)) return #err("Transfer failed");
+					case (#Err(_e)) return #err("Transfer failed");
 					case (#Ok(_)) {
 						// Update pool total staked
 						pool := {
@@ -580,15 +647,14 @@ actor class DoxaStaking() = this {
 						// Remove stake
 						Map.delete(stakes, nhash, stakeId);
 
-						// Record transaction
-						let unstakeTx : Types.Transaction = {
-							from = Principal.fromActor(this);
-							to = caller;
-							amount = totalAmount;
-							method = "Unstake";
-							time = Time.now();
-						};
 						_tranIdx += 1;
+
+						// Store block index for unstake transaction
+						let currentBlockIndices = switch (Map.get(unStakeBlockIndices, phash, caller)) {
+							case (?indices) indices;
+							case (null) [];
+						};
+						Map.set(unStakeBlockIndices, phash, caller, Array.append(currentBlockIndices, [_tranIdx]));
 
 						// Update user stakes array to remove unstaked position
 						let remainingStakes = Array.filter(
@@ -670,23 +736,25 @@ actor class DoxaStaking() = this {
 		};
 
 		// Harvest transactions ko fetch karo
-		for ((blockIndex, principal) in Map.entries(harvestBlockIndices)) {
+		for ((principal, blockIndices) in Map.entries(harvestBlockIndices)) {
 			if (principal == caller) {
-				try {
-					switch (await getTransactionFromBlockIndex(blockIndex)) {
-						case (#ok(tx)) {
-							buffer.add({
-								from = tx.from;
-								to = tx.to;
-								amount = tx.amount;
-								method = "Harvest";
-								time = tx.time;
-							});
+				for (blockIndex in blockIndices.vals()) {
+					try {
+						switch (await getTransactionFromBlockIndex(blockIndex)) {
+							case (#ok(tx)) {
+								buffer.add({
+									from = tx.from;
+									to = tx.to;
+									amount = tx.amount;
+									method = "Harvest";
+									time = tx.time;
+								});
+							};
+							case (#err(_)) {};
 						};
-						case (#err(_)) {};
+					} catch (e) {
+						Debug.print("Error fetching harvest transaction: " # Error.message(e));
 					};
-				} catch (e) {
-					Debug.print("Error fetching harvest transaction: " # Error.message(e));
 				};
 			};
 		};
