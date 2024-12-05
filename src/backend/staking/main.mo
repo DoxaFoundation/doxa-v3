@@ -111,6 +111,41 @@ actor class DoxaStaking() = this {
 	};
 
 	//////////////////////////////////////////////////////////////////////////////////////////////
+	///////////////////////////////  bootstrap ///////////////////////////////////////////////////
+	//////////////////////////////////////////////////////////////////////////////////////////////
+
+	private func updateBootstrapPhase() : () {
+		let currentTime = Time.now();
+
+		// If bootstrap hasn't started yet, start it
+		if (bootstrapStartTime == 0) {
+			bootstrapStartTime := currentTime;
+		};
+
+		// Check if bootstrap period is over
+		if (currentTime > bootstrapStartTime + BOOTSTRAP_PERIOD_IN_NANOS) {
+			isBootstrapPhase := false;
+		};
+	};
+
+	public query func getBootstrapStatus() : async {
+		isBootstrapPhase : Bool;
+		timeRemaining : Int;
+	} {
+		let currentTime = Time.now();
+		let timeRemaining = if (bootstrapStartTime == 0 or not isBootstrapPhase) {
+			0;
+		} else {
+			bootstrapStartTime + BOOTSTRAP_PERIOD_IN_NANOS - currentTime;
+		};
+
+		{
+			isBootstrapPhase = isBootstrapPhase;
+			timeRemaining = timeRemaining;
+		};
+	};
+
+	//////////////////////////////////////////////////////////////////////////////////////////////
 	///////////////////////////////  reward  /////////////////////////////////////////////////////
 	//////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -122,16 +157,11 @@ actor class DoxaStaking() = this {
 
 	// Get bootstrap multiplier based on staker position
 	public shared ({ caller }) func getBootstrapMultiplier() : async Result.Result<Float, Text> {
-		// Get staker position from caller's stake history
-		let stakerPosition = switch (Map.get(userStakes, phash, caller)) {
-			case (null) return #err("No stakes found for user");
-			case (?stakeIds) stakeIds.size();
+		// Check if caller exists in earlyStakers map
+		switch (Map.get(earlyStakers, phash, caller)) {
+			case (?multiplier) { return #ok(multiplier) };
+			case (null) { return #ok(1.0) }; // Default multiplier if not an early staker
 		};
-
-		if (stakerPosition <= 5) return #ok(1.5);
-		if (stakerPosition <= 10) return #ok(1.3);
-		if (stakerPosition <= 20) return #ok(1.1);
-		return #ok(1.0);
 	};
 
 	/*
@@ -148,6 +178,8 @@ actor class DoxaStaking() = this {
 
     */
 	public shared ({ caller }) func notifyStake(blockIndex : Nat, lockDuration : Nat) : async Result.Result<(), Text> {
+		// Update bootstrap phase status first
+		updateBootstrapPhase();
 		// Validate lock duration
 		if (lockDuration < MIN_LOCK_DURATION_IN_NANOS) {
 			return #err("Lock duration must be at least 30 days");
@@ -343,7 +375,7 @@ actor class DoxaStaking() = this {
 			case (#ok(weight)) {
 				let bootstrapMultiplier = switch (Map.get(earlyStakers, phash, caller)) {
 					case (?multiplier) {
-						if (Time.now() <= bootstrapStartTime + (BOOTSTRAP_MULTIPLIER_DURATION_IN_NANOS)) {
+						if (Time.now() <= bootstrapStartTime + BOOTSTRAP_MULTIPLIER_DURATION_IN_NANOS) {
 							multiplier;
 						} else {
 							1.0;
@@ -365,6 +397,7 @@ actor class DoxaStaking() = this {
     3. Printing debug info about calculations
     4. Returning final reward amount
     */
+
 	public shared ({ caller }) func calculateUserWeeklyReward(stakeId : Types.StakeId) : async Result.Result<Float, Text> {
 		// Pehle check karo ki user ke paas ye stake ID hai ya nahi
 		let userStakeIds = switch (Map.get(userStakes, phash, caller)) {
@@ -391,11 +424,9 @@ actor class DoxaStaking() = this {
 			return #err("Total staked amount zero nahi ho sakta");
 		};
 
-		// Calculate user weight directly
-		let proportion : Float = Float.fromInt(stake.amount) / Float.fromInt(pool.totalStaked);
-		let lockDuration = (stake.lockEndTime - stake.stakeTime) / 1_000_000_000; // Convert nanoseconds to seconds
+		let lockDuration = stake.lockEndTime - stake.stakeTime;
 
-		let weight = if (Int.abs(lockDuration) >= LOCKUP_360_DAYS_IN_NANOS) {
+		let lockupWeight = if (Int.abs(lockDuration) >= LOCKUP_360_DAYS_IN_NANOS) {
 			4;
 		} else if (Int.abs(lockDuration) >= LOCKUP_270_DAYS_IN_NANOS) {
 			3;
@@ -415,27 +446,18 @@ actor class DoxaStaking() = this {
 			};
 			case (null) { 1.0 };
 		};
+		let proportion : Float = Float.fromInt(stake.amount) / Float.fromInt(if (pool.totalStaked < MIN_TOTAL_STAKE) { MIN_TOTAL_STAKE } else { pool.totalStaked });
 
-		let userWeight = proportion * Float.fromInt(weight) * bootstrapMultiplier;
-		let totalWeight = Float.fromInt(pool.totalStaked);
+		let userWeight = proportion * Float.fromInt(lockupWeight) * bootstrapMultiplier;
 
-		// Use MIN_TOTAL_STAKE if total weight is less
-		let effectiveTotalWeight = if (totalWeight < Float.fromInt(MIN_TOTAL_STAKE)) {
-			Float.fromInt(MIN_TOTAL_STAKE);
-		} else {
-			totalWeight;
-		};
+		// Calculate total lockupWeight by iterating over all stakes
+		let totalWeight = await getTotalWeight();
 
 		// Get total fee collected and calculate 30% as total rewards
 		let totalFeeCollected = await getTotalFeeCollectedAmount();
-		let totalRewards = (totalFeeCollected * 30) / 100; // 30% of total fees
+		let totalRewards = (Float.fromInt(totalFeeCollected) / 1_000_000.0) * (30.0 / 100.0); // Pehle decimal adjustment, phir 30% calculation
 
-		var rewardShare : Float = 0.0;
-		if (userWeight == totalWeight) {
-			rewardShare := Float.fromInt(totalRewards);
-		} else {
-			rewardShare := Float.fromInt(totalRewards) * (userWeight / effectiveTotalWeight);
-		};
+		var rewardShare = totalRewards * (userWeight / totalWeight);
 
 		let finalReward = rewardShare;
 		if (finalReward == 0) {
@@ -445,6 +467,45 @@ actor class DoxaStaking() = this {
 		return #ok(finalReward);
 	};
 
+	private func getTotalWeight() : async Float {
+		var totalWeight : Float = 0.0;
+
+		// Iterate through all users and their stakes
+		for ((user, stakeIds) in Map.entries(userStakes)) {
+			for (stakeId in stakeIds.vals()) {
+				switch (Map.get(stakes, nhash, stakeId)) {
+					case (?stake) {
+						let lockDuration = (stake.lockEndTime - stake.stakeTime) / 1_000_000_000;
+						let weight = if (Int.abs(lockDuration) >= LOCKUP_360_DAYS_IN_NANOS) {
+							4;
+						} else if (Int.abs(lockDuration) >= LOCKUP_270_DAYS_IN_NANOS) {
+							3;
+						} else if (Int.abs(lockDuration) >= LOCKUP_180_DAYS_IN_NANOS) {
+							2;
+						} else {
+							1;
+						};
+
+						let proportion = Float.fromInt(stake.amount) / Float.fromInt(pool.totalStaked);
+						let bootstrapMultiplier = switch (Map.get(earlyStakers, phash, user)) {
+							case (?multiplier) {
+								if (Time.now() <= bootstrapStartTime + BOOTSTRAP_MULTIPLIER_DURATION_IN_NANOS) {
+									multiplier;
+								} else {
+									1.0;
+								};
+							};
+							case (null) { 1.0 };
+						};
+
+						totalWeight += proportion * Float.fromInt(weight) * bootstrapMultiplier;
+					};
+					case (null) {};
+				};
+			};
+		};
+		return totalWeight;
+	};
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	////////////////////////////////////// api  //////////////////////////////////////////////////
 	//////////////////////////////////////////////////////////////////////////////////////////////
