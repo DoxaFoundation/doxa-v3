@@ -21,6 +21,9 @@ dfx canister call staking_canister notifyStake '(1, 2_592_000)'
 
 # pool data
 dfx canister call staking_canister getPoolData
+
+#matric
+dfx canister call staking_canister calculateUserStakeMatric '(0 : nat, principal "5g24m-kxyrd-yb7wl-up5k6-4egww-miul7-gajat-e2d7i-mdpc7-6dduf-eae")'
 # user stake data
 dfx canister call staking_canister getUserStakeDetails
 # pool data
