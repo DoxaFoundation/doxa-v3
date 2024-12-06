@@ -217,38 +217,22 @@ actor class DoxaStaking() = this {
 
 		// Check if bootstrap period is active
 		let currentTime = Time.now();
-		if (currentTime <= BOOTSTRAP_PERIOD_IN_NANOS) {
+		if (isBootstrapPhase) {
 			// Check if max stakers limit reached
 			if (Map.size(userStakes) >= MIN_STAKERS) {
 				return #err("Bootstrap period max stakers limit reached");
 			};
 
-			// During bootstrap, check if user has already staked
+			// During bootstrap, strictly check if user has already staked
 			switch (Map.get(userStakes, phash, caller)) {
 				case (?existingStakes) {
-					if (existingStakes.size() > 0) {
-						return #err("During bootstrap period you can only stake once. Please wait for bootstrap period to end for additional stakes");
-					};
+					return #err("During bootstrap period you can only have 1 active stake. Please wait for bootstrap period to end for additional stakes");
 				};
 				case (null) {};
 			};
 
 			// Check max stake per address during bootstrap
-			let userTotalStake = switch (Map.get(userStakes, phash, caller)) {
-				case (?existingStakes) {
-					var total = 0;
-					for (stakeId in existingStakes.vals()) {
-						switch (Map.get(stakes, nhash, stakeId)) {
-							case (?stake) { total += stake.amount };
-							case (null) {};
-						};
-					};
-					total + transfer.amount;
-				};
-				case (null) { transfer.amount };
-			};
-
-			if (userTotalStake > MAX_STAKE_PER_ADDRESS) {
+			if (transfer.amount > MAX_STAKE_PER_ADDRESS) {
 				return #err("Exceeds maximum stake allowed per address during bootstrap period");
 			};
 		};
@@ -283,7 +267,7 @@ actor class DoxaStaking() = this {
 
 		pool := { pool with totalStaked = newTotalStaked };
 
-		// Stotransactionre  block index for later query
+		// Store transaction block index for later query
 		switch (Map.get(stakeBlockIndices, phash, transfer.from.owner)) {
 			case (?existingIndices) {
 				Map.set(stakeBlockIndices, phash, transfer.from.owner, Array.append(existingIndices, [blockIndex]));
@@ -398,7 +382,7 @@ actor class DoxaStaking() = this {
     4. Returning final reward amount
     */
 
-	public shared ({ caller }) func calculateUserWeeklyReward(stakeId : Types.StakeId) : async Result.Result<Float, Text> {
+	public shared ({ caller }) func calculateUserWeeklyReward(stakeId : Types.StakeId) : async Result.Result<(Float, Float), Text> {
 		// Pehle check karo ki user ke paas ye stake ID hai ya nahi
 		let userStakeIds = switch (Map.get(userStakes, phash, caller)) {
 			case (null) return #err("No stakes found for user");
@@ -454,7 +438,7 @@ actor class DoxaStaking() = this {
 		let totalWeight = await getTotalWeight();
 
 		// Get total fee collected and calculate 30% as total rewards
-		let totalFeeCollected = await getTotalFeeCollectedAmount();
+		let totalFeeCollected = await getTotalFeeCollected();
 		let totalRewards = (Float.fromInt(totalFeeCollected) / 1_000_000.0) * (30.0 / 100.0); // Pehle decimal adjustment, phir 30% calculation
 
 		var rewardShare = totalRewards * (userWeight / totalWeight);
@@ -464,8 +448,13 @@ actor class DoxaStaking() = this {
 			return #err("Reward amount zero hai. Kripya apna stake amount badhaye ya lockup duration badhaye");
 		};
 
-		return #ok(finalReward);
+		// Calculate APY
+		// APY = ((1 + Weekly Reward)^52 - 1) × 100%
+		let apy = (Float.pow(1.0 + finalReward, 52.0) - 1.0) * 100.0;
+
+		return #ok((finalReward, apy));
 	};
+	
 
 	private func getTotalWeight() : async Float {
 		var totalWeight : Float = 0.0;
@@ -847,14 +836,6 @@ actor class DoxaStaking() = this {
 
 	public query func getLastProcessedTxId() : async Nat {
 		lastProcessedTxId;
-	};
-
-	// Calculate total rewards based on total fee collected
-	func calculateTotalRewards() : Nat {
-		// 30% of total fee collected
-		let totalFees = totalFeeCollected;
-		return (totalFees * 30) / 100;
-
 	};
 
 	// Get total fee collected from fee collector transactions
