@@ -1,0 +1,55 @@
+type TransferError = 
+ variant {
+   BadBurn: record {min_burn_amount: nat;};
+   BadFee: record {expected_fee: nat;};
+   CreatedInFuture: record {ledger_time: nat64;};
+   Duplicate: record {duplicate_of: nat;};
+   GenericError: record {
+                   error_code: nat;
+                   message: text;
+                 };
+   InsufficientFunds: record {balance: nat;};
+   TemporarilyUnavailable;
+   TooOld;
+ };
+type Tokens = variant {USDx;};
+type ResultErrorLog = 
+ record {
+   error:
+    variant {
+      CkUDSCTransferError: TransferError;
+      ExchangeRateError: ExchangeRateError;
+      FailedToAdjustReserve: Tokens;
+      USDxBurnTransferError: TransferError;
+    };
+   timestamp: nat64;
+ };
+type ExchangeRateError = 
+ variant {
+   AnonymousPrincipalNotAllowed;
+   CryptoBaseAssetNotFound;
+   CryptoQuoteAssetNotFound;
+   FailedToAcceptCycles;
+   ForexAssetsNotFound;
+   ForexBaseAssetNotFound;
+   ForexInvalidTimestamp;
+   ForexQuoteAssetNotFound;
+   InconsistentRatesReceived;
+   NotEnoughCycles;
+   Other: record {
+            code: nat32;
+            description: text;
+          };
+   Pending;
+   RateLimited;
+   StablecoinRateNotFound;
+   StablecoinRateTooFewRates;
+   StablecoinRateZeroRate;
+ };
+service : {
+  get_error_result_log: () -> (vec ResultErrorLog) query;
+  get_usd_usdc_rate: () -> (record {
+                              rate: float64;
+                              timestamp: nat64;
+                            }) query;
+}
