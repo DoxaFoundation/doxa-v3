@@ -84,4 +84,5 @@
 	},
 	"output_env_file": "src/frontend/.env",
 	"version": 1
+	
 }
