@@ -1,0 +1,102 @@
+type Transaction = 
+ record {
+   amount: nat;
+   from: principal;
+   method: text;
+   time: Time;
+   to: principal;
+ };
+type Tokens = variant {USDx;};
+type Time = int;
+type StakingPool = 
+ record {
+   endTime: Time;
+   lockDuration: nat;
+   minimumStake: nat;
+   name: text;
+   rewardSymbol: text;
+   rewardToken: text;
+   rewardTokenFee: float64;
+   stakingSymbol: text;
+   stakingToken: text;
+   startTime: Time;
+   totalRewardPerSecond: nat;
+   totalStaked: nat;
+ };
+type StakeMatric = 
+ record {
+   apy: float64;
+   bootstrapMultiplier: float64;
+   finalReward: float64;
+   lockDuration: int;
+   lockupWeight: int;
+   proportion: float64;
+   stakeId: StakeId;
+   totalFeeCollected: nat;
+   totalWeight: float64;
+   userWeight: float64;
+ };
+type StakeId = nat;
+type Stake = 
+ record {
+   amount: nat;
+   id: StakeId;
+   lastHarvestTime: int;
+   lockEndTime: int;
+   stakeTime: int;
+   staker: principal;
+ };
+type Result_4 = 
+ variant {
+   err: text;
+   ok: StakeMatric;
+ };
+type Result_3 = 
+ variant {
+   err: text;
+   ok: float64;
+ };
+type Result_2 = 
+ variant {
+   err: text;
+   ok: nat;
+ };
+type Result_1 = 
+ variant {
+   err: text;
+   ok: Transaction;
+ };
+type Result = 
+ variant {
+   err: text;
+   ok;
+ };
+type DoxaStaking = 
+ service {
+   calculateUserStakeMatric: (StakeId, principal) -> (Result_4);
+   calculateUserWeeklyStakeWeight: (StakeId) -> (Result_3);
+   getBootstrapMultiplier: () -> (Result_3);
+   getBootstrapStatus: () ->
+    (record {
+       isBootstrapPhase: bool;
+       timeRemaining: int;
+     }) query;
+   getFeeCollectorBalance: () -> (nat);
+   getLastProcessedTxId: () -> (nat) query;
+   getLockupWeight: (nat) -> (Result_2);
+   getPoolData: () -> (StakingPool);
+   getStakingAccount: (Tokens) -> (Account);
+   getTotalFeeCollected: () -> (nat);
+   getTotalFeeCollectedAmount: () -> (nat) query;
+   getTransactionFromBlockIndex: (nat) -> (Result_1);
+   getUserStakeDetails: () -> (vec Stake) query;
+   getUserTransactions: () -> (vec Transaction);
+   notifyStake: (nat, nat) -> (Result);
+   unstake: (StakeId) -> (Result);
+ };
+type Account = 
+ record {
+   owner: principal;
+   subaccount: opt blob;
+ };
+service : () -> DoxaStaking
