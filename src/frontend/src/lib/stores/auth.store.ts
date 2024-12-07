@@ -7,6 +7,8 @@ import { getActors } from '../actor';
 import { goto } from '$app/navigation';
 import { type Principal } from '@dfinity/principal';
 import { getActorsFromPlug } from '$lib/plug';
+import type { IcrcIndexNgCanister } from '@dfinity/ledger-icrc';
+import { getCkUsdcIndexActor, getUsdxIndexActor } from '$lib/icrc';
 
 export interface AuthStoreData {
 	isAuthenticated: boolean;
@@ -16,6 +18,8 @@ export interface AuthStoreData {
 	usdx: ActorSubclass<ICRC_LEDGER_SERVICE>;
 	identityProvider: string;
 	principal: Principal;
+	// usdxIndex: IcrcIndexNgCanister;
+	// ckUsdcIndex: IcrcIndexNgCanister;
 }
 
 export interface AuthStore extends Readable<AuthStoreData> {
@@ -31,6 +35,9 @@ const anonIdentity = new AnonymousIdentity();
 const anonPrincipal: Principal = anonIdentity.getPrincipal();
 const anonActors = await getActors(anonIdentity);
 
+// const usdxIndex = await getUsdxIndexActor();
+// const ckUsdcIndex = await getCkUsdcIndexActor();
+
 const init = async (): Promise<AuthStore> => {
 	const { subscribe, set } = writable<AuthStoreData>({
 		isAuthenticated: false,
@@ -40,6 +47,8 @@ const init = async (): Promise<AuthStore> => {
 		principal: anonPrincipal,
 		ckUsdc: anonActors.ckUsdcActor,
 		usdx: anonActors.usdxActor
+		// usdxIndex,
+		// ckUsdcIndex
 	});
 
 	runOnDesktopExceptSafari(async () => {
@@ -63,6 +72,8 @@ const init = async (): Promise<AuthStore> => {
 					usdx: usdxActor,
 					identityProvider: 'ii',
 					principal: signIdentity.getPrincipal()
+					// usdxIndex,
+					// ckUsdcIndex
 				});
 			}
 			return set({
@@ -73,6 +84,8 @@ const init = async (): Promise<AuthStore> => {
 				principal: anonPrincipal,
 				ckUsdc: anonActors.ckUsdcActor,
 				usdx: anonActors.usdxActor
+				// usdxIndex,
+				// ckUsdcIndex
 			});
 		},
 		signInWithII: async () =>
@@ -117,6 +130,8 @@ const init = async (): Promise<AuthStore> => {
 				principal: anonPrincipal,
 				ckUsdc: anonActors.ckUsdcActor,
 				usdx: anonActors.usdxActor
+				// usdxIndex,
+				// ckUsdcIndex
 			});
 		},
 		signInWithPlug: async () => {
@@ -150,7 +165,7 @@ const plug = window?.ic?.plug;
 const checkPlugConnectionIfTrueUpdateAuth = async (
 	set: (this: void, value: AuthStoreData) => void
 ) => {
-	let isAuthenticated = await plug?.isConnected();
+	const isAuthenticated = await plug?.isConnected();
 	if (isAuthenticated) {
 		const { stablecoinMinterActor, ckUsdcActor, usdxActor } = await getActorsFromPlug();
 		const principal = await plug.getPrincipal();
@@ -163,6 +178,8 @@ const checkPlugConnectionIfTrueUpdateAuth = async (
 			principal,
 			ckUsdc: ckUsdcActor,
 			usdx: usdxActor
+			// usdxIndex,
+			// ckUsdcIndex
 		});
 	}
 };
@@ -181,6 +198,8 @@ const onConnectionUpdateHelper = async (set: (this: void, value: AuthStoreData) 
 			principal,
 			ckUsdc: ckUsdcActor,
 			usdx: usdxActor
+			// usdxIndex,
+			// ckUsdcIndex
 		});
 	} else {
 		set({
@@ -191,6 +210,8 @@ const onConnectionUpdateHelper = async (set: (this: void, value: AuthStoreData) 
 			principal: anonPrincipal,
 			ckUsdc: anonActors.ckUsdcActor,
 			usdx: anonActors.usdxActor
+			// usdxIndex,
+			// ckUsdcIndex
 		});
 	}
 };
@@ -228,6 +249,8 @@ const connectPlug = async (set: (this: void, value: AuthStoreData) => void) => {
 				principal: anonPrincipal,
 				ckUsdc: anonActors.ckUsdcActor,
 				usdx: anonActors.usdxActor
+				// usdxIndex,
+				// ckUsdcIndex
 			});
 		}
 	} else {
@@ -240,6 +263,8 @@ const connectPlug = async (set: (this: void, value: AuthStoreData) => void) => {
 			principal: anonPrincipal,
 			ckUsdc: anonActors.ckUsdcActor,
 			usdx: anonActors.usdxActor
+			// usdxIndex,
+			// ckUsdcIndex
 		});
 	}
 };
