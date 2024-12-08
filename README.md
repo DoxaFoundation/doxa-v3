@@ -120,10 +120,16 @@ Note: APY calculations include compound interest (reinvesting weekly rewards) ov
 # Install Vessel on Your System
 
 Follow these steps to download and install Vessel:
-
 1. **Download Vessel**
+   
+   For Linux:
    ```bash
    wget https://github.com/dfinity/vessel/releases/download/v0.7.0/vessel-linux64
+   ```
+
+   For macOS:
+   ```bash
+   wget https://github.com/dfinity/vessel/releases/download/v0.7.0/vessel-macos
    ```
 
 2. **Rename the File**
