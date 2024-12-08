@@ -1,5 +1,22 @@
+\# IDE and Editor files
 .DS_Store
+.vscode
+.idea
+*.swp
+*.swo
+
+# Node and NPM
 node_modules
+/build
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn-integrity
+package-lock.json
+
+# DFX and Internet Computer
+.dfx
 /build
 /.svelte-kit
 /package
@@ -8,7 +25,31 @@ node_modules
 !.env.example
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
-.dfx
+
+# Vessel and Motoko
+.vessel
 deps
 .mops
 canister_ids.json
+
+# Test outputs
+test/_out
+coverage
+.nyc_output
+
+# Cache directories
+.cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Build outputs
+dist
+.next
+.nuxt
+build/Release
+
+# Logs
+logs
+*.log
