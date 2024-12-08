@@ -115,3 +115,92 @@ Note: Actual APY may vary based on:
 
 Note: APY calculations include compound interest (reinvesting weekly rewards) over a full year.
 
+# test
+
+# Install Vessel on Your System
+
+Follow these steps to download and install Vessel:
+
+1. **Download Vessel**
+   ```bash
+   wget https://github.com/dfinity/vessel/releases/download/v0.7.0/vessel-linux64
+   ```
+
+2. **Rename the File**
+   ```bash
+   mv vessel-linux64 vessel
+   ```
+
+3. **Make the File Executable**
+   ```bash
+   chmod +x vessel
+   ```
+
+4. **Install System-Wide**
+   ```bash
+   sudo mv vessel /usr/local/bin/
+   ```
+
+## Verify Installation
+
+1. **Check if Vessel is Installed**
+   ```bash
+   which vessel
+   ```
+
+2. **Verify Vessel Version**
+   ```bash
+   vessel --version
+   ```
+
+3. **Clean Up**
+   If Vessel is successfully installed, you can remove the original downloaded file:
+   ```bash
+   rm vessel-linux64
+   ```
+
+
+## Troubleshooting
+
+If you face issues moving Vessel to `/usr/local/bin/`:
+
+1. Ensure you type the correct password when prompted for `sudo`.
+2. Verify if your user has `sudo` privileges:
+   ```bash
+   sudo -v
+   ```
+3. If you keep facing issues, double-check the current location of Vessel:
+   ```bash
+   which vessel
+   ```
+
+
+## Additional Tools (`mo-doc` and `mo-ide`)
+
+Make sure these tools are also placed in `/usr/local/bin/` for system-wide availability:
+
+1. **Move Tools to `/usr/local/bin/`**
+   ```bash
+   sudo mv mo-doc /usr/local/bin/
+   sudo mv mo-ide /usr/local/bin/
+   ```
+
+2. **Make Them Executable**
+   ```bash
+   sudo chmod +x /usr/local/bin/mo-doc
+   sudo chmod +x /usr/local/bin/mo-ide
+   ```
+
+3. **Verify Their Installation**
+   ```bash
+   which mo-doc
+   which mo-ide
+   ```
+
+This ensures a clean project directory and makes the tools accessible across all projects.
+
+
+## Tests run
+ ```bash
+ make test
+   ```
