@@ -161,20 +161,6 @@ actor class DoxaStaking() = this {
 		};
 	};
 
-
-	// Weight factors for different lockup periods
-	public shared ({ caller }) func getLockupWeight(duration : Nat) : async Result.Result<Nat, Text> {
-		// Validate caller has active stakes
-		switch (Map.get(userStakes, phash, caller)) {
-			case (null) return #err("No stakes found for user");
-			case (?_) {};
-		};
-		if (duration >= 31_104_000) return #ok(4); // 360 days in seconds
-		if (duration >= 23_328_000) return #ok(3); // 270 days in seconds
-		if (duration >= 15_552_000) return #ok(2); // 180 days in seconds
-		return #ok(1); // Default for 90 days
-	};
-
 	/*
     The calculateUserWeeklyStakeWeight function is responsible for:
     1. Calculating user's stake weight based on:

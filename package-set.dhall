@@ -8,6 +8,11 @@ let additions = [
   , version = "v1.3.0"
   , dependencies = [] : List Text
   },
+  { name = "map"
+  , repo = "https://github.com/dfinity/motoko-base"
+  , version = "master"
+  , dependencies = [] : List Text
+  },
   { name = "mops"
   , repo = "https://github.com/ZenVoich/mops"
   , version = "main"  -- Changed from v0.13.5 to main

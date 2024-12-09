@@ -210,3 +210,7 @@ This ensures a clean project directory and makes the tools accessible across all
  ```bash
  make test
    ```
+ ```bash
+./scripts/test.sh
+
+ ```

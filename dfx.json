@@ -33,6 +33,13 @@
 			"main": "src/backend/staking/main.mo",
 			"type": "motoko"
 		},
+		"test": {
+			"main": "src/test/staking_test.mo",
+			"type": "motoko",
+			"dependencies": [
+				"staking_canister"
+			]
+		},
 		"frontend": {
 			"dependencies": [
 				"internet_identity"
@@ -79,6 +86,7 @@
 	},
 	"defaults": {
 		"build": {
+			"args": "",
 			"packtool": "mops sources"
 		}
 	},
