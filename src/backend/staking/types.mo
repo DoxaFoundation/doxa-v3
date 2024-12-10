@@ -62,4 +62,20 @@ module {
 		lockDuration : Nat; // Lock duration in seconds
 	};
 
+	public type Tokens = {
+		#USDx;
+	};
+	public type StakeMatric = {
+		stakeId : StakeId;
+		lockDuration : Int;
+		lockupWeight : Int;
+		bootstrapMultiplier : Float;
+		proportion : Float;
+		userWeight : Float;
+		totalWeight : Float;
+		totalFeeCollected : Nat;
+		finalReward : Float;
+		apy : Float;
+	};
+
 };

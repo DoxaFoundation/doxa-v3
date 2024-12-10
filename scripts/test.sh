@@ -1,5 +1,5 @@
 dfx deploy staking_canister
-sleep 5
+sleep 10
 dfx deploy test
-sleep 5
+sleep 10
 dfx canister call test test

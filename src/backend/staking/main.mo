@@ -234,7 +234,7 @@ actor class DoxaStaking() = this {
     3. Printing debug info about calculations
     4. Returning final reward amount
     */
-    type StakeMatric = {
+   public type StakeMatric = {
 		stakeId : Types.StakeId;
 		lockDuration : Int;
 		lockupWeight : Int;
