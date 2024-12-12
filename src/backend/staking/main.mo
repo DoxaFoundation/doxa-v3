@@ -48,7 +48,7 @@ actor class DoxaStaking() = this {
 			};
 			#Err : Text;
 		};
-	} = actor ("bd3sg-teaaa-aaaaa-qaaba-cai");
+	} = actor ("br5f7-7uaaa-aaaaa-qaaca-cai");
 
 	// Lock duration and bootstrap constants in nanoseconds
 	private let MIN_LOCK_DURATION_IN_NANOS : Nat = 2_592_000_000_000_000; // 30 days minimum
@@ -73,7 +73,6 @@ actor class DoxaStaking() = this {
 		stakingToken = "doxa-dollar";
 		rewardSymbol = "USDx";
 		rewardToken = "doxa-dollar";
-		totalRewardPerSecond = 100_000; // Base reward rate
 		minimumStake = 10_000_000; // 10 tokens with 6 decimals
 		lockDuration = MIN_LOCK_DURATION_IN_NANOS;
 	};
@@ -84,7 +83,7 @@ actor class DoxaStaking() = this {
 	private stable let stakes = Map.new<Types.StakeId, Types.Stake>();
 	private stable let userStakes = Map.new<Principal, [Types.StakeId]>();
 	private stable let earlyStakers = Map.new<Principal, Float>(); // Maps early stakers to their multiplier
-    private let stakeMetrics = Map.new<Principal, StakeMatric>();
+    // private let stakeMetrics = Map.new<Principal, StakeMatric>();
 	private stable var bootstrapStartTime : Time.Time = 0;
 	private stable var isBootstrapPhase : Bool = true;
 
@@ -246,7 +245,8 @@ actor class DoxaStaking() = this {
 		finalReward : Float;
 		apy : Float;
 	};
-
+    // Using composite key of Principal and StakeId to uniquely identify metrics
+    private stable var stakeMetrics : [(Text, StakeMatric)] = [];
 
 	public shared func calculateUserStakeMatric(stakeId : Types.StakeId, caller : Principal) : async Result.Result<StakeMatric, Text> {
 		// Pehle check karo ki user ke paas ye stake ID hai ya nahi
@@ -331,8 +331,11 @@ actor class DoxaStaking() = this {
             apy;
         };
 
-        // Store stake metric in map
-        ignore Map.put(stakeMetrics, phash, caller, stakeMetric);
+        // Create composite key using principal and stakeId
+        let compositeKey = Principal.toText(caller) # "_" # Nat.toText(stakeId);
+        
+        // Store stake metric in array
+        stakeMetrics := Array.append(stakeMetrics, [(compositeKey, stakeMetric)]);
 
 		return #ok(stakeMetric);
 	};

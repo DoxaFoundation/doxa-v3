@@ -6,6 +6,7 @@ import Principal "mo:base/Principal";
 // import Time "mo:base/Time";
 import Result "mo:base/Result";
 import Debug "mo:base/Debug";
+import Error "mo:base/Error";
 import Types "../backend/staking/types";
 
 actor {
@@ -17,17 +18,12 @@ actor {
 	type StakeId = Types.StakeId;
 	type Stake = Types.Stake;
 	type StakeMatric = Types.StakeMatric;
+	type StakingPool = Types.StakingPool;
 
 	let it = C.Tester({ batchSize = 8 });
-	let staking = actor ("be2us-64aaa-aaaaa-qaabq-cai") : actor {
+	let staking = actor ("bw4dl-smaaa-aaaaa-qaacq-cai") : actor {
 		getBootstrapStatus : shared () -> async { isBootstrapPhase : Bool; timeRemaining : Int };
-		getPoolData : shared () -> async {
-			name : Text;
-			totalStaked : Nat;
-			totalStakers : Nat;
-			minStakeAmount : Nat;
-			maxStakeAmount : Nat;
-		};
+		getPoolData : shared () -> async StakingPool;
 		notifyStake : shared (amount : Nat, lockupPeriod : Nat) -> async Result.Result<(), Text>;
 		getBootstrapMultiplier : shared () -> async Result.Result<Float, Text>;
 		calculateUserStakeMatric : shared (stakeIndex : Nat, user : Principal) -> async Result.Result<StakeMatric, Text>;
@@ -182,11 +178,27 @@ actor {
 		);
 
 		// Test pool data
+		// ... existing code ...
+
 		it.should(
 			"get initial pool data",
 			func() : async C.TestResult = async {
 				let poolData = await staking.getPoolData();
-				M.attempt(poolData.name, M.equals(T.text("Doxa Dynamic Staking")));
+				try {
+					M.attempt(
+						poolData.name == "Doxa Dynamic Staking" and
+						poolData.rewardSymbol == "USDx" and
+						poolData.rewardToken == "doxa-dollar" and
+						poolData.stakingSymbol == "USDx" and
+						poolData.stakingToken == "doxa-dollar" and
+						poolData.minimumStake == 10_000_000 ,
+						// poolData.rewardTokenFee == 0.05,
+						M.equals(T.bool(true))
+					);
+				} catch (e) {
+					Debug.print("Error in pool data test: " # Error.message(e));
+					M.attempt(false, M.equals(T.bool(true)));
+				};
 			}
 		);
 
@@ -228,100 +240,130 @@ actor {
 
 		// Test stake metrics calculation
 		it.should(
-			"calculate stake metrics correctly for various lockup periods and block indices",
+			"calculate stake metrics correctly for bootstrap phase single stake",
 			func() : async C.TestResult = async {
 				let testPrincipal = createTestPrincipal("aaaaa-aa");
+
+				// Check bootstrap status first
+				let bootstrapStatus = await staking.getBootstrapStatus();
+				Debug.print("Bootstrap Status: " # debug_show(bootstrapStatus));
 
 				// Test random lockup periods between min and max
 				let minLockup = 2_592_000_000_000_000; // 30 days
 				let maxLockup = 31_536_000_000_000_000; // 365 days
 
-				// Test cases with different lockup periods
-				let testCases = [
-					// Edge cases
-					(1, minLockup), // Minimum lockup
-					(1, maxLockup), // Maximum lockup
-					// Random periods in between
-					(1, minLockup + (maxLockup - minLockup) / 3),
-					(1, minLockup + (maxLockup - minLockup) / 2),
-					(1, maxLockup - (maxLockup - minLockup) / 4)
-				];
+				// Single test case for bootstrap phase
+				let amount = 1;
+				let lockPeriod = minLockup + (maxLockup - minLockup) / 2; // Middle duration
 
 				var testsPassed = true;
 
-				for ((amount, lockPeriod) in testCases.vals()) {
-					ignore await staking.notifyStake(amount, lockPeriod);
+				// First stake should succeed
+				let stakeResult = await staking.notifyStake(amount, lockPeriod);
+				switch(stakeResult) {
+					case (#ok(_)) {
+						// Test with diverse block indices
+						let blockIndices = [
+							0, // Start
+							100, // Early
+							1000, // Mid
+							10000, // Later
+							100000 // Much later
+						];
 
-					// Test with more diverse block indices
-					let blockIndices = [
-						0, // Start
-						100, // Early
-						1000, // Mid
-						10000, // Later
-						100000 // Much later
-					];
+						for (blockIndex in blockIndices.vals()) {
+							Debug.print("Testing blockIndex: " # debug_show(blockIndex));
+							
+							let result = await staking.calculateUserStakeMatric(blockIndex, testPrincipal);
 
-					for (blockIndex in blockIndices.vals()) {
-						let result = await staking.calculateUserStakeMatric(blockIndex, testPrincipal);
+							switch (result) {
+								case (#ok(metrics)) {
+									// Lockup weight validation
+									let MIN_LOCK_DURATION_IN_NANOS : Nat = 2_592_000_000_000_000; // 30 days minimum
+									let MAX_LOCK_DURATION_IN_NANOS : Nat = 31_536_000_000_000_000; // 365 days maximum
 
-						switch (result) {
-							case (#ok(metrics)) {
-								// Lockup weight validation - check if weight is between min (1) and max (4)
-								// Weight increases with longer lockup periods (90d=1, 180d=2, 270d=3, 360d=4)
-								let expectedMinWeight = 1;
-								let expectedMaxWeight = 4;
-								if (
-									metrics.lockupWeight < expectedMinWeight or
-									metrics.lockupWeight > expectedMaxWeight
-								) {
+									if (metrics.lockupWeight < MIN_LOCK_DURATION_IN_NANOS or metrics.lockupWeight > MAX_LOCK_DURATION_IN_NANOS) {
+										Debug.print("❌ Invalid lockupWeight: " # debug_show(metrics.lockupWeight));
+										testsPassed := false;
+									};
+
+									// Stake ID validation
+									if (metrics.stakeId < 0) {
+										Debug.print("❌ Invalid stakeId: " # debug_show(metrics.stakeId));
+										testsPassed := false;
+									};
+
+									// Lock duration validation
+									if (metrics.lockDuration <= 0) {
+										Debug.print("❌ Invalid lockDuration: " # debug_show(metrics.lockDuration));
+										testsPassed := false;
+									};
+
+									// Bootstrap multiplier validation
+									if (metrics.bootstrapMultiplier < 1.0) {
+										Debug.print("❌ Invalid bootstrapMultiplier: " # debug_show(metrics.bootstrapMultiplier));
+										testsPassed := false;
+									};
+
+									// Proportion validation
+									if (metrics.proportion <= 0.0 or metrics.proportion > 1.0) {
+										Debug.print("❌ Invalid proportion: " # debug_show(metrics.proportion));
+										testsPassed := false;
+									};
+
+									// User weight validation
+									if (metrics.userWeight <= 0.0) {
+										Debug.print("❌ Invalid userWeight: " # debug_show(metrics.userWeight));
+										testsPassed := false;
+									};
+
+									// Total weight validation
+									if (metrics.totalWeight <= 0.0) {
+										Debug.print("❌ Invalid totalWeight: " # debug_show(metrics.totalWeight));
+										testsPassed := false;
+									};
+
+									// Final reward validation
+									if (metrics.finalReward < 0.0) {
+										Debug.print("❌ Invalid finalReward: " # debug_show(metrics.finalReward));
+										testsPassed := false;
+									};
+
+									// APY validation
+									if (metrics.apy < 0.0) {
+										Debug.print("❌ Invalid APY: " # debug_show(metrics.apy));
+										testsPassed := false;
+									};
+
+									// Print successful metrics for debugging
+									if (testsPassed) {
+										Debug.print("✅ All metrics valid for blockIndex: " # debug_show(blockIndex));
+										Debug.print("Metrics: " # debug_show(metrics));
+									};
+								};
+								case (#err(error)) {
+									Debug.print("❌ Error occurred: " # debug_show(error));
 									testsPassed := false;
 								};
-
-								// Validate stake ID is a natural number
-								if (metrics.stakeId < 0) {
-									testsPassed := false;
-								};
-
-								// Lock duration must be positive (future end time - current time)
-								if (metrics.lockDuration <= 0) {
-									testsPassed := false;
-								};
-
-								// Bootstrap multiplier should be >= 1.0 (1.0 for normal stakers, >1.0 for early stakers)
-								if (metrics.bootstrapMultiplier < 1.0) {
-									testsPassed := false;
-								};
-
-								// Proportion represents user's stake vs total stake, must be between 0-1
-								if (metrics.proportion <= 0.0 or metrics.proportion > 1.0) {
-									testsPassed := false;
-								};
-
-								// User weight combines proportion, lockup weight and bootstrap multiplier
-								// Must be positive
-								if (metrics.userWeight <= 0.0) {
-									testsPassed := false;
-								};
-
-								// Total weight is sum of all user weights, must be positive
-								if (metrics.totalWeight <= 0.0) {
-									testsPassed := false;
-								};
-
-								// Final reward is user's share of total rewards, cannot be negative
-								if (metrics.finalReward < 0.0) {
-									testsPassed := false;
-								};
-
-								// APY (Annual Percentage Yield) must be non-negative
-								if (metrics.apy < 0.0) {
-									testsPassed := false;
-								};
-							};
-							case (#err(_)) {
-								testsPassed := false;
 							};
 						};
+
+						// Try second stake - should fail in bootstrap phase
+						let secondStakeResult = await staking.notifyStake(amount, lockPeriod);
+						switch(secondStakeResult) {
+							case (#ok(_)) {
+								Debug.print("❌ Second stake succeeded when it should fail in bootstrap phase");
+								testsPassed := false;
+							};
+							case (#err(_)) {
+								Debug.print("✅ Second stake correctly rejected in bootstrap phase");
+							};
+						};
+
+					};
+					case (#err(error)) {
+						Debug.print("❌ First stake failed: " # debug_show(error));
+						testsPassed := false;
 					};
 				};
 

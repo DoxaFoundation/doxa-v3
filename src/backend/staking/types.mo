@@ -16,7 +16,6 @@ module {
 		stakingToken : Text; // doxa dollar
 		rewardSymbol : Text; // Reward token symbol
 		rewardToken : Text; // Reward token canister ID
-		totalRewardPerSecond : Nat; // Rewards distributed per second
 		minimumStake : Nat; // Minimum stake amount
 		lockDuration : Nat; // Lock duration in seconds
 	};
