@@ -34,7 +34,7 @@
 			"type": "motoko"
 		},
 		"test": {
-			"main": "src/test/staking_test.mo",
+			"main": "src/test/main.mo",
 			"type": "motoko",
 			"dependencies": [
 				"staking_canister"

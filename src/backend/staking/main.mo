@@ -48,7 +48,7 @@ actor class DoxaStaking() = this {
 			};
 			#Err : Text;
 		};
-	} = actor ("br5f7-7uaaa-aaaaa-qaaca-cai");
+	} = actor ("bd3sg-teaaa-aaaaa-qaaba-cai");
 
 	// Lock duration and bootstrap constants in nanoseconds
 	private let MIN_LOCK_DURATION_IN_NANOS : Nat = 2_592_000_000_000_000; // 30 days minimum
@@ -245,8 +245,16 @@ actor class DoxaStaking() = this {
 		finalReward : Float;
 		apy : Float;
 	};
+
+	private stable var stakeMetrics : [(Text, StakeMatric)] = [];
     // Using composite key of Principal and StakeId to uniquely identify metrics
-    private stable var stakeMetrics : [(Text, StakeMatric)] = [];
+    public query ({ caller }) func getStakeMetrics(stakeId : Types.StakeId) : async [(Text, StakeMatric)] {
+        return Array.filter<(Text, StakeMatric)>(stakeMetrics, func(metric) { metric.1.stakeId == stakeId and metric.0 == Principal.toText(caller) });
+    };
+    public query ({ caller }) func iterateAllStakes() : async [(Text, StakeMatric)] {
+        return Array.filter<(Text, StakeMatric)>(stakeMetrics, func(metric) { metric.0 == Principal.toText(caller) });
+    };
+
 
 	public shared func calculateUserStakeMatric(stakeId : Types.StakeId, caller : Principal) : async Result.Result<StakeMatric, Text> {
 		// Pehle check karo ki user ke paas ye stake ID hai ya nahi
@@ -328,7 +336,7 @@ actor class DoxaStaking() = this {
             totalWeight;
             totalFeeCollected;
             finalReward;
-            apy;
+            apy; 
         };
 
         // Create composite key using principal and stakeId

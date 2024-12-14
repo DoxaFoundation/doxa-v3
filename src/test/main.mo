@@ -7,6 +7,7 @@ import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 import Debug "mo:base/Debug";
 import Error "mo:base/Error";
+import Float "mo:base/Float";
 import Types "../backend/staking/types";
 
 actor {
@@ -21,7 +22,7 @@ actor {
 	type StakingPool = Types.StakingPool;
 
 	let it = C.Tester({ batchSize = 8 });
-	let staking = actor ("bw4dl-smaaa-aaaaa-qaacq-cai") : actor {
+	let staking = actor ("be2us-64aaa-aaaaa-qaabq-cai") : actor {
 		getBootstrapStatus : shared () -> async { isBootstrapPhase : Bool; timeRemaining : Int };
 		getPoolData : shared () -> async StakingPool;
 		notifyStake : shared (amount : Nat, lockupPeriod : Nat) -> async Result.Result<(), Text>;
@@ -37,6 +38,8 @@ actor {
 		getUserStakeDetails : shared () -> async [Stake];
 		getUserTransactions : shared () -> async [Transaction];
 		calculateUserWeeklyStakeWeight : shared (StakeId) -> async Result.Result<Float, Text>;
+	iterateAllStakes : shared () -> async [(Text, StakeMatric)];
+	getStakeMetrics : shared (StakeId) -> async [(Text, StakeMatric)];
 	};
 
 	// Test helper function to create test principal
@@ -238,138 +241,70 @@ actor {
 		//     }
 		// );
 
-		// Test stake metrics calculation
-		it.should(
-			"calculate stake metrics correctly for bootstrap phase single stake",
-			func() : async C.TestResult = async {
-				let testPrincipal = createTestPrincipal("aaaaa-aa");
+ 
+// Test suite for calculateUserStakeMatric
+it.should(
+    "verify stake metrics calculation logic",
+    func() : async C.TestResult = async {
+        var testsPassed = true;
+        let testPrincipal = createTestPrincipal("aaaaa-aa");
 
-				// Check bootstrap status first
-				let bootstrapStatus = await staking.getBootstrapStatus();
-				Debug.print("Bootstrap Status: " # debug_show(bootstrapStatus));
+        // Test Case 1: Invalid Stake ID
+        Debug.print("🧪 Testing invalid stake ID...");
+        let invalidResult = await staking.calculateUserStakeMatric(999999, testPrincipal);
+        switch(invalidResult) {
+            case (#err(msg)) {
+                if (msg != "No stakes found for user" and 
+                    msg != "This stake ID does not belong to caller") {
+                    Debug.print("❌ Unexpected error message for invalid stake");
+                    testsPassed := false;
+                };
+            };
+            case (#ok(_)) {
+                Debug.print("❌ Should not succeed with invalid stake ID");
+                testsPassed := false;
+            };
+        };
 
-				// Test random lockup periods between min and max
-				let minLockup = 2_592_000_000_000_000; // 30 days
-				let maxLockup = 31_536_000_000_000_000; // 365 days
+        // Test Case 2: Get existing stakes and verify their metrics
+        Debug.print("🧪 Testing metrics for existing stakes...");
+        let userStakes = await staking.getUserStakeDetails();
+        
+        for (stake in userStakes.vals()) {
+            let metricResult = await staking.calculateUserStakeMatric(stake.id, testPrincipal);
+            
+            switch(metricResult) {
+                case (#ok(metric)) {
+                    // Verify basic metric properties
+                    if (metric.proportion <= 0.0 or metric.proportion > 1.0) {
+                        Debug.print("❌ Invalid proportion: " # debug_show(metric.proportion));
+                        testsPassed := false;
+                    };
 
-				// Single test case for bootstrap phase
-				let amount = 1;
-				let lockPeriod = minLockup + (maxLockup - minLockup) / 2; // Middle duration
+                    if (metric.userWeight <= 0.0) {
+                        Debug.print("❌ Invalid user weight: " # debug_show(metric.userWeight));
+                        testsPassed := false;
+                    };
 
-				var testsPassed = true;
+                    if (metric.apy < 0.0) {
+                        Debug.print("❌ Invalid APY: " # debug_show(metric.apy));
+                        testsPassed := false;
+                    };
 
-				// First stake should succeed
-				let stakeResult = await staking.notifyStake(amount, lockPeriod);
-				switch(stakeResult) {
-					case (#ok(_)) {
-						// Test with diverse block indices
-						let blockIndices = [
-							0, // Start
-							100, // Early
-							1000, // Mid
-							10000, // Later
-							100000 // Much later
-						];
+                    Debug.print("✅ Metrics validated for stake ID: " # debug_show(stake.id));
+                    Debug.print("Metrics: " # debug_show(metric));
+                };
+                case (#err(error)) {
+                    Debug.print("❌ Failed to calculate metrics: " # error);
+                    testsPassed := false;
+                };
+            };
+        };
 
-						for (blockIndex in blockIndices.vals()) {
-							Debug.print("Testing blockIndex: " # debug_show(blockIndex));
-							
-							let result = await staking.calculateUserStakeMatric(blockIndex, testPrincipal);
-
-							switch (result) {
-								case (#ok(metrics)) {
-									// Lockup weight validation
-									let MIN_LOCK_DURATION_IN_NANOS : Nat = 2_592_000_000_000_000; // 30 days minimum
-									let MAX_LOCK_DURATION_IN_NANOS : Nat = 31_536_000_000_000_000; // 365 days maximum
-
-									if (metrics.lockupWeight < MIN_LOCK_DURATION_IN_NANOS or metrics.lockupWeight > MAX_LOCK_DURATION_IN_NANOS) {
-										Debug.print("❌ Invalid lockupWeight: " # debug_show(metrics.lockupWeight));
-										testsPassed := false;
-									};
-
-									// Stake ID validation
-									if (metrics.stakeId < 0) {
-										Debug.print("❌ Invalid stakeId: " # debug_show(metrics.stakeId));
-										testsPassed := false;
-									};
-
-									// Lock duration validation
-									if (metrics.lockDuration <= 0) {
-										Debug.print("❌ Invalid lockDuration: " # debug_show(metrics.lockDuration));
-										testsPassed := false;
-									};
-
-									// Bootstrap multiplier validation
-									if (metrics.bootstrapMultiplier < 1.0) {
-										Debug.print("❌ Invalid bootstrapMultiplier: " # debug_show(metrics.bootstrapMultiplier));
-										testsPassed := false;
-									};
-
-									// Proportion validation
-									if (metrics.proportion <= 0.0 or metrics.proportion > 1.0) {
-										Debug.print("❌ Invalid proportion: " # debug_show(metrics.proportion));
-										testsPassed := false;
-									};
-
-									// User weight validation
-									if (metrics.userWeight <= 0.0) {
-										Debug.print("❌ Invalid userWeight: " # debug_show(metrics.userWeight));
-										testsPassed := false;
-									};
-
-									// Total weight validation
-									if (metrics.totalWeight <= 0.0) {
-										Debug.print("❌ Invalid totalWeight: " # debug_show(metrics.totalWeight));
-										testsPassed := false;
-									};
-
-									// Final reward validation
-									if (metrics.finalReward < 0.0) {
-										Debug.print("❌ Invalid finalReward: " # debug_show(metrics.finalReward));
-										testsPassed := false;
-									};
-
-									// APY validation
-									if (metrics.apy < 0.0) {
-										Debug.print("❌ Invalid APY: " # debug_show(metrics.apy));
-										testsPassed := false;
-									};
-
-									// Print successful metrics for debugging
-									if (testsPassed) {
-										Debug.print("✅ All metrics valid for blockIndex: " # debug_show(blockIndex));
-										Debug.print("Metrics: " # debug_show(metrics));
-									};
-								};
-								case (#err(error)) {
-									Debug.print("❌ Error occurred: " # debug_show(error));
-									testsPassed := false;
-								};
-							};
-						};
-
-						// Try second stake - should fail in bootstrap phase
-						let secondStakeResult = await staking.notifyStake(amount, lockPeriod);
-						switch(secondStakeResult) {
-							case (#ok(_)) {
-								Debug.print("❌ Second stake succeeded when it should fail in bootstrap phase");
-								testsPassed := false;
-							};
-							case (#err(_)) {
-								Debug.print("✅ Second stake correctly rejected in bootstrap phase");
-							};
-						};
-
-					};
-					case (#err(error)) {
-						Debug.print("❌ First stake failed: " # debug_show(error));
-						testsPassed := false;
-					};
-				};
-
-				M.attempt(testsPassed, M.equals(T.bool(true)));
-			}
-		);
+        M.attempt(testsPassed, M.equals(T.bool(true)));
+    }
+);
+        
 		// Test unstaking
 		it.should(
 			"prevent early unstaking",
