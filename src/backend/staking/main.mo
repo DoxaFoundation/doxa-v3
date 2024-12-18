@@ -1,4 +1,3 @@
-
 import Principal "mo:base/Principal";
 import Time "mo:base/Time";
 import Nat "mo:base/Nat";
@@ -16,7 +15,6 @@ import Int64 "mo:base/Int64";
 import Types "types";
 import Icrc "../service/icrc-interface"; // ICRC token interface
 import Map "mo:map/Map";
-
 actor class DoxaStaking() = this {
 	// Token interfaces
 	private let USDx : Icrc.Self = actor ("irorr-5aaaa-aaaak-qddsq-cai"); // USDx token canister
@@ -48,7 +46,7 @@ actor class DoxaStaking() = this {
 			};
 			#Err : Text;
 		};
-	} = actor ("bd3sg-teaaa-aaaaa-qaaba-cai");
+	} = actor ("modmy-byaaa-aaaag-qndgq-cai");
 
 	// Lock duration and bootstrap constants in nanoseconds
 	private let MIN_LOCK_DURATION_IN_NANOS : Nat = 2_592_000_000_000_000; // 30 days minimum
@@ -83,7 +81,7 @@ actor class DoxaStaking() = this {
 	private stable let stakes = Map.new<Types.StakeId, Types.Stake>();
 	private stable let userStakes = Map.new<Principal, [Types.StakeId]>();
 	private stable let earlyStakers = Map.new<Principal, Float>(); // Maps early stakers to their multiplier
-    // private let stakeMetrics = Map.new<Principal, StakeMatric>();
+	// private let stakeMetrics = Map.new<Principal, StakeMatric>();
 	private stable var bootstrapStartTime : Time.Time = 0;
 	private stable var isBootstrapPhase : Bool = true;
 
@@ -233,7 +231,7 @@ actor class DoxaStaking() = this {
     3. Printing debug info about calculations
     4. Returning final reward amount
     */
-   public type StakeMatric = {
+	public type StakeMatric = {
 		stakeId : Types.StakeId;
 		lockDuration : Int;
 		lockupWeight : Int;
@@ -247,14 +245,13 @@ actor class DoxaStaking() = this {
 	};
 
 	private stable var stakeMetrics : [(Text, StakeMatric)] = [];
-    // Using composite key of Principal and StakeId to uniquely identify metrics
-    public query ({ caller }) func getStakeMetrics(stakeId : Types.StakeId) : async [(Text, StakeMatric)] {
-        return Array.filter<(Text, StakeMatric)>(stakeMetrics, func(metric) { metric.1.stakeId == stakeId and metric.0 == Principal.toText(caller) });
-    };
-    public query ({ caller }) func iterateAllStakes() : async [(Text, StakeMatric)] {
-        return Array.filter<(Text, StakeMatric)>(stakeMetrics, func(metric) { metric.0 == Principal.toText(caller) });
-    };
-
+	// Using composite key of Principal and StakeId to uniquely identify metrics
+	public query ({ caller }) func getStakeMetrics(stakeId : Types.StakeId) : async [(Text, StakeMatric)] {
+		return Array.filter<(Text, StakeMatric)>(stakeMetrics, func(metric) { metric.1.stakeId == stakeId and metric.0 == Principal.toText(caller) });
+	};
+	public query ({ caller }) func iterateAllStakes() : async [(Text, StakeMatric)] {
+		return Array.filter<(Text, StakeMatric)>(stakeMetrics, func(metric) { metric.0 == Principal.toText(caller) });
+	};
 
 	public shared func calculateUserStakeMatric(stakeId : Types.StakeId, caller : Principal) : async Result.Result<StakeMatric, Text> {
 		// Pehle check karo ki user ke paas ye stake ID hai ya nahi
@@ -326,24 +323,24 @@ actor class DoxaStaking() = this {
 		// APY = ((1 + Weekly Reward)^52 - 1) × 100%
 		let apy = (Float.pow(1.0 + finalReward, 52.0) - 1.0) * 100.0;
 
-        let stakeMetric = {
-            stakeId;
-            lockDuration;
-            lockupWeight;
-            bootstrapMultiplier;
-            proportion;
-            userWeight;
-            totalWeight;
-            totalFeeCollected;
-            finalReward;
-            apy; 
-        };
+		let stakeMetric = {
+			stakeId;
+			lockDuration;
+			lockupWeight;
+			bootstrapMultiplier;
+			proportion;
+			userWeight;
+			totalWeight;
+			totalFeeCollected;
+			finalReward;
+			apy;
+		};
 
-        // Create composite key using principal and stakeId
-        let compositeKey = Principal.toText(caller) # "_" # Nat.toText(stakeId);
-        
-        // Store stake metric in array
-        stakeMetrics := Array.append(stakeMetrics, [(compositeKey, stakeMetric)]);
+		// Create composite key using principal and stakeId
+		let compositeKey = Principal.toText(caller) # "_" # Nat.toText(stakeId);
+
+		// Store stake metric in array
+		stakeMetrics := Array.append(stakeMetrics, [(compositeKey, stakeMetric)]);
 
 		return #ok(stakeMetric);
 	};
@@ -570,7 +567,7 @@ actor class DoxaStaking() = this {
 				let rewardsInt64 = Float.toInt64(finalRewards);
 				let rewardsNat64 = Int64.toNat64(rewardsInt64);
 
-				// Record transaction first 
+				// Record transaction first
 				let unstakeTx : Types.Transaction = {
 					from = Principal.fromActor(this);
 					to = caller;
@@ -834,7 +831,6 @@ actor class DoxaStaking() = this {
 	//     #nanoseconds(WEEK_IN_NANOSECONDS),
 	//     updateWeeklyRewards
 	// );
-
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////
 	///////////////////////////////////// helper for notifystaking ////////////////////////////////////////

@@ -65,8 +65,13 @@ dfx deploy root_canister
 
 dfx deploy ckusdc_pool
 
-dfx deploy usdx_index
+chmod +x scripts/deploy-usdx-index.sh
 
-dfx deploy staking_canister
+
+dfx deploy staking_canister --specified-id mhahe-xqaaa-aaaag-qndha-cai
+
+dfx canister create usdx_index --specified-id modmy-byaaa-aaaag-qndgq-cai
+chmod +x scripts/deploy-usdx-index.sh
+./scripts/deploy-usdx-index.sh
 
 ./scripts/deploy-usdx-index.sh 
