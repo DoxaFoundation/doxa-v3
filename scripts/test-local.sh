@@ -68,10 +68,29 @@ echo "Generated 20 random staking amount:"
 echo "${staking_amounts[@]}"
 echo "Total sum: $total"
 
+echo "Minting 110000 ckUSDC to default identity for Testing"
+export DEFAULT_ACCOUNT=$(dfx identity get-principal --identity default)
+
+dfx canister call ckusdc_ledger icrc1_transfer "(record{ to=record {owner = principal \"$DEFAULT_ACCOUNT\"} ; amount=110_000_000_000;})" --identity minter
+
+echo "Transfering 110_000 ckUSDC to Doxa Dollar Reserve Account"
+
+# store output to extract block index for notifying minter
+output=$(dfx canister call ckusdc_ledger icrc1_transfer '(record{ to=record {owner = principal "iyn2n-liaaa-aaaak-qddta-cai"; subaccount= opt blob "\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\01";} ; amount=110_000_000_000;})' --identity default)
+
+# Extract the number (block index) using awk for notifying minter
+number=$(echo "$output" | awk -F'Ok = ' '{print $2}' | awk -F' :' '{print $1}')
+
+
+echo "Notifying Doxa Dollar Minter"
+dfx canister call stablecoin_minter notify_mint_with_ckusdc "(record{ ckusdc_block_index=$number; minting_token=variant {USDx}})" --identity default
+
+echo "Minted 110_000 Doxa Dollar in default identity."
+echo
 
 cd src/test
 
-
+TRANSFER_FEE=10000
 
 for i in $(seq 0 $(($no_of_test_canisters - 1))); do
     echo "############################################"
@@ -79,9 +98,14 @@ for i in $(seq 0 $(($no_of_test_canisters - 1))); do
     echo "With Staking Amount = ${staking_amounts[$i]} Doxa Dollar."
     echo "With Staking Period = $((stake_periods[$i]/(1000000000*60*60*24))) days."
 
-    amount=$((staking_amounts[$i]*1000000));
+    amount=$((staking_amounts[$i]*1000000 + TRANSFER_FEE));
     echo
     dfx canister create test_canister_$((i+1))
+
+    export TEST_CANISTER_ID=$(dfx canister id test_canister_$((i+1)))
+
+    dfx canister call usdx_ledger icrc1_transfer "(record{ to=record {owner = principal \"$TEST_CANISTER_ID\"; subaccount= null}; amount =$amount;})" --identity default
+
     dfx deploy test_canister_$((i+1)) --argument "(record { amount=$amount; stakePeriod=${stake_periods[$i]} })"
     echo
 done
