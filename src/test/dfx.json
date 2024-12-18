@@ -1,0 +1,91 @@
+{
+	"canisters": {
+		"test_canister_1": {
+			"main": "staking/main.mo",
+			"type": "motoko"
+		},
+		"test_canister_2": {
+			"main": "staking/main.mo",
+			"type": "motoko"
+		},
+		"test_canister_3": {
+			"main": "staking/main.mo",
+			"type": "motoko"
+		},
+		"test_canister_4": {
+			"main": "staking/main.mo",
+			"type": "motoko"
+		},
+		"test_canister_5": {
+			"main": "staking/main.mo",
+			"type": "motoko"
+		},
+		"test_canister_6": {
+			"main": "staking/main.mo",
+			"type": "motoko"
+		},
+		"test_canister_7": {
+			"main": "staking/main.mo",
+			"type": "motoko"
+		},
+		"test_canister_8": {
+			"main": "staking/main.mo",
+			"type": "motoko"
+		},
+		"test_canister_9": {
+			"main": "staking/main.mo",
+			"type": "motoko"
+		},
+		"test_canister_10": {
+			"main": "staking/main.mo",
+			"type": "motoko"
+		},
+		"test_canister_11": {
+			"main": "staking/main.mo",
+			"type": "motoko"
+		},
+		"test_canister_12": {
+			"main": "staking/main.mo",
+			"type": "motoko"
+		},
+		"test_canister_13": {
+			"main": "staking/main.mo",
+			"type": "motoko"
+		},
+		"test_canister_14": {
+			"main": "staking/main.mo",
+			"type": "motoko"
+		},
+		"test_canister_15": {
+			"main": "staking/main.mo",
+			"type": "motoko"
+		},
+		"test_canister_16": {
+			"main": "staking/main.mo",
+			"type": "motoko"
+		},
+		"test_canister_17": {
+			"main": "staking/main.mo",
+			"type": "motoko"
+		},
+		"test_canister_18": {
+			"main": "staking/main.mo",
+			"type": "motoko"
+		},
+		"test_canister_19": {
+			"main": "staking/main.mo",
+			"type": "motoko"
+		},
+		"test_canister_20": {
+			"main": "staking/main.mo",
+			"type": "motoko"
+		}
+	},
+	"defaults": {
+		"build": {
+			"args": "",
+			"packtool": "mops sources"
+		}
+	},
+	"version": 1
+}
