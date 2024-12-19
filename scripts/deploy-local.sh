@@ -1,9 +1,6 @@
 
-#Pull Internet Identity as a dependencies from the mainnet and deploy locally.
-dfx deps pull
-dfx deps init --argument '(null)' internet_identity
-dfx deps init exchange_rate_canister
-dfx deps deploy 
+dfx deploy internet_identity
+dfx deploy exchange_rate_canister
 
 ########################################################################################
 ########################### Deploy local ICP ledger canister ###########################
