@@ -92,22 +92,47 @@ cd src/test
 
 TRANSFER_FEE=10000
 
-for i in $(seq 0 $(($no_of_test_canisters - 1))); do
-    echo "############################################"
-    echo "Deploying test_canister_$((i+1))..."
-    echo "With Staking Amount = ${staking_amounts[$i]} Doxa Dollar."
-    echo "With Staking Period = $((stake_periods[$i]/(1000000000*60*60*24))) days."
+# Create log file
+LOG_FILE="test_deployment.log"
+echo "Starting test canister deployments at $(date)" > $LOG_FILE
 
-    amount=$((staking_amounts[$i]*1000000 + TRANSFER_FEE));
+for i in $(seq 0 $(($no_of_test_canisters - 1))); do
+    echo "############################################" | tee -a $LOG_FILE
+    echo "Deploying test_canister_$((i+1))..." | tee -a $LOG_FILE
+    echo "With Staking Amount = ${staking_amounts[$i]} Doxa Dollar." | tee -a $LOG_FILE
+    echo "With Staking Period = $((stake_periods[$i]/(1000000000*60*60*24))) days." | tee -a $LOG_FILE
+
+    # Calculate transfer amount with some buffer for fees
+    amount=$((staking_amounts[$i]*1000000))
+    transfer_amount=$((amount - TRANSFER_FEE)) # Reduce amount to account for fees
+    echo "Transfer amount: $transfer_amount" | tee -a $LOG_FILE
     echo
-    dfx canister create test_canister_$((i+1))
+
+    # Create canister and capture output to log
+    dfx canister create test_canister_$((i+1)) >> $LOG_FILE 2>&1
 
     export TEST_CANISTER_ID=$(dfx canister id test_canister_$((i+1)))
+    echo "Created canister with ID: $TEST_CANISTER_ID" | tee -a $LOG_FILE
 
-    dfx canister call irorr-5aaaa-aaaak-qddsq-cai icrc1_transfer "(record{ to=record {owner = principal \"$TEST_CANISTER_ID\"; subaccount= null}; amount =$amount;})" --identity default
+    # Transfer tokens to test canister
+    transfer_result=$(dfx canister call irorr-5aaaa-aaaak-qddsq-cai icrc1_transfer "(record{ to=record {owner = principal \"$TEST_CANISTER_ID\"; subaccount= null}; amount=$transfer_amount;})" --identity default)
+    echo "Transfer result: $transfer_result" >> $LOG_FILE
 
-    dfx deploy test_canister_$((i+1)) --argument "(record { amount=$amount; stakePeriod=${stake_periods[$i]} })"
+    # Deploy canister with arguments
+    echo "Deploying canister..." | tee -a $LOG_FILE
+    dfx deploy test_canister_$((i+1)) --argument "(record { amount=$transfer_amount; stakePeriod=${stake_periods[$i]} })" >> $LOG_FILE 2>&1
     echo
+
+    # Transfer to staking canister and capture block index
+    echo "Transferring to staking canister..." | tee -a $LOG_FILE
+    output=$(dfx canister call irorr-5aaaa-aaaak-qddsq-cai icrc1_transfer "(record{ to=record {owner = principal \"mhahe-xqaaa-aaaag-qndha-cai\"; subaccount= null}; amount = $transfer_amount;})")
+    
+    # Extract and log block index
+    block_index=$(echo "$output" | awk -F'Ok = ' '{print $2}' | awk -F' :' '{print $1}')
+    echo "Test Canister $((i+1)) Block Index: $block_index" | tee -a $LOG_FILE
+    echo "----------------------------------------" >> $LOG_FILE
 done
+
+echo "Deployment completed. Check $LOG_FILE for details."
 
 cd ../../
