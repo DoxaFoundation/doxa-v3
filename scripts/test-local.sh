@@ -104,7 +104,7 @@ for i in $(seq 0 $(($no_of_test_canisters - 1))); do
 
     export TEST_CANISTER_ID=$(dfx canister id test_canister_$((i+1)))
 
-    dfx canister call usdx_ledger icrc1_transfer "(record{ to=record {owner = principal \"$TEST_CANISTER_ID\"; subaccount= null}; amount =$amount;})" --identity default
+    dfx canister call irorr-5aaaa-aaaak-qddsq-cai icrc1_transfer "(record{ to=record {owner = principal \"$TEST_CANISTER_ID\"; subaccount= null}; amount =$amount;})" --identity default
 
     dfx deploy test_canister_$((i+1)) --argument "(record { amount=$amount; stakePeriod=${stake_periods[$i]} })"
     echo
