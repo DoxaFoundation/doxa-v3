@@ -13,6 +13,7 @@ import Float "mo:base/Float";
 import Array "mo:base/Array";
 import Nat "mo:base/Nat";
 import Int "mo:base/Int";
+import Buffer "mo:base/Buffer";
 import Icrc "../../backend/service/icrc-interface";
 
 actor class TestStakingCanister(
@@ -60,10 +61,6 @@ actor class TestStakingCanister(
 		await staking.getUserStakeDetails();
 	};
 
-	public shared func getStakeMetrics(stakeId : StakeId) : async [(Text, StakeMatric)] {
-		await staking.getStakeMetrics(stakeId);
-	};
-
 	public shared func getPoolInfo() : async StakingPool {
 		await staking.getPoolData();
 	};
@@ -72,8 +69,22 @@ actor class TestStakingCanister(
 		await staking.getBootstrapStatus();
 	};
 
-	public shared func getStakeMetric(stakeIndex : Nat, user : Principal) : async Result.Result<StakeMatric, Text> {
-		await staking.calculateUserStakeMatric(stakeIndex, user);
+	public shared func getStakeMetric() : async Result.Result<[StakeMatric], Text> {
+		let stakeDetails = await getStakeDetails();
+
+		let buffer = Buffer.Buffer<StakeMatric>(0);
+
+		for (stake in stakeDetails.vals()) {
+			let { id; staker } = stake;
+
+			switch (await staking.calculateUserStakeMatric(id, staker)) {
+				case (#ok(stakeMetric)) { buffer.add(stakeMetric) };
+				case (_) {};
+			};
+
+		};
+
+		#ok(Buffer.toArray(buffer));
 	};
 
 	public shared func getTransactions() : async [Transaction] {
@@ -87,7 +98,6 @@ actor class TestStakingCanister(
 	public shared func getWeeklyWeight(stakeId : StakeId) : async Result.Result<Float, Text> {
 		await staking.calculateUserWeeklyStakeWeight(stakeId);
 	};
-
 
 	public shared func test() : async Text {
 		// Test staking with initialized amount and period
@@ -129,7 +139,7 @@ actor class TestStakingCanister(
 							};
 						};
 					};
-				
+
 					case (#Err(e)) {
 						Debug.print("❌ USDx transfer failed: " # debug_show (e));
 						M.attempt(false, M.equals(T.bool(true)));

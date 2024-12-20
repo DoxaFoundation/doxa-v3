@@ -98,13 +98,15 @@ for i in $(seq 0 $(($no_of_test_canisters - 1))); do
     echo "With Staking Amount = ${staking_amounts[$i]} Doxa Dollar."
     echo "With Staking Period = $((stake_periods[$i]/(1000000000*60*60*24))) days."
 
-    amount=$((staking_amounts[$i]*1000000 + TRANSFER_FEE));
+    amount_with_fee=$((staking_amounts[$i]*1000000 + TRANSFER_FEE));
+    amount=$((staking_amounts[$i]*1000000));
+    
     echo
     dfx canister create test_canister_$((i+1))
 
     export TEST_CANISTER_ID=$(dfx canister id test_canister_$((i+1)))
 
-    dfx canister call irorr-5aaaa-aaaak-qddsq-cai icrc1_transfer "(record{ to=record {owner = principal \"$TEST_CANISTER_ID\"; subaccount= null}; amount =$amount;})" --identity default
+    dfx canister call irorr-5aaaa-aaaak-qddsq-cai icrc1_transfer "(record{ to=record {owner = principal \"$TEST_CANISTER_ID\"; subaccount= null}; amount =$amount_with_fee;})" --identity default
 
     dfx deploy test_canister_$((i+1)) --argument "(record { amount=$amount; stakePeriod=${stake_periods[$i]} })"
     echo
