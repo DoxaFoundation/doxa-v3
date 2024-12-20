@@ -27,7 +27,7 @@ dfx canister call stablecoin_minter notify_mint_with_ckusdc '(record{ ckusdc_blo
 dfx canister call usdx_ledger get_transactions '( record { start =0; length=3 })'
 
 # trnsfer to staking canister
-# dfx canister call usdx_ledger icrc1_transfer '(record{ to=record {owner = principal "be2us-64aaa-aaaaa-qaabq-cai"; subaccount= null}; amount = 100_000_000;})' --identity default
+# dfx canister call usdx_ledger icrc1_transfer '(record{ to=record {owner = principal "mhahe-xqaaa-aaaag-qndha-cai"; subaccount= null}; amount = 100_000_000;})' --identity default
 
 #notify to staking canister so it aware about to send usdx to it 
 # dfx canister call staking_canister notifyStake

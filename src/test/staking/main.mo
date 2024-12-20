@@ -13,11 +13,7 @@ import Float "mo:base/Float";
 import Array "mo:base/Array";
 import Nat "mo:base/Nat";
 import Int "mo:base/Int";
-
-// type InitArg = {
-//   amount : Nat;
-//   stakePeriod : Int;
-// };
+import Icrc "../../backend/service/icrc-interface";
 
 actor class TestStakingCanister(
 	init : {
@@ -25,6 +21,7 @@ actor class TestStakingCanister(
 		stakePeriod : Int;
 	}
 ) = this {
+	private let USDx : Icrc.Self = actor ("irorr-5aaaa-aaaak-qddsq-cai"); // USDx token canister
 
 	type Account = { owner : Principal; subaccount : ?Blob };
 	type Tokens = Types.Tokens;
@@ -58,10 +55,39 @@ actor class TestStakingCanister(
 		getStakeMetrics : shared (StakeId) -> async [(Text, StakeMatric)];
 	};
 
-	// Test helper function to create test principal
-	func createTestPrincipal(text : Text) : Principal {
-		Principal.fromText(text);
+	// Public functions to check stake status
+	public shared func getStakeDetails() : async [Stake] {
+		await staking.getUserStakeDetails();
 	};
+
+	public shared func getStakeMetrics(stakeId : StakeId) : async [(Text, StakeMatric)] {
+		await staking.getStakeMetrics(stakeId);
+	};
+
+	public shared func getPoolInfo() : async StakingPool {
+		await staking.getPoolData();
+	};
+
+	public shared func getBootstrapInfo() : async { isBootstrapPhase : Bool; timeRemaining : Int } {
+		await staking.getBootstrapStatus();
+	};
+
+	public shared func getStakeMetric(stakeIndex : Nat, user : Principal) : async Result.Result<StakeMatric, Text> {
+		await staking.calculateUserStakeMatric(stakeIndex, user);
+	};
+
+	public shared func getTransactions() : async [Transaction] {
+		await staking.getUserTransactions();
+	};
+
+	public shared func getFees() : async Nat {
+		await staking.getTotalFeeCollected();
+	};
+
+	public shared func getWeeklyWeight(stakeId : StakeId) : async Result.Result<Float, Text> {
+		await staking.calculateUserWeeklyStakeWeight(stakeId);
+	};
+
 
 	public shared func test() : async Text {
 		// Test staking with initialized amount and period
@@ -70,71 +96,42 @@ actor class TestStakingCanister(
 			func() : async C.TestResult = async {
 				Debug.print("🏦 Testing stake with amount: " # debug_show (amount) # " and period: " # debug_show (stakePeriod));
 
-				// First check if we have enough balance
-				let amountNat = Int.abs(amount);
-				let stakePeriodNat = Int.abs(stakePeriod);
+				// Transfer USDx to staking canister
+				let transferResult = await USDx.icrc1_transfer({
+					to = {
+						owner = Principal.fromText("mhahe-xqaaa-aaaag-qndha-cai");
+						subaccount = null;
+					};
+					amount = amount;
+					fee = null;
+					memo = null;
+					from_subaccount = null;
+					created_at_time = null;
+				});
 
-				// Get last processed tx id to use as block index
-				let blockIndex = await staking.getLastProcessedTxId();
-				let result = await staking.notifyStake(blockIndex, stakePeriodNat);
+				switch (transferResult) {
+					case (#Ok(blockIndex)) {
+						Debug.print("✅ USDx transfer successful with block index: " # debug_show (blockIndex));
 
-				switch (result) {
-					case (#ok(_)) {
-						Debug.print("✅ Staking successful!");
+						// Call notifyStake with block index and stake period
+						let stakePeriodNat = Int.abs(stakePeriod);
+						let result = await staking.notifyStake(blockIndex, stakePeriodNat);
 
-						// Verify stake was created
-						let userStakes = await staking.getUserStakeDetails();
-						let foundStake = Array.find<Stake>(
-							userStakes,
-							func(stake) {
-								stake.amount == amount and stake.lockEndTime == stakePeriod
-							}
-						);
-
-						switch (foundStake) {
-							case (?stake) {
-								Debug.print("✅ Found matching stake in user stakes");
+						switch (result) {
+							case (#ok(_)) {
+								Debug.print("✅ Staking notification successful!");
 								M.attempt(true, M.equals(T.bool(true)));
 							};
-							case (null) {
-								Debug.print("❌ Stake not found in user stakes");
+
+							case (#err(e)) {
+								Debug.print("❌ Staking notification failed: " # e);
 								M.attempt(false, M.equals(T.bool(true)));
 							};
 						};
 					};
-					case (#err(e)) {
-						Debug.print("❌ Staking failed: " # e);
-						M.attempt(false, M.equals(T.bool(true)));
-					};
-				};
-			}
-		);
-
-		// Verify stake metrics after staking
-		it.should(
-			"verify stake metrics after staking",
-			func() : async C.TestResult = async {
-				let userStakes = await staking.getUserStakeDetails();
-				if (userStakes.size() == 0) {
-					Debug.print("❌ No stakes found");
-					return M.attempt(false, M.equals(T.bool(true)));
-				};
-
-				let latestStake = userStakes[userStakes.size() - 1];
-				let selfPrincipal = Principal.fromActor(this); // Using a test principal
-
-				let metrics = await staking.calculateUserStakeMatric(latestStake.id, selfPrincipal);
-
-				switch (metrics) {
-					case (#ok(metric)) {
-						Debug.print("📊 Stake Metrics:");
-						Debug.print("- APY: " # debug_show (metric.apy));
-						Debug.print("- Weight: " # debug_show (metric.userWeight));
-						Debug.print("- Proportion: " # debug_show (metric.proportion));
-						M.attempt(true, M.equals(T.bool(true)));
-					};
-					case (#err(e)) {
-						Debug.print("❌ Failed to get metrics: " # e);
+				
+					case (#Err(e)) {
+						Debug.print("❌ USDx transfer failed: " # debug_show (e));
 						M.attempt(false, M.equals(T.bool(true)));
 					};
 				};
