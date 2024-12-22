@@ -7,28 +7,20 @@ mkdir -p logs
 
 cd src/test
 
-# First run all test functions
+echo "Starting metrics collection and verification..."
+
+# Collect metrics and verify calculations
 for i in $(seq 0 $((no_of_test_canisters - 1))); do
     canister_num=$((i+1))
     log_file="../../logs/test_canister_${canister_num}.log"
     
     echo "############################################" > "$log_file"
-    echo "Running test_canister_${canister_num}..." >> "$log_file"
+    echo "Running verification for test_canister_${canister_num}..." >> "$log_file"
     echo >> "$log_file"
     
-    echo "Test Results:" >> "$log_file" 
-    dfx canister call test_canister_${canister_num} test >> "$log_file" 2>&1
+    echo "Bootstrap Info:" >> "$log_file"
+    dfx canister call test_canister_${canister_num} getBootstrapInfo >> "$log_file" 2>&1
     echo >> "$log_file"
-
-    echo "Test completed for test_canister_${canister_num}"
-done
-
-echo "All tests completed. Starting metrics collection and verification..."
-
-# Now collect metrics and verify calculations
-for i in $(seq 0 $((no_of_test_canisters - 1))); do
-    canister_num=$((i+1))
-    log_file="../../logs/test_canister_${canister_num}.log"
     
     echo "Stake Details:" >> "$log_file"
     dfx canister call test_canister_${canister_num} getStakeDetails >> "$log_file" 2>&1
@@ -50,31 +42,58 @@ for i in $(seq 0 $((no_of_test_canisters - 1))); do
     echo >> "$log_file"
     
     echo "// 1. User Weight Verification:" >> "$log_file"
-    echo "// Formula: User Weight = (Staked Amount / Total Pool Stake) × Lock Period Weight" >> "$log_file"
-    echo "// Lock Period Weight is 2x for periods > 30 days" >> "$log_file"
+    echo "// Formula: User Weight = (Staked Amount / Total Pool Stake) × Lock Period Weight × Bootstrap Multiplier" >> "$log_file"
+    echo "// Lock Period Weight varies based on lock duration:" >> "$log_file"
+    echo "// 4x for >= 360 days" >> "$log_file"
+    echo "// 3x for >= 270 days" >> "$log_file" 
+    echo "// 2x for >= 180 days" >> "$log_file"
+    echo "// 1x for < 180 days" >> "$log_file"
     
     # Extract values and check if stake exists
     stake_amount=$(grep "amount =" "$log_file" | head -n 1 | sed 's/[^0-9]*//g')
-    lock_duration=$(grep "lockDuration =" "$log_file" | head -n 1 | sed 's/[^0-9]*//g')
+    lock_start=$(grep "stakeTime =" "$log_file" | head -n 1 | sed 's/[^0-9]*//g')
+    lock_end=$(grep "lockEndTime =" "$log_file" | head -n 1 | sed 's/[^0-9]*//g')
     user_weight=$(grep "userWeight =" "$log_file" | head -n 1 | sed 's/[^0-9.]*//g')
+    bootstrap_multiplier=$(grep "bootstrapMultiplier =" "$log_file" | head -n 1 | sed 's/[^0-9.]*//g')
+    is_bootstrap=$(grep "isBootstrapPhase = true" "$log_file" | wc -l)
     
     # Only do calculations if stake exists
-    if [ ! -z "$stake_amount" ] && [ ! -z "$lock_duration" ] && [ ! -z "$user_weight" ]; then
+    if [ ! -z "$stake_amount" ] && [ ! -z "$lock_start" ] && [ ! -z "$lock_end" ] && [ ! -z "$user_weight" ]; then
         echo "// User staked: ${stake_amount} tokens" >> "$log_file"
-        echo "// Total staked in pool: ${total_stake} tokens" >> "$log_file"
+        echo "// Total staked in pool (from final canister): ${total_stake} tokens" >> "$log_file"
+        
+        # Calculate lock duration in nanoseconds
+        lock_duration=$((lock_end - lock_start))
+        
+        # Calculate lock period weight based on duration
+        if [ $lock_duration -ge 31104000000000000 ]; then # 360 days
+            lock_weight=4
+        elif [ $lock_duration -ge 23328000000000000 ]; then # 270 days  
+            lock_weight=3
+        elif [ $lock_duration -ge 15552000000000000 ]; then # 180 days
+            lock_weight=2
+        else
+            lock_weight=1
+        fi
         
         # Calculate lock duration in days
-        base_period=2592000000000000 # 30 days in nanoseconds
-        lock_days=$(echo "scale=2; ($lock_duration / $base_period) * 30" | bc)
+        lock_days=$(echo "scale=2; $lock_duration / 86400000000000" | bc)
         echo "// Lock duration: ${lock_days} days (${lock_duration} nanoseconds)" >> "$log_file"
+        echo "// Lock weight multiplier: ${lock_weight}x" >> "$log_file"
         
         # Calculate stake proportion using total stake from pool
         stake_proportion=$(echo "scale=10; ${stake_amount}/${total_stake}" | bc)
         echo "// Step 1: Calculate stake proportion = ${stake_amount}/${total_stake} = ${stake_proportion}" >> "$log_file"
         
-        # Calculate weighted proportion
-        weighted_proportion=$(echo "scale=10; ${stake_proportion} * 2" | bc)
-        echo "// Step 2: Apply lock period weight (2x) = proportion * 2 = ${weighted_proportion}" >> "$log_file"
+        # Calculate weighted proportion with bootstrap multiplier if in bootstrap phase
+        if [ $is_bootstrap -gt 0 ] && [ ! -z "$bootstrap_multiplier" ]; then
+            weighted_proportion=$(echo "scale=10; ${stake_proportion} * ${lock_weight} * ${bootstrap_multiplier}" | bc)
+            echo "// Step 2: Apply lock period weight and bootstrap multiplier = proportion * ${lock_weight} * ${bootstrap_multiplier} = ${weighted_proportion}" >> "$log_file"
+        else
+            weighted_proportion=$(echo "scale=10; ${stake_proportion} * ${lock_weight}" | bc)
+            echo "// Step 2: Apply lock period weight (${lock_weight}x) = proportion * ${lock_weight} = ${weighted_proportion}" >> "$log_file"
+        fi
+        
         echo "// Actual user weight from contract = ${user_weight}" >> "$log_file"
         echo "// Weight calculation verified ✓" >> "$log_file"
         

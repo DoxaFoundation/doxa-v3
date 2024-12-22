@@ -73,6 +73,7 @@ actor class DoxaStaking() = this {
 		rewardToken = "doxa-dollar";
 		minimumStake = 10_000_000; // 10 tokens with 6 decimals
 		lockDuration = MIN_LOCK_DURATION_IN_NANOS;
+		minTotalStake = MIN_TOTAL_STAKE; // 100,000 tokens with 6 decimals
 	};
 
 	let { nhash; phash } = Map;
@@ -192,7 +193,7 @@ actor class DoxaStaking() = this {
 			return #err("Total staked amount zero nahi ho sakta");
 		};
 
-		let proportion : Float = Float.fromInt(stake.amount) / Float.fromInt(pool.totalStaked);
+		let proportion : Float = Float.fromInt(stake.amount) / Float.fromInt(MIN_TOTAL_STAKE);
 		let lockDuration = (stake.lockEndTime - stake.stakeTime) / 1_000_000_000; // Convert nanoseconds to seconds
 		let userLockupWeight = if (Int.abs(lockDuration) >= LOCKUP_360_DAYS_IN_NANOS) {
 			#ok(4);
@@ -310,18 +311,21 @@ actor class DoxaStaking() = this {
 
 		// Get total fee collected and calculate 30% as total rewards
 		let totalFeeCollected = await getTotalFeeCollected();
-		let totalRewards = (Float.fromInt(totalFeeCollected) / 1_000_000.0) * (30.0 / 100.0); // Pehle decimal adjustment, phir 30% calculation
+        let totalRewards = Float.fromInt(totalFeeCollected) * (30.0 / 100.0); // Pehle decimal adjustment, phir 30% calculation
 
 		var rewardShare = totalRewards * (userWeight / totalWeight);
+		// Calculate weekly return rate by dividing reward share by staked amount
+		let weeklyReturnRate = rewardShare / Float.fromInt(stake.amount);
 
 		let finalReward = rewardShare;
 		if (finalReward == 0) {
-			return #err("Reward amount zero hai. Kripya apna stake amount badhaye ya lockup duration badhaye");
+			return #err("Reward amount is zero. Please increase your stake amount or lockup duration");
 		};
 
-		// Calculate APY
-		// APY = ((1 + Weekly Reward)^52 - 1) × 100%
-		let apy = (Float.pow(1.0 + finalReward, 52.0) - 1.0) * 100.0;
+		// Calculate APY using weekly return rate
+		// Formula: APY = ((1 + weekly_return_rate)^52 - 1) * 100%
+		// This compounds the weekly returns over 52 weeks to get annual percentage yield
+		let apy = (Float.pow(1.0 + weeklyReturnRate, 52.0) - 1.0) * 100.0;
 
 		let stakeMetric = {
 			stakeId;
