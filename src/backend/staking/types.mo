@@ -10,7 +10,7 @@ module {
 		startTime : Time.Time; // Pool start time
 		endTime : Time.Time; // Pool end time
 		totalStaked : Nat; // Total tokens staked
-		rewardTokenFee : Float; // Fee for reward withdrawal
+		rewardTokenFee : Nat; // Fee for reward withdrawal
 		minTotalStake : Nat;
 		stakingSymbol : Text; // USDx
 		stakingToken : Text; // doxa dollar
@@ -68,13 +68,13 @@ module {
 		stakeId : StakeId;
 		lockDuration : Int;
 		lockupWeight : Int;
-		bootstrapMultiplier : Float;
-		proportion : Float;
-		userWeight : Float;
-		totalWeight : Float;
+		bootstrapMultiplier : Nat;
+		proportion : Nat;
+		userWeight : Nat;
+		totalWeight : Nat;
 		totalFeeCollected : Nat;
-		finalReward : Float;
-		apy : Float;
+		finalReward : Nat;
+		apy : Nat;
 	};
 
 };
