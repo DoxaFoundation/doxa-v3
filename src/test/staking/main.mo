@@ -40,7 +40,7 @@ actor class TestStakingCanister(
 		getBootstrapStatus : shared () -> async { isBootstrapPhase : Bool; timeRemaining : Int };
 		getPoolData : shared () -> async StakingPool;
 		notifyStake : shared (amount : Nat, lockupPeriod : Nat) -> async Result.Result<(), Text>;
-		getBootstrapMultiplier : shared () -> async Result.Result<Float, Text>;
+		getBootstrapMultiplier : shared () -> async Result.Result<Nat, Text>;
 		calculateUserStakeMatric : shared (stakeIndex : Nat, user : Principal) -> async Result.Result<StakeMatric, Text>;
 		unstake : shared (stakeIndex : Nat) -> async Result.Result<(), Text>;
 		getTotalFeeCollected : shared () -> async Nat;
@@ -51,7 +51,7 @@ actor class TestStakingCanister(
 		getTransactionFromBlockIndex : shared (Nat) -> async Result.Result<Transaction, Text>;
 		getUserStakeDetails : shared () -> async [Stake];
 		getUserTransactions : shared () -> async [Transaction];
-		calculateUserWeeklyStakeWeight : shared (StakeId) -> async Result.Result<Float, Text>;
+		calculateUserWeeklyStakeWeight : shared (StakeId) -> async Result.Result<Nat, Text>;
 		iterateAllStakes : shared () -> async [(Text, StakeMatric)];
 		getStakeMetrics : shared (StakeId) -> async [(Text, StakeMatric)];
 	};
@@ -95,7 +95,7 @@ actor class TestStakingCanister(
 		await staking.getTotalFeeCollected();
 	};
 
-	public shared func getWeeklyWeight(stakeId : StakeId) : async Result.Result<Float, Text> {
+	public shared func getWeeklyWeight(stakeId : StakeId) : async Result.Result<Nat, Text> {
 		await staking.calculateUserWeeklyStakeWeight(stakeId);
 	};
 

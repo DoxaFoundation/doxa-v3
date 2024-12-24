@@ -42,106 +42,86 @@ for i in $(seq 0 $((no_of_test_canisters - 1))); do
     echo >> "$log_file"
     
     echo "// 1. User Weight Verification:" >> "$log_file"
-    echo "// Formula: User Weight = (Staked Amount / Total Pool Stake) × Lock Period Weight × Bootstrap Multiplier" >> "$log_file"
+    echo "// Formula: User Weight = (Staked Amount * 1_000_000 / Total Pool Stake) × Lock Period Weight × Bootstrap Multiplier" >> "$log_file"
     echo "// Lock Period Weight varies based on lock duration:" >> "$log_file"
-    echo "// 4x for >= 360 days" >> "$log_file"
-    echo "// 3x for >= 270 days" >> "$log_file" 
-    echo "// 2x for >= 180 days" >> "$log_file"
-    echo "// 1x for < 180 days" >> "$log_file"
+    echo "// 4_000_000 for >= 360 days" >> "$log_file"
+    echo "// 3_000_000 for >= 270 days" >> "$log_file" 
+    echo "// 2_000_000 for >= 180 days" >> "$log_file"
+    echo "// 1_000_000 for < 180 days" >> "$log_file"
     
     # Extract values and check if stake exists
     stake_amount=$(grep "amount =" "$log_file" | head -n 1 | sed 's/[^0-9]*//g')
     lock_start=$(grep "stakeTime =" "$log_file" | head -n 1 | sed 's/[^0-9]*//g')
     lock_end=$(grep "lockEndTime =" "$log_file" | head -n 1 | sed 's/[^0-9]*//g')
-    user_weight=$(grep "userWeight =" "$log_file" | head -n 1 | sed 's/[^0-9.]*//g')
-    bootstrap_multiplier=$(grep "bootstrapMultiplier =" "$log_file" | head -n 1 | sed 's/[^0-9.]*//g')
+    user_weight=$(grep "userWeight =" "$log_file" | head -n 1 | sed 's/[^0-9]*//g')
+    bootstrap_multiplier=$(grep "bootstrapMultiplier =" "$log_file" | head -n 1 | sed 's/[^0-9]*//g')
     is_bootstrap=$(grep "isBootstrapPhase = true" "$log_file" | wc -l)
     
     # Only do calculations if stake exists
     if [ ! -z "$stake_amount" ] && [ ! -z "$lock_start" ] && [ ! -z "$lock_end" ] && [ ! -z "$user_weight" ]; then
         echo "// User staked: ${stake_amount} tokens" >> "$log_file"
-        echo "// Total staked in pool (from final canister): ${total_stake} tokens" >> "$log_file"
+        echo "// Total staked in pool: ${total_stake} tokens" >> "$log_file"
         
         # Calculate lock duration in nanoseconds
         lock_duration=$((lock_end - lock_start))
         
         # Calculate lock period weight based on duration
         if [ $lock_duration -ge 31104000000000000 ]; then # 360 days
-            lock_weight=4
+            lock_weight=4000000
         elif [ $lock_duration -ge 23328000000000000 ]; then # 270 days  
-            lock_weight=3
+            lock_weight=3000000
         elif [ $lock_duration -ge 15552000000000000 ]; then # 180 days
-            lock_weight=2
+            lock_weight=2000000
         else
-            lock_weight=1
+            lock_weight=1000000
         fi
         
-        # Calculate lock duration in days
-        lock_days=$(echo "scale=2; $lock_duration / 86400000000000" | bc)
-        echo "// Lock duration: ${lock_days} days (${lock_duration} nanoseconds)" >> "$log_file"
-        echo "// Lock weight multiplier: ${lock_weight}x" >> "$log_file"
+        # Calculate lock duration in days (integer division)
+        lock_days=$((lock_duration / 86400000000000))
+        echo "// Lock duration: ${lock_days} days" >> "$log_file"
+        echo "// Lock weight multiplier: ${lock_weight}" >> "$log_file"
         
-        # Calculate stake proportion using total stake from pool
-        stake_proportion=$(echo "scale=10; ${stake_amount}/${total_stake}" | bc)
-        echo "// Step 1: Calculate stake proportion = ${stake_amount}/${total_stake} = ${stake_proportion}" >> "$log_file"
+        # Calculate stake proportion (multiply by 1_000_000 for precision)
+        stake_proportion=$((stake_amount * 1000000 / total_stake))
+        echo "// Step 1: Calculate stake proportion = (${stake_amount} * 1_000_000)/${total_stake} = ${stake_proportion}" >> "$log_file"
         
         # Calculate weighted proportion with bootstrap multiplier if in bootstrap phase
         if [ $is_bootstrap -gt 0 ] && [ ! -z "$bootstrap_multiplier" ]; then
-            weighted_proportion=$(echo "scale=10; ${stake_proportion} * ${lock_weight} * ${bootstrap_multiplier}" | bc)
-            echo "// Step 2: Apply lock period weight and bootstrap multiplier = proportion * ${lock_weight} * ${bootstrap_multiplier} = ${weighted_proportion}" >> "$log_file"
+            weighted_proportion=$((stake_proportion * lock_weight * bootstrap_multiplier / (1000000 * 1000000)))
+            echo "// Step 2: Apply lock period weight and bootstrap multiplier = proportion * ${lock_weight} * ${bootstrap_multiplier} / (1_000_000 * 1_000_000) = ${weighted_proportion}" >> "$log_file"
         else
-            weighted_proportion=$(echo "scale=10; ${stake_proportion} * ${lock_weight}" | bc)
-            echo "// Step 2: Apply lock period weight (${lock_weight}x) = proportion * ${lock_weight} = ${weighted_proportion}" >> "$log_file"
+            weighted_proportion=$((stake_proportion * lock_weight / 1000000))
+            echo "// Step 2: Apply lock period weight = proportion * ${lock_weight} / 1_000_000 = ${weighted_proportion}" >> "$log_file"
         fi
         
         echo "// Actual user weight from contract = ${user_weight}" >> "$log_file"
         echo "// Weight calculation verified ✓" >> "$log_file"
         
         # Calculate weight difference
-        weight_diff=$(echo "scale=10; ${weighted_proportion} - ${user_weight}" | bc)
+        weight_diff=$((weighted_proportion - user_weight))
         echo "// Weight difference (calculated - actual): ${weight_diff}" >> "$log_file"
         
-        echo "// 2. APY (Annual Percentage Yield) Verification:" >> "$log_file"
+        echo "// 2. APY Verification:" >> "$log_file"
         fee_collected=$(grep "totalFeeCollected =" "$log_file" | head -n 1 | sed 's/[^0-9]*//g')
-        total_weight=$(grep "totalWeight =" "$log_file" | head -n 1 | sed 's/[^0-9.]*//g')
-        apy=$(grep "apy =" "$log_file" | head -n 1 | sed 's/[^0-9.]*//g')
+        total_weight=$(grep "totalWeight =" "$log_file" | head -n 1 | sed 's/[^0-9]*//g')
+        apy=$(grep "apy =" "$log_file" | head -n 1 | sed 's/[^0-9]*//g')
         
         if [ ! -z "$fee_collected" ] && [ ! -z "$total_weight" ] && [ ! -z "$apy" ]; then
             echo "// Detailed Reward Calculation:" >> "$log_file"
             echo "// Total Reward Pool: ${fee_collected}" >> "$log_file"
             
-            # Calculate 30% of reward pool
-            reward_portion=$(echo "scale=10; ${fee_collected} * 0.30" | bc)
-            echo "// Reward Percentage: ${fee_collected} × 0.30 = ${reward_portion}" >> "$log_file"
-            echo "// (This is the portion of the reward pool allocated for distribution.)" >> "$log_file"
-            echo >> "$log_file"
+            # Calculate user's share (multiply by 1_000_000 for precision)
+            user_share=$((user_weight * fee_collected / total_weight))
+            echo "// User's Share = (${user_weight} * ${fee_collected}) / ${total_weight} = ${user_share}" >> "$log_file"
             
-            # Calculate user's share
-            weight_ratio=$(echo "scale=10; ${user_weight}/${total_weight}" | bc)
-            user_share=$(echo "scale=10; ${reward_portion} * ${weight_ratio}" | bc)
-            echo "// User's Share:" >> "$log_file"
-            echo "// ${reward_portion} × (${user_weight}/${total_weight})" >> "$log_file"
-            echo "// = ${reward_portion} × ${weight_ratio}" >> "$log_file"
-            echo "// = ${user_share}" >> "$log_file"
-            echo >> "$log_file"
-            
-            # Calculate weekly return rate
-            weekly_return=$(echo "scale=10; ${user_share}/${stake_amount}" | bc)
-            echo "// Weekly Return Rate = Weekly Reward/Staked Amount" >> "$log_file"
-            echo "// = ${user_share}/${stake_amount}" >> "$log_file"
-            echo "// = ${weekly_return}" >> "$log_file"
-            echo >> "$log_file"
-            
-            # Calculate APY
-            calculated_apy=$(echo "scale=10; ((1 + ${weekly_return})^52 - 1) * 100" | bc)
-            echo "// APY Calculation:" >> "$log_file"
-            echo "// APY = ((1 + ${weekly_return})^52 - 1) * 100" >> "$log_file"
-            echo "// = ${calculated_apy}%" >> "$log_file"
-            echo "// Actual APY from contract = ${apy}%" >> "$log_file"
+            # Calculate APY (multiply by 100 for percentage)
+            calculated_apy=$((user_share * 100 / stake_amount))
+            echo "// APY = (${user_share} * 100) / ${stake_amount} = ${calculated_apy}" >> "$log_file"
+            echo "// Actual APY from contract = ${apy}" >> "$log_file"
             
             # Calculate APY difference
-            apy_diff=$(echo "scale=10; ${calculated_apy} - ${apy}" | bc)
-            echo "// APY difference (calculated - actual): ${apy_diff}%" >> "$log_file"
+            apy_diff=$((calculated_apy - apy))
+            echo "// APY difference (calculated - actual): ${apy_diff}" >> "$log_file"
         else
             echo "// Insufficient data for APY calculations" >> "$log_file"
         fi

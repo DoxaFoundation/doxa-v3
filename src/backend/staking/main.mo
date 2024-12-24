@@ -127,9 +127,14 @@ actor class DoxaStaking() = this {
 		timeRemaining : Int;
 	} {
 		let currentTime = Time.now();
-		let timeRemaining = if (bootstrapStartTime == 0 or not isBootstrapPhase) {
+		let timeRemaining = if (bootstrapStartTime == 0) {
+			// Bootstrap hasn't started yet, show full duration
+			BOOTSTRAP_PERIOD_IN_NANOS;
+		} else if (not isBootstrapPhase) {
+			// Bootstrap phase is over
 			0;
 		} else {
+			// Bootstrap is ongoing, calculate remaining time
 			bootstrapStartTime + BOOTSTRAP_PERIOD_IN_NANOS - currentTime;
 		};
 
@@ -243,7 +248,7 @@ actor class DoxaStaking() = this {
 	private func getTotalWeight() : async Nat {
 		var totalWeight : Nat = 0;
 
-		// Iterate through all users and their stakes 
+		// Iterate through all users and their stakes
 		for ((user, stakeIds) in Map.entries(userStakes)) {
 			for (stakeId in stakeIds.vals()) {
 				switch (Map.get(stakes, nhash, stakeId)) {
@@ -252,7 +257,7 @@ actor class DoxaStaking() = this {
 						let weight = if (Int.abs(lockDuration) >= LOCKUP_360_DAYS_IN_NANOS) {
 							4_000_000;
 						} else if (Int.abs(lockDuration) >= LOCKUP_270_DAYS_IN_NANOS) {
-							3_000_000; 
+							3_000_000;
 						} else if (Int.abs(lockDuration) >= LOCKUP_180_DAYS_IN_NANOS) {
 							2_000_000;
 						} else {
