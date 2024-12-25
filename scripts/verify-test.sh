@@ -1,5 +1,4 @@
 #!/bin/bash
-
 no_of_test_canisters=20
 
 # Create logs directory if it doesn't exist
@@ -110,13 +109,22 @@ for i in $(seq 0 $((no_of_test_canisters - 1))); do
             echo "// Detailed Reward Calculation:" >> "$log_file"
             echo "// Total Reward Pool: ${fee_collected}" >> "$log_file"
             
-            # Calculate user's share (multiply by 1_000_000 for precision)
-            user_share=$((user_weight * fee_collected / total_weight))
-            echo "// User's Share = (${user_weight} * ${fee_collected}) / ${total_weight} = ${user_share}" >> "$log_file"
+            # Calculate total rewards (30% of fee collected)
+            total_rewards=$((fee_collected * 300000 / 1000000))
             
-            # Calculate APY (multiply by 100 for percentage)
-            calculated_apy=$((user_share * 100 / stake_amount))
-            echo "// APY = (${user_share} * 100) / ${stake_amount} = ${calculated_apy}" >> "$log_file"
+            # Calculate user's reward share
+            reward_share=$((total_rewards * user_weight / total_weight))
+            
+            # Calculate weekly return rate
+            weekly_return_rate=$((reward_share * 1000000 / stake_amount))
+            
+            # Calculate APY using compound interest formula
+            calculated_apy=$((((1 + weekly_return_rate) ** 52 - 1) * 100))
+            
+            echo "// Total Rewards (30% of fees) = ${total_rewards}" >> "$log_file"
+            echo "// User's Reward Share = (${user_weight} * ${total_rewards}) / ${total_weight} = ${reward_share}" >> "$log_file"
+            echo "// Weekly Return Rate = (${reward_share} * 1_000_000) / ${stake_amount} = ${weekly_return_rate}" >> "$log_file"
+            echo "// APY = ((1 + weekly_return_rate)^52 - 1) * 100 = ${calculated_apy}" >> "$log_file"
             echo "// Actual APY from contract = ${apy}" >> "$log_file"
             
             # Calculate APY difference
