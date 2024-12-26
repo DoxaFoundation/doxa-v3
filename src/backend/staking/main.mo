@@ -221,9 +221,16 @@ actor class DoxaStaking() = this {
 			case (null) { 1_000_000 };
 		};
 
-		let proportion = (stake.amount * 1_000_000) / (if (pool.totalStaked < MIN_TOTAL_STAKE) { MIN_TOTAL_STAKE } else { pool.totalStaked });
+		let totalStake = if (pool.totalStaked < MIN_TOTAL_STAKE) {
+			MIN_TOTAL_STAKE;
+		} else {
+			pool.totalStaked;
+		};
 
-		let userWeight = (proportion * lockupWeight * bootstrapMultiplier) / (1_000_000 * 1_000_000);
+		// 100_000000
+		let proportion = (stake.amount / totalStake) * 1_000_000; // 1,000
+
+		let userWeight = (proportion * lockupWeight * bootstrapMultiplier) / (1_000_000 * 1_000_000); //6,000
 
 		// Calculate total lockupWeight by iterating over all stakes
 		let totalWeight = await getTotalWeight();
@@ -342,21 +349,9 @@ actor class DoxaStaking() = this {
 
 		// Validate staking block
 		let validationResult = await validateStakingBlock(blockIndex, caller);
-		switch (validationResult) {
+		let transfer = switch (validationResult) {
 			case (#err(error)) { return #err(error) };
-			case (#ok()) {};
-		};
-
-		// Get transaction details
-		let getTransactionsResponse = await USDx.get_transactions({ start = blockIndex; length = 1 });
-		let { transactions } = getTransactionsResponse;
-		let transaction = transactions[0];
-
-		let transfer = switch (transaction.transfer) {
-			case (?value) { value };
-			case (null) {
-				return #err("Transaction must be a transfer");
-			};
+			case (#ok(transfer)) { transfer };
 		};
 
 		// Check if bootstrap period is active
@@ -777,7 +772,7 @@ actor class DoxaStaking() = this {
     * 5. Validates transfer amount meets minimum stake
     *    Example: If minimum stake is 100 USDx but only 50 USDx staked, returns error
     */
-	func validateStakingBlock(blockIndex : Nat, caller : Principal) : async Result.Result<(), Text> {
+	func validateStakingBlock(blockIndex : Nat, caller : Principal) : async Result.Result<Icrc.Transfer, Text> {
 		// Get transaction details
 		let getTransactionsResponse = await USDx.get_transactions({ start = blockIndex; length = 1 });
 		let { transactions; log_length } = getTransactionsResponse;
@@ -841,7 +836,7 @@ actor class DoxaStaking() = this {
 			return #err("Transaction amount is less than minimum stake amount");
 		};
 
-		#ok();
+		#ok(transfer);
 	};
 
 	public func getStakingAccount(token : Tokens) : async Icrc.Account {
