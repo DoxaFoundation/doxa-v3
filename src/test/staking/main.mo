@@ -70,7 +70,9 @@ actor class TestStakingCanister(
 	};
 
 	public shared func getStakeMetric() : async Result.Result<[StakeMatric], Text> {
-		let stakeDetails = await getStakeDetails();
+		let stakeDetails = await staking.getUserStakeDetails();
+
+		Debug.print(debug_show ("stakeDetails", stakeDetails));
 
 		let buffer = Buffer.Buffer<StakeMatric>(0);
 

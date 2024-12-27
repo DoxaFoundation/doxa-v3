@@ -14,39 +14,12 @@ import Text "mo:base/Text";
 import Int64 "mo:base/Int64";
 import Types "types";
 import Icrc "../service/icrc-interface"; // ICRC token interface
+import IcrcIndex "../service/icrc-index-interface";
 import Map "mo:map/Map";
 actor class DoxaStaking() = this {
 	// Token interfaces
 	private let USDx : Icrc.Self = actor ("irorr-5aaaa-aaaak-qddsq-cai"); // USDx token canister
-	private let USDxIndex : actor {
-		get_account_transactions : shared query {
-			max_results : Nat;
-			start : ?Nat;
-			account : {
-				owner : Principal;
-				subaccount : ?Blob;
-			};
-		} -> async {
-			#Ok : {
-				transactions : [{
-					id : Nat;
-					transaction : {
-						burn : ?{
-							amount : Nat;
-						};
-						transfer : ?{
-							amount : Nat;
-							to : {
-								owner : Principal;
-								subaccount : ?Blob;
-							};
-						};
-					};
-				}];
-			};
-			#Err : Text;
-		};
-	} = actor ("modmy-byaaa-aaaag-qndgq-cai");
+	private let USDxIndex : IcrcIndex.Self = actor ("modmy-byaaa-aaaag-qndgq-cai");
 
 	// Lock duration and bootstrap constants in nanoseconds
 	private let MIN_LOCK_DURATION_IN_NANOS : Nat = 2_592_000_000_000_000; // 30 days minimum
@@ -99,6 +72,7 @@ actor class DoxaStaking() = this {
 	private stable var _tranIdx : Nat = 0;
 	private stable var _harvestIdx : Nat = 0;
 	private let MIN_REWARD_INTERVAL_IN_NANOS : Nat = 3600_000_000_000; // 1 hour in nanoseconds
+	private stable var feeCollectedFetchTimer = 0;
 
 	type Tokens = {
 		#USDx;
@@ -228,20 +202,22 @@ actor class DoxaStaking() = this {
 		};
 
 		// 100_000000
-		let proportion = (stake.amount / totalStake) * 1_000_000; // 1,000
+		// let proportion = (stake.amount / totalStake) * 1_000_000; // 1,000
+		let proportion = (stake.amount * 1_000_000) / totalStake;
 
 		let userWeight = (proportion * lockupWeight * bootstrapMultiplier) / (1_000_000 * 1_000_000); //6,000
 
 		// Calculate total lockupWeight by iterating over all stakes
-		let totalWeight = await getTotalWeight();
+		let totalWeight = await getTotalWeight(); //20,000
 
-		// Get total fee collected and calculate 30% as total rewards
-		let totalFeeCollected = await getTotalFeeCollected();
-		let totalRewards = (totalFeeCollected * 300_000) / 1_000_000; // 30% calculation with fixed point
+		// Get total fee collected and calculate 70% as total rewards
+		// total reward 1_400,000 for total fee is  2_000_000
+		let totalRewards : Nat = totalFeeCollectedFromLastRewardDistribution * (7 / 10); // 70% calculation with fixed point
 
-		var rewardShare = (totalRewards * userWeight) / totalWeight;
+		var rewardShare = totalRewards * (userWeight / totalWeight); //420,000
 		// Calculate weekly return rate by dividing reward share by staked amount
-		let weeklyReturnRate = (rewardShare * 1_000_000) / stake.amount;
+		// let weeklyReturnRate = (rewardShare / stake.amount) * 100 * 1_000_000; // weeklyReturnRate 4,20,000 % = 0.42 %
+		let weeklyReturnRate = (rewardShare * 100 * 1_000_000) / stake.amount;
 
 		let finalReward = rewardShare;
 		if (finalReward == 0) {
@@ -251,7 +227,7 @@ actor class DoxaStaking() = this {
 		// Calculate APY using weekly return rate
 		// Formula: APY = ((1 + weekly_return_rate)^52 - 1) * 100%
 		// This compounds the weekly returns over 52 weeks to get annual percentage yield
-		let apy = (Nat.pow(1 + weeklyReturnRate, 52) - 1) * 100;
+		let apy = weeklyReturnRate * 52; // 2,18,40,000
 
 		let stakeMetric = {
 			stakeId;
@@ -261,7 +237,7 @@ actor class DoxaStaking() = this {
 			proportion;
 			userWeight;
 			totalWeight;
-			totalFeeCollected;
+			totalFeeCollected = totalFeeCollectedFromLastRewardDistribution;
 			finalReward;
 			apy;
 		};
@@ -272,15 +248,25 @@ actor class DoxaStaking() = this {
 		return #ok(stakeMetric);
 	};
 
-	private func getTotalWeight() : async Nat {
+	// public query func usersStake() : async [(Principal, [Types.StakeId])] {
+	//     Map.toArray(userStakes);
+	// };
+
+	// public query func stakes121() : async [(Types.StakeId, Types.Stake)] {
+	//     Map.toArray(stakes);
+	// };
+
+	public func getTotalWeight() : async Nat {
 		var totalWeight : Nat = 0;
 
 		// Iterate through all users and their stakes
 		for ((user, stakeIds) in Map.entries(userStakes)) {
 			for (stakeId in stakeIds.vals()) {
+				Debug.print(debug_show ("############# for stakeId ############", stakeId));
+
 				switch (Map.get(stakes, nhash, stakeId)) {
 					case (?stake) {
-						let lockDuration = (stake.lockEndTime - stake.stakeTime) / 1_000_000_000;
+						let lockDuration = (stake.lockEndTime - stake.stakeTime);
 						let weight = if (Int.abs(lockDuration) >= LOCKUP_360_DAYS_IN_NANOS) {
 							4_000_000;
 						} else if (Int.abs(lockDuration) >= LOCKUP_270_DAYS_IN_NANOS) {
@@ -291,7 +277,17 @@ actor class DoxaStaking() = this {
 							1_000_000;
 						};
 
-						let proportion = (stake.amount * 1_000_000) / pool.totalStaked;
+						let totalStake = if (pool.totalStaked < MIN_TOTAL_STAKE) {
+							MIN_TOTAL_STAKE;
+						} else {
+							pool.totalStaked;
+						};
+
+						Debug.print(debug_show ("stake.amount", stake.amount));
+
+						Debug.print(debug_show ("totalStake", totalStake));
+
+						let proportion = (stake.amount * 1_000_000) / totalStake; // 1,000
 						let bootstrapMultiplier = switch (Map.get(earlyStakers, phash, user)) {
 							case (?multiplier) {
 								if (Time.now() <= bootstrapStartTime + BOOTSTRAP_MULTIPLIER_DURATION_IN_NANOS) {
@@ -303,7 +299,13 @@ actor class DoxaStaking() = this {
 							case (null) { 1_000_000 };
 						};
 
-						totalWeight += (proportion * weight * bootstrapMultiplier) / (1_000_000 * 1_000_000);
+						Debug.print(debug_show ("proportion", proportion));
+						Debug.print(debug_show ("weight", weight));
+						Debug.print(debug_show ("bootstrapMultiplier", bootstrapMultiplier));
+
+						Debug.print(debug_show ((proportion * weight * bootstrapMultiplier) / (1_000_000 * 1_000_000), "$$$$$ calculating propotion #### for stakeId ", stakeId));
+
+						totalWeight += (proportion * weight * bootstrapMultiplier) / (1_000_000 * 1_000_000); //6,000
 					};
 					case (null) {};
 				};
@@ -542,10 +544,9 @@ actor class DoxaStaking() = this {
 
 	// Public getter function for all pool data
 	public func getPoolData() : async Types.StakingPool {
-		let totalFee = await getTotalFeeCollectedAmount();
 		{
 			pool with
-			rewardTokenFee = totalFee
+			rewardTokenFee = totalFeeCollectedFromLastRewardDistribution
 		};
 	};
 
@@ -643,66 +644,147 @@ actor class DoxaStaking() = this {
 	};
 
 	// Store total fee collected till now
-	private stable var totalFeeCollected : Nat = 0;
+	private stable var totalFeeCollectedSofar : Nat = 0;
+	private stable var totalFeeCollectedFromLastRewardDistribution : Nat = 0;
+	private stable var totalBurnAmount : Nat = 0;
+	private stable var totalSendAmount : Nat = 0;
+	private stable var totalReceiveAmount : Nat = 0;
+	private stable var totalMintAmount : Nat = 0;
+
 	private stable var lastProcessedTxId : Nat = 0;
 
-	public query func getTotalFeeCollectedAmount() : async Nat {
-		totalFeeCollected;
+	func fetchTotalFeeCollectedSofar() : async () {
+		let feeCollectorAccount : Icrc.Account = {
+			owner = Principal.fromText("ieja4-4iaaa-aaaak-qddra-cai");
+			subaccount = null;
+		};
+
+		// var amountToAdd = 0;
+		// var amountToSub = 0;
+
+		var start : ?IcrcIndex.BlockIndex = null;
+
+		var updateLastProcessedTxId : Nat = 0;
+		var isAlreadyUpdateLastProcessedTxId = false;
+
+		var currentBalance = 0;
+
+		label fetchTxAgain loop {
+
+			let args : IcrcIndex.GetAccountTransactionsArgs = {
+				start;
+				max_results = 100;
+				account = feeCollectorAccount;
+			};
+
+			let getTransactionsResult = await USDxIndex.get_account_transactions(args);
+
+			let { balance; oldest_tx_id; transactions } = switch (getTransactionsResult) {
+				case (#Ok(value)) { value };
+				case (#Err(_)) { return () };
+			};
+
+			currentBalance := balance;
+
+			let oldTxId = switch (oldest_tx_id) {
+				case (?value) { value };
+				case (null) { break fetchTxAgain };
+			};
+
+			let size = transactions.size();
+
+			if (size == 0) {
+				break fetchTxAgain;
+			} else {
+				if (not isAlreadyUpdateLastProcessedTxId) {
+					updateLastProcessedTxId := transactions[0].id;
+				};
+				isAlreadyUpdateLastProcessedTxId := true;
+			};
+
+			for ({ id; transaction } in transactions.vals()) {
+
+				if (lastProcessedTxId == id) {
+
+					break fetchTxAgain;
+				};
+
+				// Burning action is when maintaining peg (fee burned here)
+				switch (transaction.burn) {
+					case (?tx) {
+						totalBurnAmount += tx.amount;
+					};
+					case (null) {};
+				};
+
+				switch (transaction.transfer) {
+					case (?tx) {
+
+						// When withdrawing Stake reward as fee
+						if ((tx.from == feeCollectorAccount) and (tx.to != feeCollectorAccount) /*Makesure its not SELF transfer*/) {
+							totalSendAmount += tx.amount;
+
+						} else if ((tx.to == feeCollectorAccount) and (tx.from != feeCollectorAccount) /*Makesure its not SELF transfer*/) {
+							totalReceiveAmount += tx.amount;
+						};
+					};
+					case (null) {};
+				};
+
+				switch (transaction.mint) {
+					case (?tx) {
+						totalMintAmount += tx.amount;
+					};
+					case (null) {};
+				};
+
+			};
+
+			let currentLastTxId = transactions[size - 1].id;
+
+			if (currentLastTxId == oldTxId) {
+				break fetchTxAgain;
+			} else {
+				start := ?currentLastTxId;
+			}
+
+		};
+
+		lastProcessedTxId := updateLastProcessedTxId;
+
+		totalFeeCollectedSofar := currentBalance + totalBurnAmount + totalSendAmount - totalReceiveAmount - totalMintAmount;
+		totalFeeCollectedFromLastRewardDistribution := totalFeeCollectedSofar - totalSendAmount - totalBurnAmount;
+		return ();
+
+	};
+
+	feeCollectedFetchTimer := do {
+		let ONE_HOUR_NAN_SEC = 3_600_000_000_000;
+		let nextFetch = ONE_HOUR_NAN_SEC - (Time.now() % ONE_HOUR_NAN_SEC);
+
+		Timer.setTimer<system>(
+			#nanoseconds(Int.abs nextFetch),
+			func() : async () {
+				feeCollectedFetchTimer := Timer.recurringTimer<system>(#nanoseconds ONE_HOUR_NAN_SEC, fetchTotalFeeCollectedSofar);
+				await fetchTotalFeeCollectedSofar();
+			}
+		);
+	};
+
+	public query func getTotalFeeCollectedSofar() : async Nat {
+		totalFeeCollectedSofar;
+	};
+
+	public query func getTotalFeeCollectedFromLastRewardDistribution() : async Nat {
+		totalFeeCollectedFromLastRewardDistribution;
 	};
 
 	public query func getLastProcessedTxId() : async Nat {
 		lastProcessedTxId;
 	};
 
-	// Get total fee collected from fee collector transactions
-	public func getTotalFeeCollected() : async Nat {
-		let feeCollectorId = Principal.fromText("ieja4-4iaaa-aaaak-qddra-cai");
-		let currentBalance = await getFeeCollectorBalance();
-
-		// Get transactions from USDx index
-		let result = await USDxIndex.get_account_transactions({
-			max_results = 100;
-			start = ?lastProcessedTxId;
-			account = {
-				owner = feeCollectorId;
-				subaccount = null;
-			};
-		});
-
-		var totalAmount : Nat = 0;
-		switch (result) {
-			case (#Ok(data)) {
-				// Process new transactions
-				for (tx in data.transactions.vals()) {
-					switch (tx.transaction.burn) {
-						case (?burn) {
-							// Add burn amount to total
-							totalAmount += burn.amount;
-						};
-						case (null) {};
-					};
-					switch (tx.transaction.transfer) {
-						case (?transfer) {
-							// Add transfer amount to total if fee collector is recipient
-							if (transfer.to.owner == feeCollectorId) {
-								totalAmount += transfer.amount;
-							};
-						};
-						case (null) {};
-					};
-					lastProcessedTxId := tx.id;
-				};
-
-				// Total fee collected should be current balance plus total amount
-				totalFeeCollected := currentBalance + totalAmount;
-				return totalFeeCollected;
-			};
-			case (#Err(_)) {
-				// On error, at least return current balance
-				totalFeeCollected := currentBalance;
-				return totalFeeCollected;
-			};
-		};
+	public func initFetchTotalFeeCollected() : async () {
+		await fetchTotalFeeCollectedSofar();
 	};
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////
