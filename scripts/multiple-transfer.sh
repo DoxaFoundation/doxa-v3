@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 export Default=$(dfx identity get-principal --identity default)
 export Doxa=$(dfx identity get-principal --identity doxa)
 

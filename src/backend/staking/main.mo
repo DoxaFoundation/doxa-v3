@@ -153,8 +153,12 @@ actor class DoxaStaking() = this {
 			case (?ids) ids;
 		};
 
+		Debug.print("userStakeIds: " # debug_show (userStakeIds));
+
 		// Check if stakeId exists in user's stakes
 		let validStakeId = Array.find<Types.StakeId>(userStakeIds, func(id) { id == stakeId });
+		Debug.print("validStakeId: " # debug_show (validStakeId));
+
 		if (validStakeId == null) {
 			return #err("This stake ID does not belong to caller");
 		};
@@ -168,11 +172,14 @@ actor class DoxaStaking() = this {
 			};
 		};
 
+		Debug.print("stake: " # debug_show (stake));
+
 		if (pool.totalStaked == 0) {
 			return #err("Total staked amount zero nahi ho sakta");
 		};
 
 		let lockDuration = stake.lockEndTime - stake.stakeTime;
+		Debug.print("lockDuration: " # debug_show (lockDuration));
 
 		let lockupWeight = if (Int.abs(lockDuration) >= LOCKUP_360_DAYS_IN_NANOS) {
 			4_000_000;
@@ -183,6 +190,8 @@ actor class DoxaStaking() = this {
 		} else {
 			1_000_000; // Default for 90 days
 		};
+
+		Debug.print("lockupWeight: " # debug_show (lockupWeight));
 
 		let bootstrapMultiplier = switch (Map.get(earlyStakers, phash, caller)) {
 			case (?multiplier) {
@@ -195,31 +204,45 @@ actor class DoxaStaking() = this {
 			case (null) { 1_000_000 };
 		};
 
+		Debug.print("bootstrapMultiplier: " # debug_show (bootstrapMultiplier));
+
 		let totalStake = if (pool.totalStaked < MIN_TOTAL_STAKE) {
 			MIN_TOTAL_STAKE;
 		} else {
 			pool.totalStaked;
 		};
 
+		Debug.print("totalStake: " # debug_show (totalStake));
+
 		// 100_000000
 		// let proportion = (stake.amount / totalStake) * 1_000_000; // 1,000
 		let proportion = (stake.amount * 1_000_000) / totalStake;
+		Debug.print("proportion: " # debug_show (proportion));
 
 		let userWeight = (proportion * lockupWeight * bootstrapMultiplier) / (1_000_000 * 1_000_000); //6,000
+		Debug.print("userWeight: " # debug_show (userWeight));
 
 		// Calculate total lockupWeight by iterating over all stakes
 		let totalWeight = await getTotalWeight(); //20,000
+		Debug.print("totalWeight: " # debug_show (totalWeight));
 
 		// Get total fee collected and calculate 70% as total rewards
 		// total reward 1_400,000 for total fee is  2_000_000
-		let totalRewards : Nat = totalFeeCollectedFromLastRewardDistribution * (7 / 10); // 70% calculation with fixed point
+		Debug.print("totalFeeCollectedFromLastRewardDistribution: " # debug_show (totalFeeCollectedFromLastRewardDistribution));
+		let totalRewards : Nat = (totalFeeCollectedFromLastRewardDistribution * 7) / 10; // Fixed 70% calculation
+		Debug.print("totalRewards: " # debug_show (totalRewards));
 
-		var rewardShare = totalRewards * (userWeight / totalWeight); //420,000
+		var rewardShare = (totalRewards * userWeight) / totalWeight;
+		Debug.print("rewardShare: " # debug_show (rewardShare));
+
 		// Calculate weekly return rate by dividing reward share by staked amount
 		// let weeklyReturnRate = (rewardShare / stake.amount) * 100 * 1_000_000; // weeklyReturnRate 4,20,000 % = 0.42 %
 		let weeklyReturnRate = (rewardShare * 100 * 1_000_000) / stake.amount;
+		Debug.print("weeklyReturnRate: " # debug_show (weeklyReturnRate));
 
 		let finalReward = rewardShare;
+		Debug.print("finalReward: " # debug_show (finalReward));
+
 		if (finalReward == 0) {
 			return #err("Reward amount is zero. Please increase your stake amount or lockup duration");
 		};
@@ -228,6 +251,7 @@ actor class DoxaStaking() = this {
 		// Formula: APY = ((1 + weekly_return_rate)^52 - 1) * 100%
 		// This compounds the weekly returns over 52 weeks to get annual percentage yield
 		let apy = weeklyReturnRate * 52; // 2,18,40,000
+		Debug.print("apy: " # debug_show (apy));
 
 		let stakeMetric = {
 			stakeId;
@@ -759,7 +783,7 @@ actor class DoxaStaking() = this {
 	};
 
 	feeCollectedFetchTimer := do {
-		let ONE_HOUR_NAN_SEC = 3_600_000_000_000;
+		let ONE_HOUR_NAN_SEC = 60_000_000_000;
 		let nextFetch = ONE_HOUR_NAN_SEC - (Time.now() % ONE_HOUR_NAN_SEC);
 
 		Timer.setTimer<system>(
