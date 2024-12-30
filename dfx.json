@@ -3,9 +3,7 @@
 		"ckusdc_pool": {
 			"main": "src/backend/ckusdc-pool/main.mo",
 			"type": "motoko",
-			"dependencies": [
-				"exchange_rate_canister"
-			]
+			"dependencies": ["exchange_rate_canister"]
 		},
 		"usdx_ledger": {
 			"type": "custom",
@@ -20,10 +18,7 @@
 		"stablecoin_minter": {
 			"main": "src/backend/stablecoin-minter/main.mo",
 			"type": "motoko",
-			"dependencies": [
-				"icp_ledger",
-				"exchange_rate_canister"
-			]
+			"dependencies": ["icp_ledger", "exchange_rate_canister"]
 		},
 		"root_canister": {
 			"main": "src/backend/root-canister/main.mo",
@@ -36,26 +31,27 @@
 		"test": {
 			"main": "src/test/main.mo",
 			"type": "motoko",
-			"dependencies": [
-				"staking_canister"
-			]
+			"dependencies": ["staking_canister"]
 		},
 		"frontend": {
-			"dependencies": [
-				"internet_identity"
-			],
+			"dependencies": ["internet_identity"],
 			"frontend": {
 				"entrypoint": "build/index.html"
 			},
-			"source": [
-				"build/"
-			],
+			"source": ["build/"],
 			"type": "assets"
 		},
 		"internet_identity": {
-			"type": "pull",
-			"id": "rdmx6-jaaaa-aaaaa-aaadq-cai",
-			"frontend": {}
+			"type": "custom",
+			"candid": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity.did",
+			"wasm": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity_dev.wasm.gz",
+			"remote": {
+				"id": {
+					"ic": "rdmx6-jaaaa-aaaaa-aaadq-cai"
+				}
+			},
+			"frontend": {},
+			"specified_id": "rdmx6-jaaaa-aaaaa-aaadq-cai"
 		},
 		"icp_ledger": {
 			"type": "custom",
@@ -69,8 +65,10 @@
 			}
 		},
 		"exchange_rate_canister": {
-			"type": "pull",
-			"id": "uf6dk-hyaaa-aaaaq-qaaaq-cai"
+			"type": "custom",
+			"candid": "https://raw.githubusercontent.com/dfinity/exchange-rate-canister/6dc4a6eb450bc477d6ea09597c992a3ef31d0d88/src/xrc/xrc.did",
+			"wasm": "https://github.com/dfinity/exchange-rate-canister/releases/download/2024.07.12/xrc.wasm.gz",
+			"specified_id": "uf6dk-hyaaa-aaaaq-qaaaq-cai"
 		},
 		"ckusdc_ledger": {
 			"type": "custom",

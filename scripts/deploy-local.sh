@@ -1,9 +1,6 @@
 
-#Pull Internet Identity as a dependencies from the mainnet and deploy locally.
-dfx deps pull
-dfx deps init --argument '(null)' internet_identity
-dfx deps init exchange_rate_canister
-dfx deps deploy 
+dfx deploy internet_identity
+dfx deploy exchange_rate_canister
 
 ########################################################################################
 ########################### Deploy local ICP ledger canister ###########################
@@ -65,8 +62,13 @@ dfx deploy root_canister
 
 dfx deploy ckusdc_pool
 
-dfx deploy usdx_index
+chmod +x scripts/deploy-usdx-index.sh
 
-dfx deploy staking_canister
+
+dfx deploy staking_canister --specified-id mhahe-xqaaa-aaaag-qndha-cai
+
+dfx canister create usdx_index --specified-id modmy-byaaa-aaaag-qndgq-cai
+chmod +x scripts/deploy-usdx-index.sh
+./scripts/deploy-usdx-index.sh
 
 ./scripts/deploy-usdx-index.sh 
