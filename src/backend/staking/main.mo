@@ -181,15 +181,7 @@ actor class DoxaStaking() = this {
 		let lockDuration = stake.lockEndTime - stake.stakeTime;
 		Debug.print("lockDuration: " # debug_show (lockDuration));
 
-		let lockupWeight = if (Int.abs(lockDuration) >= LOCKUP_360_DAYS_IN_NANOS) {
-			4_000_000;
-		} else if (Int.abs(lockDuration) >= LOCKUP_270_DAYS_IN_NANOS) {
-			3_000_000;
-		} else if (Int.abs(lockDuration) >= LOCKUP_180_DAYS_IN_NANOS) {
-			2_000_000;
-		} else {
-			1_000_000; // Default for 90 days
-		};
+		let lockupWeight = calculateDynamicWeight(Int.abs(lockDuration));
 
 		Debug.print("lockupWeight: " # debug_show (lockupWeight));
 
@@ -270,6 +262,52 @@ actor class DoxaStaking() = this {
 		let compositeKey = Principal.toText(caller) # "_" # Nat.toText(stakeId);
 
 		return #ok(stakeMetric);
+	};
+
+	// Helper function to calculate precise dynamic weight
+	private func calculateDynamicWeight(lockDuration : Int) : Nat {
+		let durationInDays = Int.abs(lockDuration) / (24 * 60 * 60 * 1_000_000_000); // Convert nanos to days
+
+		// Constants
+		let MIN_DAYS : Nat = 30; // Minimum lock duration (30 days)
+		let MAX_DAYS : Nat = 360; // Maximum lock duration (360 days)
+		let BASE_WEIGHT : Nat = 1_000_000; // Base multiplier (1x)
+		let MAX_WEIGHT : Nat = 4_000_000; // Maximum multiplier (4x)
+
+		if (durationInDays < MIN_DAYS) {
+			return BASE_WEIGHT; // Minimum weight for less than 30 days
+		};
+
+		if (durationInDays >= MAX_DAYS) {
+			return MAX_WEIGHT; // Maximum weight for 360+ days
+		};
+
+		// Calculate weight linearly for each day between min and max
+		// Formula: BASE_WEIGHT + (days - MIN_DAYS) * (MAX_WEIGHT - BASE_WEIGHT) / (MAX_DAYS - MIN_DAYS)
+		let additionalDays = Int.abs(durationInDays - MIN_DAYS);
+		let weightRange = Int.abs(MAX_WEIGHT - BASE_WEIGHT);
+		let daysRange = Int.abs(MAX_DAYS - MIN_DAYS);
+
+		let additionalWeight = (additionalDays * weightRange) / daysRange;
+		BASE_WEIGHT + additionalWeight;
+	};
+
+	// Query function to preview weights for different durations
+	public query func previewWeightForDuration(durationInDays : Nat) : async Nat {
+		let durationInNanos = durationInDays * 24 * 60 * 60 * 1_000_000_000;
+		calculateDynamicWeight(durationInNanos);
+	};
+
+	// Query function to get weight table (useful for UI)
+	public query func getWeightTable() : async [(Nat, Nat)] {
+		let days = [30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360];
+		Array.map<Nat, (Nat, Nat)>(
+			days,
+			func(day : Nat) : (Nat, Nat) {
+				let durationInNanos = day * 24 * 60 * 60 * 1_000_000_000;
+				(day, calculateDynamicWeight(durationInNanos));
+			}
+		);
 	};
 
 	// public query func usersStake() : async [(Principal, [Types.StakeId])] {
