@@ -36,6 +36,18 @@ actor CkusdcPool {
 		};
 	};
 
+	type RewardApprovalArg = {
+		memo : ?Blob;
+		created_at_time : ?Nat64;
+		amount : Nat;
+		expires_at : ?Nat64;
+	};
+
+	type RewardApprovalErr = {
+		#NotAuthorised;
+		#LedgerApprovalError : Icrc.ApproveError;
+	};
+
 	let ckUSDC : Icrc.Self = actor ("xevnm-gaaaa-aaaar-qafnq-cai");
 	let USDx : Icrc.Self = actor ("irorr-5aaaa-aaaak-qddsq-cai");
 
@@ -268,5 +280,31 @@ actor CkusdcPool {
 	public query func get_usd_usdc_rate() : async { rate : Float; timestamp : Nat64 } {
 		{ rate = usdUsdc.rateF; timestamp = usdUsdc.timestamp };
 	};
+
+	public shared ({ caller }) func weekly_reward_approval({ memo; created_at_time; amount; expires_at } : RewardApprovalArg) : async Result<Nat, RewardApprovalErr> {
+		let stakingCanister = Principal.fromText("mhahe-xqaaa-aaaag-qndha-cai");
+
+		if (caller != stakingCanister) {
+			return #err(#NotAuthorised);
+		};
+
+		let approveArg : Icrc.ApproveArgs = {
+			fee = null;
+			memo;
+			from_subaccount = null;
+			created_at_time;
+			amount;
+			expected_allowance = null;
+			expires_at;
+			spender = { owner = stakingCanister; subaccount = null }
+
+		};
+
+		switch (await USDx.icrc2_approve(approveArg)) {
+			case (#Ok(value)) { #ok(value) };
+			case (#Err(error)) { #err(#LedgerApprovalError error) };
+		};
+
+	}
 
 };
