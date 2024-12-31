@@ -64,7 +64,6 @@ actor class DoxaStaking() = this {
 	// Transaction tracking
 	private stable let stakeBlockIndices = Map.new<Principal, [BlockIndex]>();
 	private stable let unStakeBlockIndices = Map.new<Principal, [BlockIndex]>();
-	private stable let harvestBlockIndices = Map.new<Principal, [BlockIndex]>();
 	private stable let processedStakeTransactions = Map.new<Nat, Principal>();
 
 	// Counters and timers
@@ -372,10 +371,30 @@ actor class DoxaStaking() = this {
 	///////////////////////// reward storage and distribution system /////////////////////////////
 	//////////////////////////////////////////////////////////////////////////////////////////////
 
+	// Add type for reward approval
+	public type RewardApprovalArg = {
+		memo : ?Blob;
+		created_at_time : ?Nat64;
+		amount : Nat;
+		expires_at : ?Nat64;
+	};
+
+	public type RewardApprovalErr = {
+		#NotAuthorised;
+		#LedgerApprovalError : Icrc.ApproveError;
+	};
+
+	// Add CKUSDC pool interface
+	private let CKUSDCPool : actor {
+		weekly_reward_approval : shared RewardApprovalArg -> async Result.Result<Nat, RewardApprovalErr>;
+	} = actor ("ieja4-4iaaa-aaaak-qddra-cai");
+
 	// Add these stable variables for reward tracking
 	private stable var weeklyRewardMap = Map.new<Nat, Nat>(); // weekNumber -> totalReward
 	private stable var lastRewardUpdateTime : Int = 0;
 	private stable var currentWeekNumber : Nat = 0;
+	private stable let harvestBlockIndices = Map.new<Principal, [BlockIndex]>();
+	private stable let compoundBlockIndices = Map.new<Principal, [BlockIndex]>();
 	private stable var userRewardMap = Map.new<Principal, Map.Map<Nat, Nat>>(); // user -> (weekNumber -> rewardAmount)
 
 	// Constants
@@ -451,7 +470,7 @@ actor class DoxaStaking() = this {
 		#Compound; // Add rewards to existing stake
 	};
 
-	// Modified harvest function with compound option
+	// Modify existing harvestRewards function
 	public shared ({ caller }) func harvestRewards(stakeId : Types.StakeId, action : HarvestAction) : async Result.Result<(), Text> {
 		// Verify stake belongs to caller
 		let userStakeIds = switch (Map.get(userStakes, phash, caller)) {
@@ -474,81 +493,148 @@ actor class DoxaStaking() = this {
 			};
 		};
 
-		switch (Map.get(userRewardMap, phash, caller)) {
-			case (?weekMap) {
-				var totalReward : Nat = 0;
-
-				// Sum up all unclaimed rewards
-				for ((weekNum, reward) in Map.entries(weekMap)) {
-					totalReward += reward;
+		try {
+			// Calculate pending rewards
+			let pendingRewards = switch (Map.get(userRewardMap, phash, caller)) {
+				case (?weekMap) {
+					var total : Nat = 0;
+					for ((_, reward) in Map.entries(weekMap)) {
+						total += reward;
+					};
+					total;
 				};
+				case (null) { 0 };
+			};
 
-				if (totalReward == 0) {
-					return #err("No rewards available to harvest");
-				};
+			if (pendingRewards == 0) {
+				return #err("No rewards available to harvest");
+			};
 
-				switch (action) {
-					case (#Withdraw) {
-						// Original withdraw logic
-						let transferResult = await USDx.icrc1_transfer({
-							to = { owner = caller; subaccount = null };
-							amount = totalReward;
-							fee = null;
-							memo = null;
-							from_subaccount = null;
-							created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
-						});
+			// Get approval from CKUSDC pool
+			let approvalArg : RewardApprovalArg = {
+				memo = null;
+				created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
+				amount = pendingRewards;
+				expires_at = ?Nat64.fromNat(Int.abs(Time.now()) + 300_000_000_000); // 5 minutes
+			};
 
-						switch (transferResult) {
-							case (#Ok(_)) {
-								// Clear harvested rewards
-								Map.clear(weekMap);
-								#ok();
+			let approvalResult = await CKUSDCPool.weekly_reward_approval(approvalArg);
+
+			switch (approvalResult) {
+				case (#ok(blockIndex)) {
+					switch (action) {
+						case (#Withdraw) {
+							// Transfer to user's wallet
+							let transferArgs : Icrc.TransferFromArgs = {
+								spender_subaccount = null;
+								from = {
+									owner = Principal.fromText("ieja4-4iaaa-aaaak-qddra-cai"); // CKUSDC Pool
+									subaccount = null;
+								};
+								to = {
+									owner = caller;
+									subaccount = null;
+								};
+								amount = pendingRewards;
+								fee = null;
+								memo = null;
+								created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
 							};
-							case (#Err(e)) {
-								#err("Failed to transfer rewards: " # debug_show (e));
+
+							let transferResult = await USDx.icrc2_transfer_from(transferArgs);
+
+							switch (transferResult) {
+								case (#Ok(txnIndex)) {
+									// Clear harvested rewards
+									switch (Map.get(userRewardMap, phash, caller)) {
+										case (?weekMap) { Map.clear(weekMap) };
+										case (null) {};
+									};
+
+									// Record harvest transaction
+									let currentBlockIndices = switch (Map.get(harvestBlockIndices, phash, caller)) {
+										case (?indices) indices;
+										case (null) [];
+									};
+									Map.set(harvestBlockIndices, phash, caller, Array.append(currentBlockIndices, [txnIndex]));
+
+									#ok();
+								};
+								case (#Err(error)) {
+									#err("Transfer failed: " # debug_show (error));
+								};
+							};
+						};
+
+						case (#Compound) {
+							// Transfer to staking contract
+							let transferArgs : Icrc.TransferFromArgs = {
+								spender_subaccount = null;
+								from = {
+									owner = Principal.fromText("ieja4-4iaaa-aaaak-qddra-cai"); // CKUSDC Pool
+									subaccount = null;
+								};
+								to = {
+									owner = Principal.fromActor(this);
+									subaccount = null;
+								};
+								amount = pendingRewards;
+								fee = null;
+								memo = null;
+								created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
+							};
+
+							let transferResult = await USDx.icrc2_transfer_from(transferArgs);
+
+							switch (transferResult) {
+								case (#Ok(txnIndex)) {
+									// Update stake with compounded amount
+									let updatedStake : Types.Stake = {
+										id = stake.id;
+										staker = stake.staker;
+										amount = stake.amount + pendingRewards;
+										stakeTime = stake.stakeTime;
+										lockEndTime = stake.lockEndTime;
+										lastHarvestTime = Time.now();
+									};
+
+									// Update stake in storage
+									Map.set(stakes, nhash, stakeId, updatedStake);
+
+									// Update pool total staked amount
+									pool := {
+										pool with
+										totalStaked = pool.totalStaked + pendingRewards
+									};
+
+									// Clear harvested rewards
+									switch (Map.get(userRewardMap, phash, caller)) {
+										case (?weekMap) { Map.clear(weekMap) };
+										case (null) {};
+									};
+
+									// Record compound transaction
+									let currentBlockIndices = switch (Map.get(compoundBlockIndices, phash, caller)) {
+										case (?indices) indices;
+										case (null) [];
+									};
+									Map.set(compoundBlockIndices, phash, caller, Array.append(currentBlockIndices, [txnIndex]));
+
+									#ok();
+								};
+								case (#Err(error)) {
+									#err("Transfer failed: " # debug_show (error));
+								};
 							};
 						};
 					};
-
-					case (#Compound) {
-						// Add rewards to existing stake
-						let updatedStake : Types.Stake = {
-							id = stake.id;
-							staker = stake.staker;
-							amount = stake.amount + totalReward; // Add rewards to stake amount
-							stakeTime = stake.stakeTime;
-							lockEndTime = stake.lockEndTime;
-							lastHarvestTime = Time.now();
-						};
-
-						// Update stake in storage
-						Map.set(stakes, nhash, stakeId, updatedStake);
-
-						// Update pool total staked amount
-						pool := {
-							pool with
-							totalStaked = pool.totalStaked + totalReward
-						};
-
-						// Clear harvested rewards
-						Map.clear(weekMap);
-
-						// Store compounding action in transaction history
-						_tranIdx += 1;
-						let currentBlockIndices = switch (Map.get(harvestBlockIndices, phash, caller)) {
-							case (?indices) indices;
-							case (null) [];
-						};
-						Map.set(harvestBlockIndices, phash, caller, Array.append(currentBlockIndices, [_tranIdx]));
-
-						#ok();
-					};
+				};
+				case (#err(error)) {
+					#err("Approval failed: " # debug_show (error));
 				};
 			};
-			case (null) {
-				#err("No rewards found for user");
-			};
+		} catch (e) {
+			#err("Error occurred: " # Error.message(e));
 		};
 	};
 
