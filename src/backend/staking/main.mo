@@ -12,6 +12,7 @@ import Error "mo:base/Error";
 import Array "mo:base/Array";
 import Text "mo:base/Text";
 import Int64 "mo:base/Int64";
+import Blob "mo:base/Blob";
 import Types "types";
 import Icrc "../service/icrc-interface"; // ICRC token interface
 import IcrcIndex "../service/icrc-index-interface";
@@ -64,7 +65,6 @@ actor class DoxaStaking() = this {
 	// Transaction tracking
 	private stable let stakeBlockIndices = Map.new<Principal, [BlockIndex]>();
 	private stable let unStakeBlockIndices = Map.new<Principal, [BlockIndex]>();
-	private stable let harvestBlockIndices = Map.new<Principal, [BlockIndex]>();
 	private stable let processedStakeTransactions = Map.new<Nat, Principal>();
 
 	// Counters and timers
@@ -310,14 +310,6 @@ actor class DoxaStaking() = this {
 		);
 	};
 
-	// public query func usersStake() : async [(Principal, [Types.StakeId])] {
-	//     Map.toArray(userStakes);
-	// };
-
-	// public query func stakes121() : async [(Types.StakeId, Types.Stake)] {
-	//     Map.toArray(stakes);
-	// };
-
 	public func getTotalWeight() : async Nat {
 		var totalWeight : Nat = 0;
 
@@ -375,6 +367,377 @@ actor class DoxaStaking() = this {
 		};
 		return totalWeight;
 	};
+
+	//////////////////////////////////////////////////////////////////////////////////////////////
+	///////////////////////// reward storage and distribution system /////////////////////////////
+	//////////////////////////////////////////////////////////////////////////////////////////////
+
+	// Add type for reward approval
+	public type RewardApprovalArg = {
+		memo : ?Blob;
+		created_at_time : ?Nat64;
+		amount : Nat;
+		expires_at : ?Nat64;
+	};
+
+	public type RewardApprovalErr = {
+		#NotAuthorised;
+		#LedgerApprovalError : Icrc.ApproveError;
+	};
+
+	// Add CKUSDC pool interface
+	private let CKUSDCPool : actor {
+		weekly_reward_approval : shared RewardApprovalArg -> async Result.Result<Nat, RewardApprovalErr>;
+	} = actor ("ieja4-4iaaa-aaaak-qddra-cai");
+
+	// Transaction tracking
+	private stable let harvestBlockIndices = Map.new<Principal, [BlockIndex]>();
+	private stable let compoundBlockIndices = Map.new<Principal, [BlockIndex]>();
+
+	// Timer and distribution tracking
+	private stable var lastRewardDistributionTime : Int = 0;
+
+	// Constants
+	private let WEEK_IN_NANOSECONDS : Nat = 7 * 24 * 60 * 60 * 1_000_000_000;
+	private let REWARD_SUBACCOUNT : ?Blob = ?Blob.fromArray([0, 0, 0, 0, 0, 0, 0, 1]); // Example subaccount
+
+	// Add map for auto-compound preferences
+	private stable let autoCompoundPreferences = Map.new<Principal, [Types.StakeId]>();
+	
+	// Add manual trigger function for testing
+	public  func triggerRewardDistributionForTesting() : async Result.Result<(), Text> {
+		// For testing, we'll still update the lastRewardDistributionTime
+		lastRewardDistributionTime := Time.now();
+
+		Debug.print("Manual reward distribution triggered by admin");
+
+		// Call the distribution function
+		await updateWeeklyRewards();
+
+		#ok();
+	};
+
+	// Modified update weekly rewards function
+	private func updateWeeklyRewards() : async () {
+		let currentTime = Time.now();
+
+		// Check if a week has passed since last distribution
+		if (currentTime - lastRewardDistributionTime >= WEEK_IN_NANOSECONDS) {
+			// Fetch latest fee collection data
+			await fetchTotalFeeCollectedSofar();
+
+			// If there are fees to distribute
+			if (totalFeeCollectedFromLastRewardDistribution > 0) {
+				Debug.print("Starting weekly reward distribution...");
+				Debug.print("Total fees collected: " # debug_show (totalFeeCollectedFromLastRewardDistribution));
+
+				// Distribute rewards
+				await distributeWeeklyRewards(totalFeeCollectedFromLastRewardDistribution);
+
+				// Reset fee collection for next week
+				totalFeeCollectedFromLastRewardDistribution := 0;
+
+				// Update last distribution time
+				lastRewardDistributionTime := currentTime;
+
+				Debug.print("Weekly reward distribution completed");
+			} else {
+				Debug.print("No fees collected for distribution this week");
+			};
+		};
+	};
+
+	// Function to toggle auto-compound preference
+	public shared ({ caller }) func toggleAutoCompound(stakeId : Types.StakeId) : async Result.Result<Bool, Text> {
+		// Verify stake belongs to caller
+		let userStakeIds = switch (Map.get(userStakes, phash, caller)) {
+			case (null) return #err("No stakes found for user");
+			case (?ids) ids;
+		};
+
+		let stakeExists = Array.find<Types.StakeId>(userStakeIds, func(id) { id == stakeId }) != null;
+		if (not stakeExists) {
+			return #err("Stake ID does not belong to caller");
+		};
+
+		// Get current auto-compound preferences
+		let currentPreferences = switch (Map.get(autoCompoundPreferences, phash, caller)) {
+			case (?prefs) prefs;
+			case (null) [];
+		};
+
+		// Check if stakeId exists in preferences
+		let hasPreference = Array.find<Types.StakeId>(currentPreferences, func(id) { id == stakeId }) != null;
+
+		// Update preferences
+		if (hasPreference) {
+			// Remove preference
+			let newPrefs = Array.filter<Types.StakeId>(currentPreferences, func(id) { id != stakeId });
+			Map.set(autoCompoundPreferences, phash, caller, newPrefs);
+			#ok(false);
+		} else {
+			// Add preference
+			Map.set(autoCompoundPreferences, phash, caller, Array.append(currentPreferences, [stakeId]));
+			#ok(true);
+		};
+	};
+
+	// Modified weekly reward distribution
+	private func distributeWeeklyRewards(totalReward : Nat) : async () {
+		// First get approval from CKUSDC pool
+		let approvalArg : RewardApprovalArg = {
+			memo = null;
+			created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
+			amount = totalReward;
+			expires_at = ?Nat64.fromNat(Int.abs(Time.now()) + 300_000_000_000);
+		};
+
+		let approvalResult = await CKUSDCPool.weekly_reward_approval(approvalArg);
+
+		switch (approvalResult) {
+			case (#err(error)) return;
+			case (#ok(_)) {
+				// Transfer to reward account
+				let initialTransferResult = await USDx.icrc1_transfer({
+					from_subaccount = null;
+					to = {
+						owner = Principal.fromActor(this);
+						subaccount = REWARD_SUBACCOUNT;
+					};
+					amount = totalReward;
+					fee = null;
+					memo = null;
+					created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
+				});
+
+				switch (initialTransferResult) {
+					case (#Err(_)) return;
+					case (#Ok(_)) {
+						var totalAutoCompoundAmount = 0;
+
+						// First pass: Calculate rewards and update stake records
+						for ((principal, stakeIds) in Map.entries(userStakes)) {
+							for (stakeId in stakeIds.vals()) {
+								switch (Map.get(stakes, nhash, stakeId)) {
+									case (?stake) {
+										let metrics = await calculateUserStakeMatric(stakeId, principal);
+										switch (metrics) {
+											case (#ok(m)) {
+												// Check if stake is set for auto-compound
+												let userPrefs = switch (Map.get(autoCompoundPreferences, phash, principal)) {
+													case (?prefs) prefs;
+													case (null) [];
+												};
+
+												// Check if stake ID exists in user preferences using Array.find
+												let hasAutoCompound = Array.find<Types.StakeId>(userPrefs, func(id) { id == stakeId }) != null;
+
+												if (hasAutoCompound) {
+													// Add to auto-compound total
+													totalAutoCompoundAmount += m.finalReward;
+												} else {
+													// Update reward field in stake
+													let updatedStake = {
+														stake with
+														reward = stake.reward + m.finalReward
+													};
+													Map.set(stakes, nhash, stakeId, updatedStake);
+												};
+											};
+											case (#err(_)) {};
+										};
+									};
+									case (null) {};
+								};
+							};
+						};
+
+						// If there are auto-compound stakes, transfer total amount at once
+						if (totalAutoCompoundAmount > 0) {
+							let transferResult = await USDx.icrc1_transfer({
+								from_subaccount = REWARD_SUBACCOUNT;
+								to = {
+									owner = Principal.fromActor(this);
+									subaccount = null;
+								};
+								amount = totalAutoCompoundAmount;
+								fee = null;
+								memo = null;
+								created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
+							});
+
+							// If transfer successful, update auto-compound stakes
+							switch (transferResult) {
+								case (#Ok(blockIndex)) {
+									for ((principal, stakeIds) in Map.entries(autoCompoundPreferences)) {
+										for (stakeId in stakeIds.vals()) {
+											switch (Map.get(stakes, nhash, stakeId)) {
+												case (?stake) {
+													let metrics = await calculateUserStakeMatric(stakeId, principal);
+													switch (metrics) {
+														case (#ok(m)) {
+															// Update stake amount
+															let updatedStake = {
+																stake with
+																amount = stake.amount + m.finalReward
+															};
+															Map.set(stakes, nhash, stakeId, updatedStake);
+														};
+														case (#err(_)) {};
+													};
+												};
+												case (null) {};
+											};
+										};
+									};
+								};
+								case (#Err(_)) {};
+							};
+						};
+					};
+				};
+			};
+		};
+	};
+
+	// Add manual harvest function
+	public shared ({ caller }) func harvestReward(stakeId : Types.StakeId) : async Result.Result<(), Text> {
+		switch (Map.get(stakes, nhash, stakeId)) {
+			case (null) return #err("Stake not found");
+			case (?stake) {
+				if (stake.staker != caller) return #err("Not authorized");
+				if (stake.reward == 0) return #err("No rewards to harvest");
+
+				let transferResult = await USDx.icrc1_transfer({
+					from_subaccount = REWARD_SUBACCOUNT;
+					to = { owner = caller; subaccount = null };
+					amount = stake.reward;
+					fee = null;
+					memo = null;
+					created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
+				});
+
+				switch (transferResult) {
+					case (#Ok(blockIndex)) {
+						// Reset reward in stake
+						let updatedStake = { stake with reward = 0 };
+						Map.set(stakes, nhash, stakeId, updatedStake);
+
+						// Record harvest transaction
+						let currentIndices = switch (Map.get(harvestBlockIndices, phash, caller)) {
+							case (?indices) indices;
+							case (null) [];
+						};
+						Map.set(harvestBlockIndices, phash, caller, Array.append(currentIndices, [blockIndex]));
+						#ok();
+					};
+					case (#Err(error)) #err("Transfer failed: " # debug_show (error));
+				};
+			};
+		};
+	};
+
+	// Add manual compound function
+	public shared ({ caller }) func compoundReward(stakeId : Types.StakeId) : async Result.Result<(), Text> {
+		switch (Map.get(stakes, nhash, stakeId)) {
+			case (null) return #err("Stake not found");
+			case (?stake) {
+				if (stake.staker != caller) return #err("Not authorized");
+				if (stake.reward == 0) return #err("No rewards to compound");
+
+				let transferResult = await USDx.icrc1_transfer({
+					from_subaccount = REWARD_SUBACCOUNT;
+					to = {
+						owner = Principal.fromActor(this);
+						subaccount = null;
+					};
+					amount = stake.reward;
+					fee = null;
+					memo = null;
+					created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
+				});
+
+				switch (transferResult) {
+					case (#Ok(blockIndex)) {
+						// Update stake amount and reset reward
+						let updatedStake = {
+							stake with
+							amount = stake.amount + stake.reward;
+							reward = 0;
+						};
+						Map.set(stakes, nhash, stakeId, updatedStake);
+
+						// Record compound transaction
+						let currentIndices = switch (Map.get(compoundBlockIndices, phash, caller)) {
+							case (?indices) indices;
+							case (null) [];
+						};
+						Map.set(compoundBlockIndices, phash, caller, Array.append(currentIndices, [blockIndex]));
+						#ok();
+					};
+					case (#Err(error)) #err("Transfer failed: " # debug_show (error));
+				};
+			};
+		};
+	};
+
+	// Query function to get pending rewards for a stake
+	public query func getPendingReward(stakeId : Types.StakeId) : async Result.Result<Nat, Text> {
+		switch (Map.get(stakes, nhash, stakeId)) {
+			case (null) #err("Stake not found");
+			case (?stake) #ok(stake.reward);
+		};
+	};
+
+	// Add function to get all reward-related stats for a stake
+	public query func getUserStakeRewardStats(stakeId : Types.StakeId) : async Result.Result<{ pendingReward : Nat; isAutoCompound : Bool; lastHarvestTime : Time.Time }, Text> {
+		switch (Map.get(stakes, nhash, stakeId)) {
+			case (null) #err("Stake not found");
+			case (?stake) {
+				let isAutoCompound = Array.find<Types.StakeId>(
+					switch (Map.get(autoCompoundPreferences, phash, stake.staker)) {
+						case (?prefs) prefs;
+						case (null) [];
+					},
+					func(id) { id == stakeId }
+				) != null;
+
+				#ok({
+					pendingReward = stake.reward;
+					isAutoCompound = isAutoCompound;
+					lastHarvestTime = stake.lastHarvestTime;
+				});
+			};
+		};
+	};
+
+	// Add helper function to get reward account balance
+	public shared func getRewardAccountBalance() : async Nat {
+		await USDx.icrc1_balance_of({
+			owner = Principal.fromActor(this);
+			subaccount = REWARD_SUBACCOUNT;
+		});
+	};
+
+	// Query function to check if stake is set for auto-compound
+	public query func isAutoCompoundEnabled(stakeId : Types.StakeId) : async Bool {
+		for ((principal, stakeIds) in Map.entries(autoCompoundPreferences)) {
+			let found = Array.find<Types.StakeId>(stakeIds, func(id) { id == stakeId });
+			if (found != null) {
+				return true;
+			};
+		};
+		return false;
+	};
+
+	// Get all auto-compound stakes for a user
+	public query func getUserAutoCompoundStakes(principal : Principal) : async [Types.StakeId] {
+		switch (Map.get(autoCompoundPreferences, phash, principal)) {
+			case (?stakeIds) stakeIds;
+			case (null) [];
+		};
+	};
+
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	////////////////////////////////////// api  //////////////////////////////////////////////////
 	//////////////////////////////////////////////////////////////////////////////////////////////
@@ -452,6 +815,7 @@ actor class DoxaStaking() = this {
 			stakeTime = Time.now();
 			lockEndTime = Time.now() + lockDuration;
 			lastHarvestTime = 0;
+			reward = 0;
 		};
 
 		Map.set(stakes, nhash, stakeId, stake);
@@ -510,6 +874,8 @@ actor class DoxaStaking() = this {
     3. Updating user's stake list
     4. stroing transaction in unstake
     */
+
+	// Modified unstake function to handle rewards
 	public shared ({ caller }) func unstake(stakeId : Types.StakeId) : async Result.Result<(), Text> {
 		// Get user's stake IDs
 		let userStakeIds = switch (Map.get(userStakes, phash, caller)) {
@@ -537,65 +903,81 @@ actor class DoxaStaking() = this {
 			return #err("Stake is still locked");
 		};
 
-		// Calculate final rewards before unstaking
-		let stakeMetricsResult = await calculateUserStakeMatric(stakeId, caller);
-		switch (stakeMetricsResult) {
-			case (#err(e)) return #err(e);
-			case (#ok(metrics)) {
-				let finalRewards = metrics.finalReward;
-				let rewardsFloat = Float.fromInt(finalRewards);
-				let rewardsInt64 = Float.toInt64(rewardsFloat);
-				let rewardsNat64 = Int64.toNat64(rewardsInt64);
+		// Calculate total amount (stake amount + pending rewards)
+		let totalAmount = stake.amount + stake.reward;
 
-				// Record transaction first
-				let unstakeTx : Types.Transaction = {
-					from = Principal.fromActor(this);
-					to = caller;
-					amount = stake.amount + Nat64.toNat(rewardsNat64);
-					method = "Unstake";
-					time = Time.now();
+		// Remove from auto-compound preferences if enabled
+		switch (Map.get(autoCompoundPreferences, phash, caller)) {
+			case (?prefs) {
+				let newPrefs = Array.filter<Types.StakeId>(prefs, func(id) { id != stakeId });
+				if (Array.size(newPrefs) == 0) {
+					Map.delete(autoCompoundPreferences, phash, caller);
+				} else {
+					Map.set(autoCompoundPreferences, phash, caller, newPrefs);
+				};
+			};
+			case (null) {};
+		};
+
+		// If there are pending rewards, transfer from reward account first
+		if (stake.reward > 0) {
+			let rewardTransferResult = await USDx.icrc1_transfer({
+				from_subaccount = REWARD_SUBACCOUNT;
+				to = { owner = caller; subaccount = null };
+				amount = stake.reward;
+				fee = null;
+				memo = null;
+				created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
+			});
+
+			switch (rewardTransferResult) {
+				case (#Err(_)) return #err("Reward transfer failed");
+				case (#Ok(_)) {};
+			};
+		};
+
+		// Transfer stake amount
+		let stakeTransferResult = await USDx.icrc1_transfer({
+			from_subaccount = null; // Default account for stake amount
+			to = { owner = caller; subaccount = null };
+			amount = stake.amount;
+			fee = null;
+			memo = null;
+			created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
+		});
+
+		switch (stakeTransferResult) {
+			case (#Err(_)) return #err("Stake transfer failed");
+			case (#Ok(blockIndex)) {
+				// Update pool total staked
+				pool := {
+					pool with
+					totalStaked = pool.totalStaked - stake.amount
 				};
 
-				// Transfer staked tokens + rewards back using unstakeTx details
-				let transferResult = await USDx.icrc1_transfer({
-					to = { owner = unstakeTx.to; subaccount = null };
-					amount = unstakeTx.amount;
-					fee = null;
-					memo = null;
-					from_subaccount = null;
-					created_at_time = ?Nat64.fromNat(Int.abs(unstakeTx.time));
-				});
+				// Remove stake
+				Map.delete(stakes, nhash, stakeId);
 
-				switch (transferResult) {
-					case (#Err(_e)) return #err("Transfer failed");
-					case (#Ok(_)) {
-						// Update pool total staked
-						pool := {
-							pool with totalStaked = pool.totalStaked - stake.amount
-						};
+				// Update user stakes array
+				let remainingStakes = Array.filter(
+					userStakeIds,
+					func(id : Types.StakeId) : Bool { id != stakeId }
+				);
 
-						// Remove stake
-						Map.delete(stakes, nhash, stakeId);
-
-						_tranIdx += 1;
-
-						// Store block index for unstake transaction
-						let currentBlockIndices = switch (Map.get(unStakeBlockIndices, phash, caller)) {
-							case (?indices) indices;
-							case (null) [];
-						};
-						Map.set(unStakeBlockIndices, phash, caller, Array.append(currentBlockIndices, [_tranIdx]));
-
-						// Update user stakes array to remove unstaked position
-						let remainingStakes = Array.filter(
-							userStakeIds,
-							func(id : Types.StakeId) : Bool { id != stakeId }
-						);
-						Map.set(userStakes, phash, caller, remainingStakes);
-
-						#ok();
-					};
+				if (Array.size(remainingStakes) == 0) {
+					Map.delete(userStakes, phash, caller);
+				} else {
+					Map.set(userStakes, phash, caller, remainingStakes);
 				};
+
+				// Record unstake transaction
+				let currentBlockIndices = switch (Map.get(unStakeBlockIndices, phash, caller)) {
+					case (?indices) indices;
+					case (null) [];
+				};
+				Map.set(unStakeBlockIndices, phash, caller, Array.append(currentBlockIndices, [blockIndex]));
+
+				#ok();
 			};
 		};
 	};
@@ -853,44 +1235,29 @@ actor class DoxaStaking() = this {
 	/////////////////////////////////////    timer   /////////////////////////////////////////////////////
 	///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	// Add timer related variables
-	// private stable var lastRewardUpdateTime : Int = 0;
-	// private let WEEK_IN_NANOSECONDS : Nat = 7 * 24 * 60 * 60 * 1_000_000_000;
-	// private var rewardUpdateTimer : Timer.TimerId = 0;
+	// Add timer to trigger weekly reward updates
+	// Declare timer variable
+	private var rewardUpdateTimer : Timer.TimerId = 0;
 
-	// // Weekly reward update function
-	// private func updateWeeklyRewards() : async () {
-	//     try {
-	//         let currentTime = Time.now();
+	// Initialize timer
+	rewardUpdateTimer := do {
+		let WEEK_IN_NANOS = 7 * 24 * 60 * 60 * 1_000_000_000;
+		// Calculate time until next week
+		let nextUpdate = WEEK_IN_NANOS - (Time.now() % WEEK_IN_NANOS);
 
-	//         // Check if a week has passed
-	//         if (currentTime - lastRewardUpdateTime >= WEEK_IN_NANOSECONDS) {
-	//             // Get total fees collected
-	//             let totalFees = await getTotalFeeCollected();
-
-	//             // Calculate weekly rewards (30% of fees)
-	//             let totalWeeklyRewards = (totalFees * 30) / 100;
-
-	//             // Update pool rewards
-	//             pool := {
-	//                 pool with
-	//                 totalRewardPerSecond = totalWeeklyRewards / (7 * 24 * 60 * 60); // Convert to per second
-	//             };
-
-	//             // Update last reward time
-	//             lastRewardUpdateTime := currentTime;
-
-	//             Debug.print("Weekly rewards updated successfully");
-	//         };
-	//     } catch (e) {
-	//         Debug.print("Error updating weekly rewards: " # Error.message(e));
-	//     };
-	// };
-
-	// rewardUpdateTimer := Timer.recurringTimer<system>(
-	//     #nanoseconds(WEEK_IN_NANOSECONDS),
-	//     updateWeeklyRewards
-	// );
+		Timer.setTimer<system>(
+			#nanoseconds(Int.abs nextUpdate),
+			func() : async () {
+				// Set recurring timer for subsequent weeks
+				rewardUpdateTimer := Timer.recurringTimer<system>(
+					#nanoseconds WEEK_IN_NANOS,
+					updateWeeklyRewards
+				);
+				// Do first update
+				await updateWeeklyRewards();
+			}
+		);
+	};
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////
 	///////////////////////////////////// helper for notifystaking ////////////////////////////////////////
