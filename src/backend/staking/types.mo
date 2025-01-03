@@ -32,6 +32,7 @@ module {
 		lockEndTime : Int;
 		lastHarvestTime : Int;
 		reward : Nat;
+		stakedReward : Nat;
 	};
 
 	// Transaction record

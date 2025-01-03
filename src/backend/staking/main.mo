@@ -17,6 +17,9 @@ import Types "types";
 import Icrc "../service/icrc-interface"; // ICRC token interface
 import IcrcIndex "../service/icrc-index-interface";
 import Map "mo:map/Map";
+import Hash "mo:base/Hash";
+import Set "mo:map/Set";
+
 actor class DoxaStaking() = this {
 	// Token interfaces
 	private let USDx : Icrc.Self = actor ("irorr-5aaaa-aaaak-qddsq-cai"); // USDx token canister
@@ -208,7 +211,8 @@ actor class DoxaStaking() = this {
 
 		// 100_000000
 		// let proportion = (stake.amount / totalStake) * 1_000_000; // 1,000
-		let proportion = (stake.amount * 1_000_000) / totalStake;
+		let totalAmount = stake.amount + stake.stakedReward;
+		let proportion = (totalAmount * 1_000_000) / totalStake;
 		Debug.print("proportion: " # debug_show (proportion));
 
 		let userWeight = (proportion * lockupWeight * bootstrapMultiplier) / (1_000_000 * 1_000_000); //6,000
@@ -264,6 +268,66 @@ actor class DoxaStaking() = this {
 		return #ok(stakeMetric);
 	};
 
+	public func getTotalWeight() : async Nat {
+		var totalWeight : Nat = 0;
+
+		// Iterate through all users and their stakes
+		for ((user, stakeIds) in Map.entries(userStakes)) {
+			for (stakeId in stakeIds.vals()) {
+				Debug.print(debug_show ("############# for stakeId ############", stakeId));
+
+				switch (Map.get(stakes, nhash, stakeId)) {
+					case (?stake) {
+						let lockDuration = (stake.lockEndTime - stake.stakeTime);
+						let weight = if (Int.abs(lockDuration) >= LOCKUP_360_DAYS_IN_NANOS) {
+							4_000_000;
+						} else if (Int.abs(lockDuration) >= LOCKUP_270_DAYS_IN_NANOS) {
+							3_000_000;
+						} else if (Int.abs(lockDuration) >= LOCKUP_180_DAYS_IN_NANOS) {
+							2_000_000;
+						} else {
+							1_000_000;
+						};
+
+						let totalStake = if (pool.totalStaked < MIN_TOTAL_STAKE) {
+							MIN_TOTAL_STAKE;
+						} else {
+							pool.totalStaked;
+						};
+
+						Debug.print(debug_show ("stake.amount", stake.amount));
+
+						Debug.print(debug_show ("totalStake", totalStake));
+
+						// Add stakedReward to amount before calculating proportion
+						let totalAmount = stake.amount + stake.stakedReward;
+						let proportion = (totalAmount * 1_000_000) / totalStake; // 1,000
+						let bootstrapMultiplier = switch (Map.get(earlyStakers, phash, user)) {
+							case (?multiplier) {
+								if (Time.now() <= bootstrapStartTime + BOOTSTRAP_MULTIPLIER_DURATION_IN_NANOS) {
+									multiplier;
+								} else {
+									1_000_000;
+								};
+							};
+							case (null) { 1_000_000 };
+						};
+
+						Debug.print(debug_show ("proportion", proportion));
+						Debug.print(debug_show ("weight", weight));
+						Debug.print(debug_show ("bootstrapMultiplier", bootstrapMultiplier));
+
+						Debug.print(debug_show ((proportion * weight * bootstrapMultiplier) / (1_000_000 * 1_000_000), "$$$$$ calculating propotion #### for stakeId ", stakeId));
+
+						totalWeight += (proportion * weight * bootstrapMultiplier) / (1_000_000 * 1_000_000); //6,000
+					};
+					case (null) {};
+				};
+			};
+		};
+		return totalWeight;
+	};
+
 	// Helper function to calculate precise dynamic weight
 	private func calculateDynamicWeight(lockDuration : Int) : Nat {
 		let durationInDays = Int.abs(lockDuration) / (24 * 60 * 60 * 1_000_000_000); // Convert nanos to days
@@ -310,64 +374,6 @@ actor class DoxaStaking() = this {
 		);
 	};
 
-	public func getTotalWeight() : async Nat {
-		var totalWeight : Nat = 0;
-
-		// Iterate through all users and their stakes
-		for ((user, stakeIds) in Map.entries(userStakes)) {
-			for (stakeId in stakeIds.vals()) {
-				Debug.print(debug_show ("############# for stakeId ############", stakeId));
-
-				switch (Map.get(stakes, nhash, stakeId)) {
-					case (?stake) {
-						let lockDuration = (stake.lockEndTime - stake.stakeTime);
-						let weight = if (Int.abs(lockDuration) >= LOCKUP_360_DAYS_IN_NANOS) {
-							4_000_000;
-						} else if (Int.abs(lockDuration) >= LOCKUP_270_DAYS_IN_NANOS) {
-							3_000_000;
-						} else if (Int.abs(lockDuration) >= LOCKUP_180_DAYS_IN_NANOS) {
-							2_000_000;
-						} else {
-							1_000_000;
-						};
-
-						let totalStake = if (pool.totalStaked < MIN_TOTAL_STAKE) {
-							MIN_TOTAL_STAKE;
-						} else {
-							pool.totalStaked;
-						};
-
-						Debug.print(debug_show ("stake.amount", stake.amount));
-
-						Debug.print(debug_show ("totalStake", totalStake));
-
-						let proportion = (stake.amount * 1_000_000) / totalStake; // 1,000
-						let bootstrapMultiplier = switch (Map.get(earlyStakers, phash, user)) {
-							case (?multiplier) {
-								if (Time.now() <= bootstrapStartTime + BOOTSTRAP_MULTIPLIER_DURATION_IN_NANOS) {
-									multiplier;
-								} else {
-									1_000_000;
-								};
-							};
-							case (null) { 1_000_000 };
-						};
-
-						Debug.print(debug_show ("proportion", proportion));
-						Debug.print(debug_show ("weight", weight));
-						Debug.print(debug_show ("bootstrapMultiplier", bootstrapMultiplier));
-
-						Debug.print(debug_show ((proportion * weight * bootstrapMultiplier) / (1_000_000 * 1_000_000), "$$$$$ calculating propotion #### for stakeId ", stakeId));
-
-						totalWeight += (proportion * weight * bootstrapMultiplier) / (1_000_000 * 1_000_000); //6,000
-					};
-					case (null) {};
-				};
-			};
-		};
-		return totalWeight;
-	};
-
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	///////////////////////// reward storage and distribution system /////////////////////////////
 	//////////////////////////////////////////////////////////////////////////////////////////////
@@ -398,14 +404,14 @@ actor class DoxaStaking() = this {
 	private stable var lastRewardDistributionTime : Int = 0;
 
 	// Constants
-	private let WEEK_IN_NANOSECONDS : Nat = 7 * 24 * 60 * 60 * 1_000_000_000;
+	private let WEEK_IN_NANOSECONDS : Nat = 10 * 60 * 1_000_000_000;
 	private let REWARD_SUBACCOUNT : ?Blob = ?Blob.fromArray([0, 0, 0, 0, 0, 0, 0, 1]); // Example subaccount
 
 	// Add map for auto-compound preferences
-	private stable let autoCompoundPreferences = Map.new<Principal, [Types.StakeId]>();
-	
+	private stable let autoCompoundPreferences = Set.new<Types.StakeId>();
+
 	// Add manual trigger function for testing
-	public  func triggerRewardDistributionForTesting() : async Result.Result<(), Text> {
+	public func triggerRewardDistributionForTesting() : async Result.Result<(), Text> {
 		// For testing, we'll still update the lastRewardDistributionTime
 		lastRewardDistributionTime := Time.now();
 
@@ -447,38 +453,60 @@ actor class DoxaStaking() = this {
 		};
 	};
 
-	// Function to toggle auto-compound preference
-	public shared ({ caller }) func toggleAutoCompound(stakeId : Types.StakeId) : async Result.Result<Bool, Text> {
+	// Add action type
+	public type AutoCompoundAction = {
+		#Enable;
+		#Cancel;
+	};
+
+	public shared ({ caller }) func toggleAutoCompound(stakeId : Types.StakeId, action : AutoCompoundAction) : async Result.Result<Bool, Text> {
 		// Verify stake belongs to caller
-		let userStakeIds = switch (Map.get(userStakes, phash, caller)) {
-			case (null) return #err("No stakes found for user");
-			case (?ids) ids;
-		};
+		switch (Map.get(stakes, nhash, stakeId)) {
+			case (null) return #err("Stake not found");
+			case (?stake) {
+				if (stake.staker != caller) {
+					return #err("Stake ID does not belong to caller");
+				};
 
-		let stakeExists = Array.find<Types.StakeId>(userStakeIds, func(id) { id == stakeId }) != null;
-		if (not stakeExists) {
-			return #err("Stake ID does not belong to caller");
-		};
+				let hasAutoCompound = Set.has<Nat>(
+					autoCompoundPreferences, // Set itself
+					nhash,
+					stakeId
+				);
 
-		// Get current auto-compound preferences
-		let currentPreferences = switch (Map.get(autoCompoundPreferences, phash, caller)) {
-			case (?prefs) prefs;
-			case (null) [];
-		};
+				switch (action) {
+					case (#Enable) {
+						if (hasAutoCompound) {
+							return #err("Auto-compound is already enabled for this stake");
+						};
+						// Enable auto-compound
+						Set.add(autoCompoundPreferences, nhash, stakeId);
+						#ok(true);
+					};
 
-		// Check if stakeId exists in preferences
-		let hasPreference = Array.find<Types.StakeId>(currentPreferences, func(id) { id == stakeId }) != null;
+					case (#Cancel) {
+						if (not hasAutoCompound) {
+							return #err("Auto-compound is not enabled for this stake");
+						};
+						// Cancel auto-compound
+						switch (Map.get(stakes, nhash, stakeId)) {
+							case (?currentStake) {
+								// Update stake record - move stakedReward to regular reward
+								let updatedStake = {
+									currentStake with
+									reward = currentStake.reward + currentStake.stakedReward;
+									stakedReward = 0; // Reset staked reward
+								};
+								Map.set(stakes, nhash, stakeId, updatedStake);
+							};
+							case (null) {};
+						};
 
-		// Update preferences
-		if (hasPreference) {
-			// Remove preference
-			let newPrefs = Array.filter<Types.StakeId>(currentPreferences, func(id) { id != stakeId });
-			Map.set(autoCompoundPreferences, phash, caller, newPrefs);
-			#ok(false);
-		} else {
-			// Add preference
-			Map.set(autoCompoundPreferences, phash, caller, Array.append(currentPreferences, [stakeId]));
-			#ok(true);
+						Set.delete(autoCompoundPreferences, nhash, stakeId);
+						#ok(false);
+					};
+				};
+			};
 		};
 	};
 
@@ -524,13 +552,11 @@ actor class DoxaStaking() = this {
 										switch (metrics) {
 											case (#ok(m)) {
 												// Check if stake is set for auto-compound
-												let userPrefs = switch (Map.get(autoCompoundPreferences, phash, principal)) {
-													case (?prefs) prefs;
-													case (null) [];
-												};
-
-												// Check if stake ID exists in user preferences using Array.find
-												let hasAutoCompound = Array.find<Types.StakeId>(userPrefs, func(id) { id == stakeId }) != null;
+												let hasAutoCompound = Set.has<Nat>(
+													autoCompoundPreferences,
+													nhash,
+													stakeId
+												);
 
 												if (hasAutoCompound) {
 													// Add to auto-compound total
@@ -569,25 +595,24 @@ actor class DoxaStaking() = this {
 							// If transfer successful, update auto-compound stakes
 							switch (transferResult) {
 								case (#Ok(blockIndex)) {
-									for ((principal, stakeIds) in Map.entries(autoCompoundPreferences)) {
-										for (stakeId in stakeIds.vals()) {
-											switch (Map.get(stakes, nhash, stakeId)) {
-												case (?stake) {
-													let metrics = await calculateUserStakeMatric(stakeId, principal);
-													switch (metrics) {
-														case (#ok(m)) {
-															// Update stake amount
-															let updatedStake = {
-																stake with
-																amount = stake.amount + m.finalReward
-															};
-															Map.set(stakes, nhash, stakeId, updatedStake);
+									// Iterate through all stakes and update auto-compound ones
+									for (stakeId in Set.keys(autoCompoundPreferences)) {
+										switch (Map.get(stakes, nhash, stakeId)) {
+											case (?stake) {
+												let metrics = await calculateUserStakeMatric(stakeId, stake.staker);
+												switch (metrics) {
+													case (#ok(m)) {
+														// Update stakedReward field instead of amount
+														let updatedStake = {
+															stake with
+															stakedReward = stake.stakedReward + m.finalReward
 														};
-														case (#err(_)) {};
+														Map.set(stakes, nhash, stakeId, updatedStake);
 													};
+													case (#err(_)) {};
 												};
-												case (null) {};
 											};
+											case (null) {};
 										};
 									};
 								};
@@ -694,13 +719,11 @@ actor class DoxaStaking() = this {
 		switch (Map.get(stakes, nhash, stakeId)) {
 			case (null) #err("Stake not found");
 			case (?stake) {
-				let isAutoCompound = Array.find<Types.StakeId>(
-					switch (Map.get(autoCompoundPreferences, phash, stake.staker)) {
-						case (?prefs) prefs;
-						case (null) [];
-					},
-					func(id) { id == stakeId }
-				) != null;
+				let isAutoCompound = Set.has<Nat>(
+					autoCompoundPreferences,
+					nhash,
+					stakeId
+				);
 
 				#ok({
 					pendingReward = stake.reward;
@@ -721,20 +744,28 @@ actor class DoxaStaking() = this {
 
 	// Query function to check if stake is set for auto-compound
 	public query func isAutoCompoundEnabled(stakeId : Types.StakeId) : async Bool {
-		for ((principal, stakeIds) in Map.entries(autoCompoundPreferences)) {
-			let found = Array.find<Types.StakeId>(stakeIds, func(id) { id == stakeId });
-			if (found != null) {
-				return true;
-			};
-		};
-		return false;
+		Set.has<Nat>(autoCompoundPreferences, nhash, stakeId);
 	};
 
 	// Get all auto-compound stakes for a user
-	public query func getUserAutoCompoundStakes(principal : Principal) : async [Types.StakeId] {
-		switch (Map.get(autoCompoundPreferences, phash, principal)) {
-			case (?stakeIds) stakeIds;
-			case (null) [];
+	public shared query ({ caller }) func isStakeAutoCompound(stakeId : Types.StakeId) : async Result.Result<Bool, Text> {
+		// Verify stake belongs to caller
+		switch (Map.get(stakes, nhash, stakeId)) {
+			case (null) return #err("Stake not found");
+			case (?stake) {
+				if (stake.staker != caller) {
+					return #err("Stake ID does not belong to caller");
+				};
+
+				// Check if stake is auto-compounding
+				let isAutoCompound = Set.has<Nat>(
+					autoCompoundPreferences,
+					nhash,
+					stakeId
+				);
+
+				#ok(isAutoCompound);
+			};
 		};
 	};
 
@@ -816,6 +847,7 @@ actor class DoxaStaking() = this {
 			lockEndTime = Time.now() + lockDuration;
 			lastHarvestTime = 0;
 			reward = 0;
+			stakedReward = 0;
 		};
 
 		Map.set(stakes, nhash, stakeId, stake);
@@ -907,16 +939,8 @@ actor class DoxaStaking() = this {
 		let totalAmount = stake.amount + stake.reward;
 
 		// Remove from auto-compound preferences if enabled
-		switch (Map.get(autoCompoundPreferences, phash, caller)) {
-			case (?prefs) {
-				let newPrefs = Array.filter<Types.StakeId>(prefs, func(id) { id != stakeId });
-				if (Array.size(newPrefs) == 0) {
-					Map.delete(autoCompoundPreferences, phash, caller);
-				} else {
-					Map.set(autoCompoundPreferences, phash, caller, newPrefs);
-				};
-			};
-			case (null) {};
+		if (Set.has<Nat>(autoCompoundPreferences, nhash, stakeId)) {
+			Set.delete<Nat>(autoCompoundPreferences, nhash, stakeId);
 		};
 
 		// If there are pending rewards, transfer from reward account first

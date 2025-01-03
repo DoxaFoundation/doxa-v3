@@ -71,69 +71,68 @@ actor class TestStakingCanister(
 	};
 
 	// Test reward distribution trigger 
-	public shared func testTriggerRewardDistribution() : async Text {
+	public shared func testTriggerRewardDistribution() : async Result.Result<(), Text> {
 		Debug.print("🎁 Testing manual reward distribution trigger");
 		let result = await staking.triggerRewardDistributionForTesting();
 		Debug.print("Result: " # debug_show(result));
-		"Reward distribution triggered";
+		result;
 	};
 
 	// Test toggle auto-compound
-	public shared func testToggleAutoCompound(stakeId : StakeId) : async Text {
+	public shared func testToggleAutoCompound(stakeId : StakeId) : async Result.Result<Bool, Text> {
 		Debug.print("🔄 Testing auto-compound toggle for stake " # debug_show(stakeId));
 		let result = await staking.toggleAutoCompound(stakeId);
 		Debug.print("Result: " # debug_show(result));
-		"Auto-compound toggle tested";
+		result;
 	};
 
 	// Test harvest reward
-	public shared func testHarvestReward(stakeId : StakeId) : async Text {
+	public shared func testHarvestReward(stakeId : StakeId) : async Result.Result<(), Text> {
 		Debug.print("🌾 Testing reward harvest for stake " # debug_show(stakeId));
 		let result = await staking.harvestReward(stakeId);
 		Debug.print("Result: " # debug_show(result));
-		"Reward harvest tested";
+		result;
 	};
 
 	// Get pending reward
-	public shared func testGetPendingReward(stakeId : StakeId) : async Text {
+	public shared func testGetPendingReward(stakeId : StakeId) : async Result.Result<Nat, Text> {
 		Debug.print("💰 Getting pending reward for stake " # debug_show(stakeId));
 		let result = await staking.getPendingReward(stakeId);
 		Debug.print("Pending reward: " # debug_show(result));
-		"Pending reward checked";
+		result;
 	};
 
 	// Get stake reward stats
-	public shared func testGetStakeRewardStats(stakeId : StakeId) : async Text {
+	public shared func testGetStakeRewardStats(stakeId : StakeId) : async Result.Result<{ pendingReward : Nat; lastHarvestTime : Time; isAutoCompound : Bool }, Text> {
 		Debug.print("📊 Getting reward stats for stake " # debug_show(stakeId));
 		let result = await staking.getUserStakeRewardStats(stakeId);
 		Debug.print("Reward stats: " # debug_show(result));
-		"Reward stats retrieved";
+		result;
 	};
 
 	// Get reward account balance
-	public shared func testGetRewardBalance() : async Text {
+	public shared func testGetRewardBalance() : async Nat {
 		Debug.print("💳 Getting reward account balance");
 		let result = await staking.getRewardAccountBalance();
 		Debug.print("Balance: " # debug_show(result));
-		"Reward balance checked";
+		result;
 	};
 
 	// Check if auto-compound enabled
-	public shared func testIsAutoCompoundEnabled(stakeId : StakeId) : async Text {
+	public shared func testIsAutoCompoundEnabled(stakeId : StakeId) : async Bool {
 		Debug.print("🔍 Checking if auto-compound enabled for stake " # debug_show(stakeId));
 		let result = await staking.isAutoCompoundEnabled(stakeId);
 		Debug.print("Auto-compound enabled: " # debug_show(result));
-		"Auto-compound status checked";
+		result;
 	};
 
 	// Get auto-compound stakes
-	public shared func testGetAutoCompoundStakes(principal : Principal) : async Text {
+	public shared func testGetAutoCompoundStakes(principal : Principal) : async [StakeId] {
 		Debug.print("📋 Getting auto-compound stakes for " # debug_show(principal));
 		let result = await staking.getUserAutoCompoundStakes(principal);
 		Debug.print("Auto-compound stakes: " # debug_show(result));
-		"Auto-compound stakes retrieved";
+		result;
 	};
-
 
 	// Public functions to check stake status
 	public shared func getStakeDetails() : async [Stake] {
