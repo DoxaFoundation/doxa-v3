@@ -32,7 +32,6 @@ actor class TestStakingCanister(
 	type Stake = Types.Stake;
 	type StakeMatric = Types.StakeMatric;
 	type StakingPool = Types.StakingPool;
-	type HarvestAction = Types.HarvestAction;
 
 	let { amount; stakePeriod } = init;
 	let it = C.Tester({ batchSize = 8 });
@@ -58,7 +57,7 @@ actor class TestStakingCanister(
 		harvestReward : shared (StakeId) -> async Result.Result<(), Text>;
 		initFetchTotalFeeCollected : shared () -> async ();
 		isAutoCompoundEnabled : shared (StakeId) -> async Bool;
-		toggleAutoCompound : shared (StakeId) -> async Result.Result<Bool, Text>;
+		toggleAutoCompound : shared (StakeId, Types.AutoCompoundAction) -> async Result.Result<Bool, Text>;
 		triggerRewardDistributionForTesting : shared () -> async Result.Result<(), Text>;
 		getTotalFeeCollectedSofar : shared () -> async Nat;
 		getTotalFeeCollectedFromLastRewardDistribution : shared () -> async Nat;
@@ -79,9 +78,9 @@ actor class TestStakingCanister(
 	};
 
 	// Test toggle auto-compound
-	public shared func testToggleAutoCompound(stakeId : StakeId) : async Result.Result<Bool, Text> {
+	public shared func testToggleAutoCompound(stakeId : StakeId, action : Types.AutoCompoundAction) : async Result.Result<Bool, Text> {
 		Debug.print("🔄 Testing auto-compound toggle for stake " # debug_show(stakeId));
-		let result = await staking.toggleAutoCompound(stakeId);
+		let result = await staking.toggleAutoCompound(stakeId, action);
 		Debug.print("Result: " # debug_show(result));
 		result;
 	};
@@ -127,12 +126,12 @@ actor class TestStakingCanister(
 	};
 
 	// Get auto-compound stakes
-	public shared func testGetAutoCompoundStakes(principal : Principal) : async [StakeId] {
-		Debug.print("📋 Getting auto-compound stakes for " # debug_show(principal));
-		let result = await staking.getUserAutoCompoundStakes(principal);
-		Debug.print("Auto-compound stakes: " # debug_show(result));
-		result;
-	};
+	// public shared func testGetAutoCompoundStakes(principal : Principal) : async [StakeId] {
+	// 	Debug.print("📋 Getting auto-compound stakes for " # debug_show(principal));
+	// 	let result = await staking.getUserAutoCompoundStakes(principal);
+	// 	Debug.print("Auto-compound stakes: " # debug_show(result));
+	// 	result;
+	// };
 
 	// Public functions to check stake status
 	public shared func getStakeDetails() : async [Stake] {

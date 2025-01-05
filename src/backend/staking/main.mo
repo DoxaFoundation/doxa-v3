@@ -405,7 +405,40 @@ actor class DoxaStaking() = this {
 
 	// Constants
 	private let WEEK_IN_NANOSECONDS : Nat = 10 * 60 * 1_000_000_000;
-	private let REWARD_SUBACCOUNT : ?Blob = ?Blob.fromArray([0, 0, 0, 0, 0, 0, 0, 1]); // Example subaccount
+	private let REWARD_SUBACCOUNT : ?Blob = ?Blob.fromArray([
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		1
+	]);
 
 	// Add map for auto-compound preferences
 	private stable let autoCompoundPreferences = Set.new<Types.StakeId>();
@@ -511,19 +544,97 @@ actor class DoxaStaking() = this {
 	};
 
 	// Modified weekly reward distribution
-	private func distributeWeeklyRewards(totalReward : Nat) : async () {
+	public func distributeWeeklyRewards(totalReward : Nat) : async () {
+		Debug.print("Starting weekly reward distribution with total reward: " # debug_show (totalReward));
+		
+		
+		// Calculate rewards for all stakes before transferRewardFromCKUSDPool
+		let rewardCalculations = await calculateAllRewards();
+		
+		// Distribute the calculated rewards just update two field stakedReward and reward 
+		await distributeCalculatedRewards(rewardCalculations);
+		await transferRewardFromCKUSDPool(totalReward);
+	};
+
+	// New helper function to calculate rewards
+	private func calculateAllRewards() : async [(Types.StakeId, Nat)] {
+		let rewardCalculations = Buffer.Buffer<(Types.StakeId, Nat)>(0);
+
+		for ((principal, stakeIds) in Map.entries(userStakes)) {
+			for (stakeId in stakeIds.vals()) {
+				switch (Map.get(stakes, nhash, stakeId)) {
+					case (?stake) {
+						let metrics = await calculateUserStakeMatric(stakeId, principal);
+						switch (metrics) {
+							case (#ok(m)) {
+								rewardCalculations.add((stakeId, m.finalReward));
+							};
+							case (#err(e)) {
+								Debug.print("Error calculating metrics for stake " # debug_show (stakeId) # ": " # debug_show (e));
+							};
+						};
+					};
+					case (null) {};
+				};
+			};
+		};
+
+		Buffer.toArray(rewardCalculations);
+	};
+
+	// New helper function to distribute calculated rewards
+	private func distributeCalculatedRewards(calculations : [(Types.StakeId, Nat)]) : async () {
+		for ((stakeId, rewardAmount) in calculations.vals()) {
+			switch (Map.get(stakes, nhash, stakeId)) {
+				case (?stake) {
+					let hasAutoCompound = Set.has<Nat>(
+						autoCompoundPreferences,
+						nhash,
+						stakeId
+					);
+
+					if (hasAutoCompound) {
+						// Update stake with auto-compound
+						let updatedStake = {
+							stake with
+							stakedReward = stake.stakedReward + rewardAmount
+						};
+						Map.set(stakes, nhash, stakeId, updatedStake);
+					} else {
+						// Update stake with normal reward
+						let updatedStake = {
+							stake with
+							reward = stake.reward + rewardAmount
+						};
+						Map.set(stakes, nhash, stakeId, updatedStake);
+					};
+				};
+				case (null) {};
+			};
+		};
+	};
+
+	// Transfer rewards from CKUSD pool to reward account
+	public func transferRewardFromCKUSDPool(totalReward : Nat) : async () {
+		// Calculate 70% of total reward for distribution
+		let distributionAmount = (totalReward * 70) / 100;
+		Debug.print("70% distribution amount: " # debug_show (distributionAmount));
+
 		// First get approval from CKUSDC pool
 		let approvalArg : RewardApprovalArg = {
 			memo = null;
 			created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
-			amount = totalReward;
+			amount = distributionAmount;
 			expires_at = ?Nat64.fromNat(Int.abs(Time.now()) + 300_000_000_000);
 		};
 
 		let approvalResult = await CKUSDCPool.weekly_reward_approval(approvalArg);
 
 		switch (approvalResult) {
-			case (#err(error)) return;
+			case (#err(error)) {
+				Debug.print("Approval error: " # debug_show (error));
+				return;
+			};
 			case (#ok(_)) {
 				// Transfer to reward account
 				let initialTransferResult = await USDx.icrc1_transfer({
@@ -532,94 +643,112 @@ actor class DoxaStaking() = this {
 						owner = Principal.fromActor(this);
 						subaccount = REWARD_SUBACCOUNT;
 					};
-					amount = totalReward;
+					amount = distributionAmount;
 					fee = null;
 					memo = null;
 					created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
 				});
 
-				switch (initialTransferResult) {
-					case (#Err(_)) return;
-					case (#Ok(_)) {
-						var totalAutoCompoundAmount = 0;
+				Debug.print("Initial transfer result: " # debug_show (initialTransferResult));
+			};
+		};
+	};
 
-						// First pass: Calculate rewards and update stake records
-						for ((principal, stakeIds) in Map.entries(userStakes)) {
-							for (stakeId in stakeIds.vals()) {
-								switch (Map.get(stakes, nhash, stakeId)) {
-									case (?stake) {
-										let metrics = await calculateUserStakeMatric(stakeId, principal);
-										switch (metrics) {
-											case (#ok(m)) {
-												// Check if stake is set for auto-compound
-												let hasAutoCompound = Set.has<Nat>(
-													autoCompoundPreferences,
-													nhash,
-													stakeId
-												);
+	// Handle auto-compound rewards
+	public func autoCompoundReward() : async () {
+		var totalAutoCompoundAmount = 0;
 
-												if (hasAutoCompound) {
-													// Add to auto-compound total
-													totalAutoCompoundAmount += m.finalReward;
-												} else {
-													// Update reward field in stake
-													let updatedStake = {
-														stake with
-														reward = stake.reward + m.finalReward
-													};
-													Map.set(stakes, nhash, stakeId, updatedStake);
-												};
-											};
-											case (#err(_)) {};
-										};
-									};
-									case (null) {};
-								};
-							};
-						};
+		// Get total auto-compound amount from already updated stakes
+		for ((principal, stakeIds) in Map.entries(userStakes)) {
+			for (stakeId in stakeIds.vals()) {
+				switch (Map.get(stakes, nhash, stakeId)) {
+					case (?stake) {
+						let hasAutoCompound = Set.has<Nat>(
+							autoCompoundPreferences,
+							nhash,
+							stakeId
+						);
 
-						// If there are auto-compound stakes, transfer total amount at once
-						if (totalAutoCompoundAmount > 0) {
-							let transferResult = await USDx.icrc1_transfer({
-								from_subaccount = REWARD_SUBACCOUNT;
-								to = {
-									owner = Principal.fromActor(this);
-									subaccount = null;
-								};
-								amount = totalAutoCompoundAmount;
-								fee = null;
-								memo = null;
-								created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
-							});
-
-							// If transfer successful, update auto-compound stakes
-							switch (transferResult) {
-								case (#Ok(blockIndex)) {
-									// Iterate through all stakes and update auto-compound ones
-									for (stakeId in Set.keys(autoCompoundPreferences)) {
-										switch (Map.get(stakes, nhash, stakeId)) {
-											case (?stake) {
-												let metrics = await calculateUserStakeMatric(stakeId, stake.staker);
-												switch (metrics) {
-													case (#ok(m)) {
-														// Update stakedReward field instead of amount
-														let updatedStake = {
-															stake with
-															stakedReward = stake.stakedReward + m.finalReward
-														};
-														Map.set(stakes, nhash, stakeId, updatedStake);
-													};
-													case (#err(_)) {};
-												};
-											};
-											case (null) {};
-										};
-									};
-								};
-								case (#Err(_)) {};
-							};
+						if (hasAutoCompound and stake.stakedReward > 0) {
+							totalAutoCompoundAmount += stake.stakedReward;
+							Debug.print("Auto-compound amount for stake " # debug_show (stakeId) # ": " # debug_show (stake.stakedReward));
 						};
 					};
+					case (null) {};
+				};
+			};
+		};
+
+		// Transfer total auto-compound amount
+		if (totalAutoCompoundAmount > 0) {
+			let transferResult = await USDx.icrc1_transfer({
+				from_subaccount = REWARD_SUBACCOUNT;
+				to = {
+					owner = Principal.fromActor(this);
+					subaccount = null;
+				};
+				amount = totalAutoCompoundAmount;
+				fee = null;
+				memo = null;
+				created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
+			});
+
+			switch (transferResult) {
+				case (#Ok(blockIndex)) {
+					Debug.print("Auto-compound transfer successful with block index: " # debug_show (blockIndex));
+				};
+				case (#Err(err)) {
+					Debug.print("Auto-compound transfer failed: " # debug_show (err));
+				};
+			};
+		};
+	};
+
+	// Handle unccompounded rewards
+	public func collectUncompoundedReward() : async () {
+		var totalUncompoundedAmount = 0;
+
+		// Get total uncompounded amount from already updated stakes 
+		for ((principal, stakeIds) in Map.entries(userStakes)) {
+			for (stakeId in stakeIds.vals()) {
+				switch (Map.get(stakes, nhash, stakeId)) {
+					case (?stake) {
+						let hasAutoCompound = Set.has<Nat>(
+							autoCompoundPreferences,
+							nhash,
+							stakeId
+						);
+
+						if (not hasAutoCompound and stake.reward > 0) {
+							totalUncompoundedAmount += stake.reward;
+							Debug.print("Normal reward for stake " # debug_show (stakeId) # ": " # debug_show (stake.reward));
+						};
+					};
+					case (null) {};
+				};
+			};
+		};
+
+		// Transfer total uncompounded amount
+		if (totalUncompoundedAmount > 0) {
+			let transferResult = await USDx.icrc1_transfer({
+				from_subaccount = REWARD_SUBACCOUNT;
+				to = {
+					owner = Principal.fromActor(this);
+					subaccount = null;
+				};
+				amount = totalUncompoundedAmount;
+				fee = null;
+				memo = null;
+				created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
+			});
+
+			switch (transferResult) {
+				case (#Ok(blockIndex)) {
+					Debug.print("Uncompounded transfer successful with block index: " # debug_show (blockIndex));
+				};
+				case (#Err(err)) {
+					Debug.print("Uncompounded transfer failed: " # debug_show (err));
 				};
 			};
 		};

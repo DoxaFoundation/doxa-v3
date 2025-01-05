@@ -32,6 +32,7 @@ module {
 		lockEndTime : Int;
 		lastHarvestTime : Int;
 		reward : Nat;
+		stakedReward : Nat;
 	};
 
 	// Transaction record
@@ -78,10 +79,10 @@ module {
 		apy : Nat;
 	};
 
-		// Add new enum for harvest action type
-	public type HarvestAction = {
-		#Withdraw; // Withdraw rewards to wallet
-		#Compound; // Add rewards to existing stake
+		// Add action type
+	public type AutoCompoundAction = {
+		#Enable;
+		#Cancel;
 	};
 
 };
