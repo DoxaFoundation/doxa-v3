@@ -556,7 +556,10 @@ actor class DoxaStaking() = this {
 		await transferRewardFromCKUSDPool(totalReward);
 	};
 
-	// New helper function to calculate rewards
+	// Store calculated rewards for all stakes
+	private stable var lastCalculatedAllUserRewards : [(Types.StakeId, Nat)] = [];
+
+	// Helper function to calculate rewards
 	private func calculateAllRewards() : async [(Types.StakeId, Nat)] {
 		let rewardCalculations = Buffer.Buffer<(Types.StakeId, Nat)>(0);
 
@@ -579,9 +582,11 @@ actor class DoxaStaking() = this {
 			};
 		};
 
-		Buffer.toArray(rewardCalculations);
+		// Store calculated rewards in stable variable
+		lastCalculatedAllUserRewards := Buffer.toArray(rewardCalculations);
+		lastCalculatedAllUserRewards;
 	};
-
+	
 	// New helper function to distribute calculated rewards
 	private func distributeCalculatedRewards(calculations : [(Types.StakeId, Nat)]) : async () {
 		for ((stakeId, rewardAmount) in calculations.vals()) {
@@ -616,9 +621,11 @@ actor class DoxaStaking() = this {
 
 	// Transfer rewards from CKUSD pool to reward account
 	public func transferRewardFromCKUSDPool(totalReward : Nat) : async () {
-		// Calculate 70% of total reward for distribution
-		let distributionAmount = (totalReward * 70) / 100;
-		Debug.print("70% distribution amount: " # debug_show (distributionAmount));
+		// Calculate 70% and 30% of total reward
+		let distributionAmount = totalReward;
+		let remainingAmount = (totalReward * 30) / 100;
+		Debug.print("Total distribution amount: " # debug_show (distributionAmount));
+		Debug.print("Remaining 30% amount: " # debug_show (remainingAmount));
 
 		// First get approval from CKUSDC pool
 		let approvalArg : RewardApprovalArg = {
@@ -650,6 +657,21 @@ actor class DoxaStaking() = this {
 				});
 
 				Debug.print("Initial transfer result: " # debug_show (initialTransferResult));
+
+				// Transfer 30% to root canister
+				let remainingTransferResult = await USDx.icrc1_transfer({
+					from_subaccount = null;
+					to = {
+						owner = Principal.fromText("iwpxf-qyaaa-aaaak-qddsa-cai");
+						subaccount = null;
+					};
+					amount = remainingAmount;
+					fee = null;
+					memo = null;
+					created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
+				});
+
+				Debug.print("Remaining 30% transfer result: " # debug_show (remainingTransferResult));
 			};
 		};
 	};
@@ -704,56 +726,6 @@ actor class DoxaStaking() = this {
 		};
 	};
 
-	// Handle unccompounded rewards
-	public func collectUncompoundedReward() : async () {
-		var totalUncompoundedAmount = 0;
-
-		// Get total uncompounded amount from already updated stakes 
-		for ((principal, stakeIds) in Map.entries(userStakes)) {
-			for (stakeId in stakeIds.vals()) {
-				switch (Map.get(stakes, nhash, stakeId)) {
-					case (?stake) {
-						let hasAutoCompound = Set.has<Nat>(
-							autoCompoundPreferences,
-							nhash,
-							stakeId
-						);
-
-						if (not hasAutoCompound and stake.reward > 0) {
-							totalUncompoundedAmount += stake.reward;
-							Debug.print("Normal reward for stake " # debug_show (stakeId) # ": " # debug_show (stake.reward));
-						};
-					};
-					case (null) {};
-				};
-			};
-		};
-
-		// Transfer total uncompounded amount
-		if (totalUncompoundedAmount > 0) {
-			let transferResult = await USDx.icrc1_transfer({
-				from_subaccount = REWARD_SUBACCOUNT;
-				to = {
-					owner = Principal.fromActor(this);
-					subaccount = null;
-				};
-				amount = totalUncompoundedAmount;
-				fee = null;
-				memo = null;
-				created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
-			});
-
-			switch (transferResult) {
-				case (#Ok(blockIndex)) {
-					Debug.print("Uncompounded transfer successful with block index: " # debug_show (blockIndex));
-				};
-				case (#Err(err)) {
-					Debug.print("Uncompounded transfer failed: " # debug_show (err));
-				};
-			};
-		};
-	};
-
 	// Add manual harvest function
 	public shared ({ caller }) func harvestReward(stakeId : Types.StakeId) : async Result.Result<(), Text> {
 		switch (Map.get(stakes, nhash, stakeId)) {
@@ -792,7 +764,7 @@ actor class DoxaStaking() = this {
 	};
 
 	// Add manual compound function
-	public shared ({ caller }) func compoundReward(stakeId : Types.StakeId) : async Result.Result<(), Text> {
+	public shared ({ caller }) func compoundRewardManually(stakeId : Types.StakeId) : async Result.Result<(), Text> {
 		switch (Map.get(stakes, nhash, stakeId)) {
 			case (null) return #err("Stake not found");
 			case (?stake) {
