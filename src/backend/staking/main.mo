@@ -560,7 +560,7 @@ actor class DoxaStaking() = this {
 	private stable var lastCalculatedAllUserRewards : [(Types.StakeId, Nat)] = [];
 
 	// Helper function to calculate rewards
-	private func calculateAllRewards() : async [(Types.StakeId, Nat)] {
+	public func calculateAllRewards() : async [(Types.StakeId, Nat)] {
 		let rewardCalculations = Buffer.Buffer<(Types.StakeId, Nat)>(0);
 
 		for ((principal, stakeIds) in Map.entries(userStakes)) {
@@ -586,9 +586,9 @@ actor class DoxaStaking() = this {
 		lastCalculatedAllUserRewards := Buffer.toArray(rewardCalculations);
 		lastCalculatedAllUserRewards;
 	};
-	
+
 	// New helper function to distribute calculated rewards
-	private func distributeCalculatedRewards(calculations : [(Types.StakeId, Nat)]) : async () {
+	public func distributeCalculatedRewards(calculations : [(Types.StakeId, Nat)]) : async () {
 		for ((stakeId, rewardAmount) in calculations.vals()) {
 			switch (Map.get(stakes, nhash, stakeId)) {
 				case (?stake) {
