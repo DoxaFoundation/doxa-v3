@@ -443,19 +443,6 @@ actor class DoxaStaking() = this {
 	// Add map for auto-compound preferences
 	private stable let autoCompoundPreferences = Set.new<Types.StakeId>();
 
-	// Add manual trigger function for testing
-	public func triggerRewardDistributionForTesting() : async Result.Result<(), Text> {
-		// For testing, we'll still update the lastRewardDistributionTime
-		lastRewardDistributionTime := Time.now();
-
-		Debug.print("Manual reward distribution triggered by admin");
-
-		// Call the distribution function
-		await updateWeeklyRewards();
-
-		#ok();
-	};
-
 	// Modified update weekly rewards function
 	private func updateWeeklyRewards() : async () {
 		let currentTime = Time.now();
@@ -546,12 +533,11 @@ actor class DoxaStaking() = this {
 	// Modified weekly reward distribution
 	public func distributeWeeklyRewards(totalReward : Nat) : async () {
 		Debug.print("Starting weekly reward distribution with total reward: " # debug_show (totalReward));
-		
-		
+
 		// Calculate rewards for all stakes before transferRewardFromCKUSDPool
 		let rewardCalculations = await calculateAllRewards();
-		
-		// Distribute the calculated rewards just update two field stakedReward and reward 
+
+		// Distribute the calculated rewards just update two field stakedReward and reward
 		await distributeCalculatedRewards(rewardCalculations);
 		await transferRewardFromCKUSDPool(totalReward);
 	};
@@ -643,9 +629,13 @@ actor class DoxaStaking() = this {
 				return;
 			};
 			case (#ok(_)) {
-				// Transfer to reward account
-				let initialTransferResult = await USDx.icrc1_transfer({
-					from_subaccount = null;
+				// Transfer from CKUSDC pool to reward account using transfer_from
+				let initialTransferResult = await USDx.icrc2_transfer_from({
+					spender_subaccount = null;
+					from = {
+						owner = Principal.fromText("ieja4-4iaaa-aaaak-qddra-cai");
+						subaccount = null;
+					};
 					to = {
 						owner = Principal.fromActor(this);
 						subaccount = REWARD_SUBACCOUNT;
@@ -660,7 +650,7 @@ actor class DoxaStaking() = this {
 
 				// Transfer 30% to root canister
 				let remainingTransferResult = await USDx.icrc1_transfer({
-					from_subaccount = null;
+					from_subaccount = REWARD_SUBACCOUNT;
 					to = {
 						owner = Principal.fromText("iwpxf-qyaaa-aaaak-qddsa-cai");
 						subaccount = null;

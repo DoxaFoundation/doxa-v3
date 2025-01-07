@@ -75,14 +75,6 @@ actor class TestStakingCanister(
 		Debug.print("Weekly rewards distributed");
 	};
 
-	// Test calculate user stake metric
-	public shared func testCalculateUserStakeMetric(stakeId : StakeId, user : Principal) : async Result.Result<StakeMatric, Text> {
-		Debug.print("🧮 Calculating stake metrics for stake " # debug_show(stakeId));
-		let result = await staking.calculateUserStakeMatric(stakeId, user);
-		Debug.print("Stake metrics: " # debug_show(result));
-		result;
-	};
-
 	// Test transfer reward from CKUSD pool
 	public shared func testTransferRewardFromCKUSDPool(amount : Nat) : async () {
 		Debug.print("💸 Testing reward transfer from CKUSD pool: " # debug_show(amount));
@@ -110,14 +102,6 @@ actor class TestStakingCanister(
 		Debug.print("🔍 Checking if stake is auto-compounding: " # debug_show(stakeId));
 		let result = await staking.isStakeAutoCompound(stakeId);
 		Debug.print("Auto compound status: " # debug_show(result));
-		result;
-	};
-
-	// Test reward distribution trigger 
-	public shared func testTriggerRewardDistribution() : async Result.Result<(), Text> {
-		Debug.print("🎁 Testing manual reward distribution trigger");
-		let result = await staking.triggerRewardDistributionForTesting();
-		Debug.print("Result: " # debug_show(result));
 		result;
 	};
 
