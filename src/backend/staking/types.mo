@@ -5,19 +5,19 @@ import Nat64 "mo:base/Nat64";
 
 module {
 	// Staking pool configuration
-	public type StakingPool = {
-		name : Text; // Pool name
-		startTime : Time.Time; // Pool start time
-		endTime : Time.Time; // Pool end time
-		totalStaked : Nat; // Total tokens staked
-		rewardTokenFee : Nat; // Fee for reward withdrawal
-		minTotalStake : Nat;
-		stakingSymbol : Text; // USDx
-		stakingToken : Text; // doxa dollar
-		rewardSymbol : Text; // Reward token symbol
-		rewardToken : Text; // Reward token canister ID
-		minimumStake : Nat; // Minimum stake amount (100,000 tokens with 6 decimals)
-		lockDuration : Nat; // Lock duration in seconds
+	public type StakingPoolDetails = {
+		poolName : Text; // Name of the staking pool
+		poolStartTime : Time.Time; // Start time of the pool
+		poolEndTime : Time.Time; // End time of the pool
+		totalTokensStaked : Nat; // Total number of tokens staked in the pool
+		totalFeeCollected : Nat; // total transaction fee
+		minimumTotalStake : Nat; // Minimum total stake required to keep the pool active
+		stakingTokenSymbol : Text; // Symbol of the staking token (e.g., USDx)
+		stakingTokenName : Text; // Name of the staking token (e.g., Doxa Dollar)
+		rewardTokenSymbol : Text; // Symbol of the reward token
+		rewardTokenCanisterId : Text; // Canister ID of the reward token
+		minimumStakeAmount : Nat; // Minimum amount of tokens a user can stake
+		stakeLockDuration : Nat; // Duration (in seconds) for which stakes are locked
 	};
 
 	// Add a unique ID for each stake
@@ -31,7 +31,7 @@ module {
 		stakeTime : Int;
 		lockEndTime : Int;
 		lastHarvestTime : Int;
-		reward : Nat;
+		pendingRewards : Nat;
 		stakedReward : Nat;
 	};
 
@@ -56,30 +56,24 @@ module {
 		lockDuration : Nat;
 	};
 
-	// Pool parameters that can be updated by admin
-	public type PoolParams = {
-		totalRewardPerSecond : Nat; // Rewards distributed per second
-		minimumStake : Nat; // Minimum stake amount
-		lockDuration : Nat; // Lock duration in seconds
-	};
-
 	public type Tokens = {
 		#USDx;
 	};
-	public type StakeMatric = {
+	
+	public type StakeMetrics = {
 		stakeId : StakeId;
-		lockDuration : Int;
-		lockupWeight : Int;
+		stakeLockPeriod : Int;
+		lockPeriodWeight : Int;
 		bootstrapMultiplier : Nat;
-		proportion : Nat;
-		userWeight : Nat;
-		totalWeight : Nat;
+		stakeContributionRatio : Nat;
+		userStakeWeight : Nat;
+		totalStakeWeight : Nat;
 		totalFeeCollected : Nat;
-		finalReward : Nat;
+		userFinalReward : Nat;
 		apy : Nat;
 	};
 
-		// Add action type
+	// Add action type
 	public type AutoCompoundAction = {
 		#Enable;
 		#Cancel;

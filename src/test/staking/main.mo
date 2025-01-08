@@ -8,9 +8,6 @@ import Principal "mo:base/Principal";
 // import Time "mo:base/Time";
 import Result "mo:base/Result";
 import Debug "mo:base/Debug";
-import Error "mo:base/Error";
-import Float "mo:base/Float";
-import Array "mo:base/Array";
 import Nat "mo:base/Nat";
 import Int "mo:base/Int";
 import Buffer "mo:base/Buffer";
@@ -30,40 +27,39 @@ actor class TestStakingCanister(
 	type Transaction = Types.Transaction;
 	type StakeId = Types.StakeId;
 	type Stake = Types.Stake;
-	type StakeMatric = Types.StakeMatric;
-	type StakingPool = Types.StakingPool;
+	type StakeMetrics = Types.StakeMetrics;
+	type StakingPoolDetails = Types.StakingPoolDetails;
 
 	let { amount; stakePeriod } = init;
 	let it = C.Tester({ batchSize = 8 });
 	let staking = actor ("mhahe-xqaaa-aaaag-qndha-cai") : actor {
-		autoCompoundReward : shared () -> async ();
-		calculateUserStakeMatric : shared (StakeId, Principal) -> async Result.Result<StakeMatric, Text>;
-		compoundRewardManually : shared (StakeId) -> async Result.Result<(), Text>;
+		calculateAndTransferAutoCompounds : shared () -> async ();
+		calculateUserStakeMatric : shared (StakeId, Principal) -> async Result.Result<StakeMetrics, Text>;
+		manuallyCompoundRewards : shared (StakeId) -> async Result.Result<(), Text>;
 		distributeWeeklyRewards : shared (Nat) -> async ();
 		getBootstrapMultiplier : shared () -> async Result.Result<Nat, Text>;
 		getBootstrapStatus : shared () -> async { isBootstrapPhase : Bool; timeRemaining : Int };
 		getFeeCollectorBalance : shared () -> async Nat;
 		getLastProcessedTxId : shared () -> async Nat;
 		getPendingReward : shared (StakeId) -> async Result.Result<Nat, Text>;
-		getPoolData : shared () -> async StakingPool;
-		getRewardAccountBalance : shared () -> async Nat;
-		getStakingAccount : shared (Tokens) -> async Account;
+		getPoolData : shared () -> async StakingPoolDetails;
+		fetchRewardWalletBalance : shared () -> async Nat;
+		getStakingCanisterAccount : shared (Tokens) -> async Account;
 		getTotalFeeCollectedFromLastRewardDistribution : shared () -> async Nat;
 		getTotalFeeCollectedSofar : shared () -> async Nat;
 		getTotalWeight : shared () -> async Nat;
-		getTransactionFromBlockIndex : shared (Nat) -> async Result.Result<Transaction, Text>;
+		fetchTransactionByBlockIndex : shared (Nat) -> async Result.Result<Transaction, Text>;
 		getUserStakeDetails : shared () -> async [Stake];
 		getUserStakeRewardStats : shared (StakeId) -> async Result.Result<{ pendingReward : Nat; lastHarvestTime : Time; isAutoCompound : Bool }, Text>;
 		getUserTransactions : shared () -> async [Transaction];
 		getWeightTable : shared () -> async [(Nat, Nat)];
 		harvestReward : shared (StakeId) -> async Result.Result<(), Text>;
 		initFetchTotalFeeCollected : shared () -> async ();
-		isAutoCompoundEnabled : shared (StakeId) -> async Bool;
 		isStakeAutoCompound : shared (StakeId) -> async Result.Result<Bool, Text>;
 		notifyStake : shared (Nat, Nat) -> async Result.Result<(), Text>;
 		previewWeightForDuration : shared (Nat) -> async Nat;
 		toggleAutoCompound : shared (StakeId, Types.AutoCompoundAction) -> async Result.Result<Bool, Text>;
-		transferRewardFromCKUSDPool : shared (Nat) -> async ();
+		transferRewardFromCKUSDCPool : shared (Nat) -> async ();
 		triggerRewardDistributionForTesting : shared () -> async Result.Result<(), Text>;
 		unstake : shared (StakeId) -> async Result.Result<(), Text>;
 	};
@@ -78,21 +74,21 @@ actor class TestStakingCanister(
 	// Test transfer reward from CKUSD pool
 	public shared func testTransferRewardFromCKUSDPool(amount : Nat) : async () {
 		Debug.print("💸 Testing reward transfer from CKUSD pool: " # debug_show(amount));
-		await staking.transferRewardFromCKUSDPool(amount);
+		await staking.transferRewardFromCKUSDCPool(amount);
 		Debug.print("Reward transfer completed");
 	};
 
 	// Test auto compound reward
 	public shared func testAutoCompoundReward() : async () {
 		Debug.print("🔄 Testing auto compound reward");
-		await staking.autoCompoundReward();
+		await staking.calculateAndTransferAutoCompounds();
 		Debug.print("Auto compound completed");
 	};
 
 	// Test compound reward manually
 	public shared func testCompoundRewardManually(stakeId : StakeId) : async Result.Result<(), Text> {
 		Debug.print("🔄 Testing manual compound for stake " # debug_show(stakeId));
-		let result = await staking.compoundRewardManually(stakeId);
+		let result = await staking.manuallyCompoundRewards(stakeId);
 		Debug.print("Manual compound result: " # debug_show(result));
 		result;
 	};
@@ -140,27 +136,17 @@ actor class TestStakingCanister(
 	// Get reward account balance
 	public shared func testGetRewardBalance() : async Nat {
 		Debug.print("💳 Getting reward account balance");
-		let result = await staking.getRewardAccountBalance();
+		let result = await staking.fetchRewardWalletBalance();
 		Debug.print("Balance: " # debug_show(result));
 		result;
 	};
-
-	// Check if auto-compound enabled
-	public shared func testIsAutoCompoundEnabled(stakeId : StakeId) : async Bool {
-		Debug.print("🔍 Checking if auto-compound enabled for stake " # debug_show(stakeId));
-		let result = await staking.isAutoCompoundEnabled(stakeId);
-		Debug.print("Auto-compound enabled: " # debug_show(result));
-		result;
-	};
-
-
 
 	// Public functions to check stake status
 	public shared func getStakeDetails() : async [Stake] {
 		await staking.getUserStakeDetails();
 	};
 
-	public shared func getPoolInfo() : async StakingPool {
+	public shared func getPoolInfo() : async StakingPoolDetails {
 		await staking.getPoolData();
 	};
 
@@ -168,12 +154,12 @@ actor class TestStakingCanister(
 		await staking.getBootstrapStatus();
 	};
 
-	public shared func getStakeMetric() : async Result.Result<[StakeMatric], Text> {
+	public shared func getStakeMetric() : async Result.Result<[StakeMetrics], Text> {
 		let stakeDetails = await staking.getUserStakeDetails();
 
 		Debug.print(debug_show ("stakeDetails", stakeDetails));
 
-		let buffer = Buffer.Buffer<StakeMatric>(0);
+		let buffer = Buffer.Buffer<StakeMetrics>(0);
 
 		for (stake in stakeDetails.vals()) {
 			let { id; staker } = stake;

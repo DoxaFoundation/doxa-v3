@@ -38,19 +38,19 @@ actor class DoxaStaking() = this {
 	private let MAX_STAKE_PER_ADDRESS : Nat = MIN_TOTAL_STAKE / 5; // 20% of minimum total stake
 
 	// Pool configuration
-	private stable var pool : Types.StakingPool = {
-		name = "Doxa Dynamic Staking";
-		startTime = Time.now();
-		endTime = Time.now() + ONE_YEAR_IN_NANOS;
-		totalStaked = 0;
-		rewardTokenFee = 50_000; // 0.05 tokens with 6 decimals
-		stakingSymbol = "USDx";
-		stakingToken = "doxa-dollar";
-		rewardSymbol = "USDx";
-		rewardToken = "doxa-dollar";
-		minimumStake = 10_000_000; // 10 tokens with 6 decimals
-		lockDuration = MIN_LOCK_DURATION_IN_NANOS;
-		minTotalStake = MIN_TOTAL_STAKE; // 100,000 tokens with 6 decimals
+	private stable var pool : Types.StakingPoolDetails = {
+		poolName = "Doxa Dynamic Staking";
+		poolStartTime = Time.now();
+		poolEndTime = Time.now() + ONE_YEAR_IN_NANOS;
+		totalTokensStaked = 0;
+		totalFeeCollected = 0; //  tokens with 6 decimals
+		minimumTotalStake = MIN_TOTAL_STAKE; // 100,000 tokens with 6 decimals
+		stakingTokenSymbol = "USDx";
+		stakingTokenName = "doxa-dollar";
+		rewardTokenSymbol = "USDx";
+		rewardTokenCanisterId = "doxa-dollar";
+		minimumStakeAmount = 10_000_000; // 10 tokens with 6 decimals
+		stakeLockDuration = MIN_LOCK_DURATION_IN_NANOS;
 	};
 
 	let { nhash; phash } = Map;
@@ -59,6 +59,7 @@ actor class DoxaStaking() = this {
 	private stable let stakes = Map.new<Types.StakeId, Types.Stake>();
 	private stable let userStakes = Map.new<Principal, [Types.StakeId]>();
 	private stable let earlyStakers = Map.new<Principal, Nat>(); // Maps early stakers to their multiplier (multiplier * 1_000_000)
+
 	private stable var bootstrapStartTime : Time.Time = 0;
 	private stable var isBootstrapPhase : Bool = true;
 
@@ -74,8 +75,7 @@ actor class DoxaStaking() = this {
 	private stable var nextStakeId : Nat = 0;
 	private stable var _tranIdx : Nat = 0;
 	private stable var _harvestIdx : Nat = 0;
-	private let MIN_REWARD_INTERVAL_IN_NANOS : Nat = 3600_000_000_000; // 1 hour in nanoseconds
-	private stable var feeCollectedFetchTimer = 0;
+	private stable var periodicFeeUpdater = 0;
 
 	type Tokens = {
 		#USDx;
@@ -149,7 +149,7 @@ actor class DoxaStaking() = this {
     2. Printing debug info about the calculation
     3. Returning the final weighted stake value
     */
-	public shared func calculateUserStakeMatric(stakeId : Types.StakeId, caller : Principal) : async Result.Result<Types.StakeMatric, Text> {
+	public shared func calculateUserStakeMatric(stakeId : Types.StakeId, caller : Principal) : async Result.Result<Types.StakeMetrics, Text> {
 		// Verify stake belongs to caller
 		let userStakeIds = switch (Map.get(userStakes, phash, caller)) {
 			case (null) return #err("No stakes found for user");
@@ -177,16 +177,16 @@ actor class DoxaStaking() = this {
 
 		Debug.print("stake: " # debug_show (stake));
 
-		if (pool.totalStaked == 0) {
+		if (pool.totalTokensStaked == 0) {
 			return #err("Total staked amount zero nahi ho sakta");
 		};
 
-		let lockDuration = stake.lockEndTime - stake.stakeTime;
-		Debug.print("lockDuration: " # debug_show (lockDuration));
+		let stakeLockPeriod = stake.lockEndTime - stake.stakeTime;
+		Debug.print("stakeLockPeriod: " # debug_show (stakeLockPeriod));
 
-		let lockupWeight = calculateDynamicWeight(Int.abs(lockDuration));
+		let lockPeriodWeight = calculateDynamicWeight(Int.abs(stakeLockPeriod));
 
-		Debug.print("lockupWeight: " # debug_show (lockupWeight));
+		Debug.print("lockPeriodWeight: " # debug_show (lockPeriodWeight));
 
 		let bootstrapMultiplier = switch (Map.get(earlyStakers, phash, caller)) {
 			case (?multiplier) {
@@ -201,10 +201,10 @@ actor class DoxaStaking() = this {
 
 		Debug.print("bootstrapMultiplier: " # debug_show (bootstrapMultiplier));
 
-		let totalStake = if (pool.totalStaked < MIN_TOTAL_STAKE) {
+		let totalStake = if (pool.totalTokensStaked < MIN_TOTAL_STAKE) {
 			MIN_TOTAL_STAKE;
 		} else {
-			pool.totalStaked;
+			pool.totalTokensStaked;
 		};
 
 		Debug.print("totalStake: " # debug_show (totalStake));
@@ -212,15 +212,15 @@ actor class DoxaStaking() = this {
 		// 100_000000
 		// let proportion = (stake.amount / totalStake) * 1_000_000; // 1,000
 		let totalAmount = stake.amount + stake.stakedReward;
-		let proportion = (totalAmount * 1_000_000) / totalStake;
-		Debug.print("proportion: " # debug_show (proportion));
+		let stakeContributionRatio = (totalAmount * 1_000_000) / totalStake;
+		Debug.print("stakeContributionRatio: " # debug_show (stakeContributionRatio));
 
-		let userWeight = (proportion * lockupWeight * bootstrapMultiplier) / (1_000_000 * 1_000_000); //6,000
-		Debug.print("userWeight: " # debug_show (userWeight));
+		let userStakeWeight = (stakeContributionRatio * lockPeriodWeight * bootstrapMultiplier) / (1_000_000 * 1_000_000); //6,000
+		Debug.print("userStakeWeight: " # debug_show (userStakeWeight));
 
 		// Calculate total lockupWeight by iterating over all stakes
-		let totalWeight = await getTotalWeight(); //20,000
-		Debug.print("totalWeight: " # debug_show (totalWeight));
+		let totalStakeWeight = await getTotalWeight(); //20,000
+		Debug.print("totalStakeWeight: " # debug_show (totalStakeWeight));
 
 		// Get total fee collected and calculate 70% as total rewards
 		// total reward 1_400,000 for total fee is  2_000_000
@@ -228,7 +228,7 @@ actor class DoxaStaking() = this {
 		let totalRewards : Nat = (totalFeeCollectedFromLastRewardDistribution * 7) / 10; // Fixed 70% calculation
 		Debug.print("totalRewards: " # debug_show (totalRewards));
 
-		var rewardShare = (totalRewards * userWeight) / totalWeight;
+		var rewardShare = (totalRewards * userStakeWeight) / totalStakeWeight;
 		Debug.print("rewardShare: " # debug_show (rewardShare));
 
 		// Calculate weekly return rate by dividing reward share by staked amount
@@ -236,10 +236,10 @@ actor class DoxaStaking() = this {
 		let weeklyReturnRate = (rewardShare * 100 * 1_000_000) / stake.amount;
 		Debug.print("weeklyReturnRate: " # debug_show (weeklyReturnRate));
 
-		let finalReward = rewardShare;
-		Debug.print("finalReward: " # debug_show (finalReward));
+		let userFinalReward = rewardShare;
+		Debug.print("userFinalReward: " # debug_show (userFinalReward));
 
-		if (finalReward == 0) {
+		if (userFinalReward == 0) {
 			return #err("Reward amount is zero. Please increase your stake amount or lockup duration");
 		};
 
@@ -251,14 +251,14 @@ actor class DoxaStaking() = this {
 
 		let stakeMetric = {
 			stakeId;
-			lockDuration;
-			lockupWeight;
+			stakeLockPeriod;
+			lockPeriodWeight;
 			bootstrapMultiplier;
-			proportion;
-			userWeight;
-			totalWeight;
+			stakeContributionRatio;
+			userStakeWeight;
+			totalStakeWeight;
 			totalFeeCollected = totalFeeCollectedFromLastRewardDistribution;
-			finalReward;
+			userFinalReward;
 			apy;
 		};
 
@@ -289,10 +289,10 @@ actor class DoxaStaking() = this {
 							1_000_000;
 						};
 
-						let totalStake = if (pool.totalStaked < MIN_TOTAL_STAKE) {
+						let totalStake = if (pool.totalTokensStaked < MIN_TOTAL_STAKE) {
 							MIN_TOTAL_STAKE;
 						} else {
-							pool.totalStaked;
+							pool.totalTokensStaked;
 						};
 
 						Debug.print(debug_show ("stake.amount", stake.amount));
@@ -514,7 +514,7 @@ actor class DoxaStaking() = this {
 								// Update stake record - move stakedReward to regular reward
 								let updatedStake = {
 									currentStake with
-									reward = currentStake.reward + currentStake.stakedReward;
+									pendingRewards = currentStake.pendingRewards + currentStake.stakedReward;
 									stakedReward = 0; // Reset staked reward
 								};
 								Map.set(stakes, nhash, stakeId, updatedStake);
@@ -534,19 +534,19 @@ actor class DoxaStaking() = this {
 	public func distributeWeeklyRewards(totalReward : Nat) : async () {
 		Debug.print("Starting weekly reward distribution with total reward: " # debug_show (totalReward));
 
-		// Calculate rewards for all stakes before transferRewardFromCKUSDPool
-		let rewardCalculations = await calculateAllRewards();
+		// Calculate rewards for all stakes before transferRewardFromCKUSDCPool
+		let rewardCalculations = await computeRewardsForAllUsers();
 
 		// Distribute the calculated rewards just update two field stakedReward and reward
-		await distributeCalculatedRewards(rewardCalculations);
-		await transferRewardFromCKUSDPool(totalReward);
+		await distributeRewardsToStakes(rewardCalculations);
+		await transferRewardFromCKUSDCPool(totalReward);
 	};
 
 	// Store calculated rewards for all stakes
 	private stable var lastCalculatedAllUserRewards : [(Types.StakeId, Nat)] = [];
 
 	// Helper function to calculate rewards
-	public func calculateAllRewards() : async [(Types.StakeId, Nat)] {
+	public func computeRewardsForAllUsers() : async [(Types.StakeId, Nat)] {
 		let rewardCalculations = Buffer.Buffer<(Types.StakeId, Nat)>(0);
 
 		for ((principal, stakeIds) in Map.entries(userStakes)) {
@@ -556,7 +556,7 @@ actor class DoxaStaking() = this {
 						let metrics = await calculateUserStakeMatric(stakeId, principal);
 						switch (metrics) {
 							case (#ok(m)) {
-								rewardCalculations.add((stakeId, m.finalReward));
+								rewardCalculations.add((stakeId, m.userFinalReward));
 							};
 							case (#err(e)) {
 								Debug.print("Error calculating metrics for stake " # debug_show (stakeId) # ": " # debug_show (e));
@@ -574,7 +574,7 @@ actor class DoxaStaking() = this {
 	};
 
 	// New helper function to distribute calculated rewards
-	public func distributeCalculatedRewards(calculations : [(Types.StakeId, Nat)]) : async () {
+	public func distributeRewardsToStakes(calculations : [(Types.StakeId, Nat)]) : async () {
 		for ((stakeId, rewardAmount) in calculations.vals()) {
 			switch (Map.get(stakes, nhash, stakeId)) {
 				case (?stake) {
@@ -595,7 +595,7 @@ actor class DoxaStaking() = this {
 						// Update stake with normal reward
 						let updatedStake = {
 							stake with
-							reward = stake.reward + rewardAmount
+							pendingRewards = stake.pendingRewards + rewardAmount
 						};
 						Map.set(stakes, nhash, stakeId, updatedStake);
 					};
@@ -606,7 +606,7 @@ actor class DoxaStaking() = this {
 	};
 
 	// Transfer rewards from CKUSD pool to reward account
-	public func transferRewardFromCKUSDPool(totalReward : Nat) : async () {
+	public func transferRewardFromCKUSDCPool(totalReward : Nat) : async () {
 		// Calculate 70% and 30% of total reward
 		let distributionAmount = totalReward;
 		let remainingAmount = (totalReward * 30) / 100;
@@ -667,7 +667,7 @@ actor class DoxaStaking() = this {
 	};
 
 	// Handle auto-compound rewards
-	public func autoCompoundReward() : async () {
+	public func calculateAndTransferAutoCompounds() : async () {
 		var totalAutoCompoundAmount = 0;
 
 		// Get total auto-compound amount from already updated stakes
@@ -718,16 +718,28 @@ actor class DoxaStaking() = this {
 
 	// Add manual harvest function
 	public shared ({ caller }) func harvestReward(stakeId : Types.StakeId) : async Result.Result<(), Text> {
+		// Verify stake belongs to caller in userStakes map
+		let userStakeIds = switch (Map.get(userStakes, phash, caller)) {
+			case (null) return #err("No stakes found for user");
+			case (?ids) ids;
+		};
+
+		// Check if stakeId exists in user's stakes
+		let validStakeId = Array.find<Types.StakeId>(userStakeIds, func(id) { id == stakeId });
+		if (validStakeId == null) {
+			return #err("This stake ID does not belong to caller");
+		};
+
 		switch (Map.get(stakes, nhash, stakeId)) {
 			case (null) return #err("Stake not found");
 			case (?stake) {
 				if (stake.staker != caller) return #err("Not authorized");
-				if (stake.reward == 0) return #err("No rewards to harvest");
+				if (stake.pendingRewards == 0) return #err("No rewards to harvest");
 
 				let transferResult = await USDx.icrc1_transfer({
 					from_subaccount = REWARD_SUBACCOUNT;
 					to = { owner = caller; subaccount = null };
-					amount = stake.reward;
+					amount = stake.pendingRewards;
 					fee = null;
 					memo = null;
 					created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
@@ -736,7 +748,7 @@ actor class DoxaStaking() = this {
 				switch (transferResult) {
 					case (#Ok(blockIndex)) {
 						// Reset reward in stake
-						let updatedStake = { stake with reward = 0 };
+						let updatedStake = { stake with pendingRewards = 0 };
 						Map.set(stakes, nhash, stakeId, updatedStake);
 
 						// Record harvest transaction
@@ -754,12 +766,12 @@ actor class DoxaStaking() = this {
 	};
 
 	// Add manual compound function
-	public shared ({ caller }) func compoundRewardManually(stakeId : Types.StakeId) : async Result.Result<(), Text> {
+	public shared ({ caller }) func manuallyCompoundRewards(stakeId : Types.StakeId) : async Result.Result<(), Text> {
 		switch (Map.get(stakes, nhash, stakeId)) {
 			case (null) return #err("Stake not found");
 			case (?stake) {
 				if (stake.staker != caller) return #err("Not authorized");
-				if (stake.reward == 0) return #err("No rewards to compound");
+				if (stake.pendingRewards == 0) return #err("No rewards to compound");
 
 				let transferResult = await USDx.icrc1_transfer({
 					from_subaccount = REWARD_SUBACCOUNT;
@@ -767,7 +779,7 @@ actor class DoxaStaking() = this {
 						owner = Principal.fromActor(this);
 						subaccount = null;
 					};
-					amount = stake.reward;
+					amount = stake.pendingRewards;
 					fee = null;
 					memo = null;
 					created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
@@ -775,11 +787,11 @@ actor class DoxaStaking() = this {
 
 				switch (transferResult) {
 					case (#Ok(blockIndex)) {
-						// Update stake amount and reset reward
+						// Update stakedReward and reset pendingRewards
 						let updatedStake = {
 							stake with
-							amount = stake.amount + stake.reward;
-							reward = 0;
+							stakedReward = stake.stakedReward + stake.pendingRewards;
+							pendingRewards = 0;
 						};
 						Map.set(stakes, nhash, stakeId, updatedStake);
 
@@ -801,7 +813,7 @@ actor class DoxaStaking() = this {
 	public query func getPendingReward(stakeId : Types.StakeId) : async Result.Result<Nat, Text> {
 		switch (Map.get(stakes, nhash, stakeId)) {
 			case (null) #err("Stake not found");
-			case (?stake) #ok(stake.reward);
+			case (?stake) #ok(stake.pendingRewards);
 		};
 	};
 
@@ -817,7 +829,7 @@ actor class DoxaStaking() = this {
 				);
 
 				#ok({
-					pendingReward = stake.reward;
+					pendingReward = stake.pendingRewards;
 					isAutoCompound = isAutoCompound;
 					lastHarvestTime = stake.lastHarvestTime;
 				});
@@ -826,16 +838,11 @@ actor class DoxaStaking() = this {
 	};
 
 	// Add helper function to get reward account balance
-	public shared func getRewardAccountBalance() : async Nat {
+	public shared func fetchRewardWalletBalance() : async Nat {
 		await USDx.icrc1_balance_of({
 			owner = Principal.fromActor(this);
 			subaccount = REWARD_SUBACCOUNT;
 		});
-	};
-
-	// Query function to check if stake is set for auto-compound
-	public query func isAutoCompoundEnabled(stakeId : Types.StakeId) : async Bool {
-		Set.has<Nat>(autoCompoundPreferences, nhash, stakeId);
 	};
 
 	// Get all auto-compound stakes for a user
@@ -897,7 +904,7 @@ actor class DoxaStaking() = this {
 		};
 
 		// Validate staking block
-		let validationResult = await validateStakingBlock(blockIndex, caller);
+		let validationResult = await isValidStakingBlock(blockIndex, caller);
 		let transfer = switch (validationResult) {
 			case (#err(error)) { return #err(error) };
 			case (#ok(transfer)) { transfer };
@@ -937,7 +944,7 @@ actor class DoxaStaking() = this {
 			stakeTime = Time.now();
 			lockEndTime = Time.now() + lockDuration;
 			lastHarvestTime = 0;
-			reward = 0;
+			pendingRewards = 0;
 			stakedReward = 0;
 		};
 
@@ -952,10 +959,10 @@ actor class DoxaStaking() = this {
 			};
 		};
 
-		// Update pool totalStaked
-		let newTotalStaked = pool.totalStaked + transfer.amount;
+		// Update pool totalTokensStaked
+		let newTotalStaked = pool.totalTokensStaked + transfer.amount;
 
-		pool := { pool with totalStaked = newTotalStaked };
+		pool := { pool with totalTokensStaked = newTotalStaked };
 
 		// Store transaction block index for later query
 		switch (Map.get(stakeBlockIndices, phash, transfer.from.owner)) {
@@ -1027,19 +1034,19 @@ actor class DoxaStaking() = this {
 		};
 
 		// Calculate total amount (stake amount + pending rewards)
-		let totalAmount = stake.amount + stake.reward;
+		let totalAmount = stake.amount + stake.pendingRewards;
 
 		// Remove from auto-compound preferences if enabled
 		if (Set.has<Nat>(autoCompoundPreferences, nhash, stakeId)) {
 			Set.delete<Nat>(autoCompoundPreferences, nhash, stakeId);
 		};
 
-		// If there are pending rewards, transfer from reward account first
-		if (stake.reward > 0) {
+		// If there are pending rewards, transfer from pendingRewards account first
+		if (stake.pendingRewards > 0) {
 			let rewardTransferResult = await USDx.icrc1_transfer({
 				from_subaccount = REWARD_SUBACCOUNT;
 				to = { owner = caller; subaccount = null };
-				amount = stake.reward;
+				amount = stake.pendingRewards;
 				fee = null;
 				memo = null;
 				created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
@@ -1067,7 +1074,7 @@ actor class DoxaStaking() = this {
 				// Update pool total staked
 				pool := {
 					pool with
-					totalStaked = pool.totalStaked - stake.amount
+					totalTokensStaked = pool.totalTokensStaked - stake.amount
 				};
 
 				// Remove stake
@@ -1102,10 +1109,10 @@ actor class DoxaStaking() = this {
 	///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	// Public getter function for all pool data
-	public func getPoolData() : async Types.StakingPool {
+	public func getPoolData() : async Types.StakingPoolDetails {
 		{
 			pool with
-			rewardTokenFee = totalFeeCollectedFromLastRewardDistribution
+			totalFeeCollected = totalFeeCollectedFromLastRewardDistribution
 		};
 	};
 
@@ -1143,7 +1150,7 @@ actor class DoxaStaking() = this {
 		for ((blockIndex, principal) in Map.entries(processedStakeTransactions)) {
 			if (principal == caller) {
 				try {
-					switch (await getTransactionFromBlockIndex(blockIndex)) {
+					switch (await fetchTransactionByBlockIndex(blockIndex)) {
 						case (#ok(tx)) {
 							buffer.add({
 								from = tx.from;
@@ -1166,7 +1173,7 @@ actor class DoxaStaking() = this {
 			if (principal == caller) {
 				for (blockIndex in blockIndices.vals()) {
 					try {
-						switch (await getTransactionFromBlockIndex(blockIndex)) {
+						switch (await fetchTransactionByBlockIndex(blockIndex)) {
 							case (#ok(tx)) {
 								buffer.add({
 									from = tx.from;
@@ -1317,14 +1324,14 @@ actor class DoxaStaking() = this {
 
 	};
 
-	feeCollectedFetchTimer := do {
+	periodicFeeUpdater := do {
 		let ONE_HOUR_NAN_SEC = 60_000_000_000;
 		let nextFetch = ONE_HOUR_NAN_SEC - (Time.now() % ONE_HOUR_NAN_SEC);
 
 		Timer.setTimer<system>(
 			#nanoseconds(Int.abs nextFetch),
 			func() : async () {
-				feeCollectedFetchTimer := Timer.recurringTimer<system>(#nanoseconds ONE_HOUR_NAN_SEC, fetchTotalFeeCollectedSofar);
+				periodicFeeUpdater := Timer.recurringTimer<system>(#nanoseconds ONE_HOUR_NAN_SEC, fetchTotalFeeCollectedSofar);
 				await fetchTotalFeeCollectedSofar();
 			}
 		);
@@ -1379,7 +1386,7 @@ actor class DoxaStaking() = this {
 	///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	/* This function validates a staking transaction
-    * Example call: validateStakingBlock(123, "xyz-principal-id")
+    * Example call: isValidStakingBlock(123, "xyz-principal-id")
     *
     * It performs these checks:
     * 1. Validates block index exists
@@ -1398,7 +1405,7 @@ actor class DoxaStaking() = this {
     * 5. Validates transfer amount meets minimum stake
     *    Example: If minimum stake is 100 USDx but only 50 USDx staked, returns error
     */
-	func validateStakingBlock(blockIndex : Nat, caller : Principal) : async Result.Result<Icrc.Transfer, Text> {
+	func isValidStakingBlock(blockIndex : Nat, caller : Principal) : async Result.Result<Icrc.Transfer, Text> {
 		// Get transaction details
 		let getTransactionsResponse = await USDx.get_transactions({ start = blockIndex; length = 1 });
 		let { transactions; log_length } = getTransactionsResponse;
@@ -1418,7 +1425,7 @@ actor class DoxaStaking() = this {
 		};
 
 		// Check transfer.to is staking account
-		let stakingAccount = await getStakingAccount(#USDx);
+		let stakingAccount = await getStakingCanisterAccount(#USDx);
 
 		// Compare accounts properly
 		if (
@@ -1458,14 +1465,14 @@ actor class DoxaStaking() = this {
 		};
 
 		// Check amount is above minimum stake
-		if (transfer.amount < pool.minimumStake) {
+		if (transfer.amount < pool.minimumStakeAmount) {
 			return #err("Transaction amount is less than minimum stake amount");
 		};
 
 		#ok(transfer);
 	};
 
-	public func getStakingAccount(token : Tokens) : async Icrc.Account {
+	public func getStakingCanisterAccount(token : Tokens) : async Icrc.Account {
 		switch (token) {
 			case (#USDx) {
 				{
@@ -1477,7 +1484,7 @@ actor class DoxaStaking() = this {
 	};
 
 	// Helper function to get transaction from block index
-	public func getTransactionFromBlockIndex(blockIndex : Nat) : async Result.Result<Types.Transaction, Text> {
+	public func fetchTransactionByBlockIndex(blockIndex : Nat) : async Result.Result<Types.Transaction, Text> {
 		try {
 			let getTransactionsResponse = await USDx.get_transactions({
 				start = blockIndex;
