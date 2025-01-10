@@ -36,7 +36,7 @@ actor class TestStakingCanister(
 		calculateAndTransferAutoCompounds : shared () -> async ();
 		calculateUserStakeMatric : shared (StakeId, Principal) -> async Result.Result<StakeMetrics, Text>;
 		manuallyCompoundRewards : shared (StakeId) -> async Result.Result<(), Text>;
-		distributeWeeklyRewards : shared (Nat) -> async ();
+		distributeWeeklyRewards : shared (Nat) -> async Result.Result<Text, Text>;
 		getBootstrapMultiplier : shared () -> async Result.Result<Nat, Text>;
 		getBootstrapStatus : shared () -> async { isBootstrapPhase : Bool; timeRemaining : Int };
 		getFeeCollectorBalance : shared () -> async Nat;
@@ -59,23 +59,28 @@ actor class TestStakingCanister(
 		notifyStake : shared (Nat, Nat) -> async Result.Result<(), Text>;
 		previewWeightForDuration : shared (Nat) -> async Nat;
 		toggleAutoCompound : shared (StakeId, Types.AutoCompoundAction) -> async Result.Result<Bool, Text>;
-		transferRewardFromCKUSDCPool : shared (Nat) -> async ();
+		transferRewardFromCKUSDCPool : shared (Nat) -> async Result.Result<Text, Text>;
 		triggerRewardDistributionForTesting : shared () -> async Result.Result<(), Text>;
 		unstake : shared (StakeId) -> async Result.Result<(), Text>;
 	};
-
 	// Test distribute weekly rewards
 	public shared func testDistributeWeeklyRewards(amount : Nat) : async () {
 		Debug.print("📅 Testing weekly rewards distribution with amount " # debug_show(amount));
-		await staking.distributeWeeklyRewards(amount);
-		Debug.print("Weekly rewards distributed");
+		let result = await staking.distributeWeeklyRewards(amount);
+		switch(result) {
+			case (#ok(msg)) Debug.print("Weekly rewards distributed successfully: " # msg);
+			case (#err(e)) Debug.print("Weekly rewards distribution failed: " # e);
+		};
 	};
 
-	// Test transfer reward from CKUSD pool
+	// Test transfer reward from CKUSD pool 
 	public shared func testTransferRewardFromCKUSDPool(amount : Nat) : async () {
 		Debug.print("💸 Testing reward transfer from CKUSD pool: " # debug_show(amount));
-		await staking.transferRewardFromCKUSDCPool(amount);
-		Debug.print("Reward transfer completed");
+		let result = await staking.transferRewardFromCKUSDCPool(amount);
+		switch(result) {
+			case (#ok(msg)) Debug.print("Reward transfer completed successfully: " # msg);
+			case (#err(e)) Debug.print("Reward transfer failed: " # e);
+		};
 	};
 
 	// Test auto compound reward
@@ -142,19 +147,19 @@ actor class TestStakingCanister(
 	};
 
 	// Public functions to check stake status
-	public shared func getStakeDetails() : async [Stake] {
+	public shared func getUserStakeDetails() : async [Stake] {
 		await staking.getUserStakeDetails();
 	};
 
-	public shared func getPoolInfo() : async StakingPoolDetails {
+	public shared func getPoolData() : async StakingPoolDetails {
 		await staking.getPoolData();
 	};
 
-	public shared func getBootstrapInfo() : async { isBootstrapPhase : Bool; timeRemaining : Int } {
+	public shared func getBootstrapStatus() : async { isBootstrapPhase : Bool; timeRemaining : Int } {
 		await staking.getBootstrapStatus();
 	};
 
-	public shared func getStakeMetric() : async Result.Result<[StakeMetrics], Text> {
+	public shared func calculateUserStakeMatric() : async Result.Result<[StakeMetrics], Text> {
 		let stakeDetails = await staking.getUserStakeDetails();
 
 		Debug.print(debug_show ("stakeDetails", stakeDetails));
@@ -174,7 +179,7 @@ actor class TestStakingCanister(
 		#ok(Buffer.toArray(buffer));
 	};
 
-	public shared func getTransactions() : async [Transaction] {
+	public shared func getUserTransactions() : async [Transaction] {
 		await staking.getUserTransactions();
 	};
 

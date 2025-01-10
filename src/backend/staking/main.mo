@@ -458,15 +458,22 @@ actor class DoxaStaking() = this {
 				Debug.print("Total fees collected: " # debug_show (totalFeeCollectedFromLastRewardDistribution));
 
 				// Distribute rewards
-				await distributeWeeklyRewards(totalFeeCollectedFromLastRewardDistribution);
+				let distributionResult = await distributeWeeklyRewards(totalFeeCollectedFromLastRewardDistribution);
 
-				// Reset fee collection for next week
-				totalFeeCollectedFromLastRewardDistribution := 0;
+				switch (distributionResult) {
+					case (#ok(_)) {
+						// Reset fee collection for next week
+						totalFeeCollectedFromLastRewardDistribution := 0;
 
-				// Update last distribution time
-				lastRewardDistributionTime := currentTime;
+						// Update last distribution time
+						lastRewardDistributionTime := currentTime;
 
-				Debug.print("Weekly reward distribution completed");
+						Debug.print("Weekly reward distribution completed");
+					};
+					case (#err(e)) {
+						Debug.print("Weekly reward distribution failed: " # e);
+					};
+				};
 			} else {
 				Debug.print("No fees collected for distribution this week");
 			};
@@ -531,15 +538,36 @@ actor class DoxaStaking() = this {
 	};
 
 	// Modified weekly reward distribution
-	public func distributeWeeklyRewards(totalReward : Nat) : async () {
+	public func distributeWeeklyRewards(totalReward : Nat) : async Result.Result<Text, Text> {
 		Debug.print("Starting weekly reward distribution with total reward: " # debug_show (totalReward));
 
-		// Calculate rewards for all stakes before transferRewardFromCKUSDCPool
+		// Calculate rewards for all stakes
 		let rewardCalculations = await computeRewardsForAllUsers();
 
-		// Distribute the calculated rewards just update two field stakedReward and reward
-		await distributeRewardsToStakes(rewardCalculations);
-		await transferRewardFromCKUSDCPool(totalReward);
+		// 1. Approve weekly reward amount
+		let approveResult = await approveWeeklyReward(totalReward);
+		switch (approveResult) {
+			case (#err(e)) return #err("Failed to approve rewards: " # e);
+			case (#ok(_)) {};
+		};
+
+		// 2. Transfer main reward amount
+		let mainTransferResult = await transferMainReward(totalReward);
+		switch (mainTransferResult) {
+			case (#err(e)) return #err("Failed to transfer main rewards: " # e);
+			case (#ok(_)) {};
+		};
+
+		// 3. Transfer remaining reward amount
+		let remainingTransferResult = await transferRemainingReward(totalReward);
+		switch (remainingTransferResult) {
+			case (#err(e)) return #err("Failed to transfer remaining rewards: " # e);
+			case (#ok(_)) {
+				// Only distribute rewards if all transfers were successful
+				await distributeRewardsToStakes(rewardCalculations);
+				#ok("Weekly rewards distributed successfully");
+			};
+		};
 	};
 
 	// Store calculated rewards for all stakes
@@ -606,14 +634,13 @@ actor class DoxaStaking() = this {
 	};
 
 	// Transfer rewards from CKUSD pool to reward account
-	public func transferRewardFromCKUSDCPool(totalReward : Nat) : async () {
-		// Calculate 70% and 30% of total reward
-		let distributionAmount = totalReward;
-		let remainingAmount = (totalReward * 30) / 100;
-		Debug.print("Total distribution amount: " # debug_show (distributionAmount));
-		Debug.print("Remaining 30% amount: " # debug_show (remainingAmount));
+	// Get approval from CKUSDC pool
+	public func approveWeeklyReward(totalReward : Nat) : async Result.Result<Text, Text> {
+		let fee : Nat = 20000; // Standard ICRC token fee
 
-		// First get approval from CKUSDC pool
+		let distributionAmount = totalReward + fee;
+		Debug.print("Requesting approval for amount: " # debug_show (distributionAmount));
+
 		let approvalArg : RewardApprovalArg = {
 			memo = null;
 			created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
@@ -626,42 +653,140 @@ actor class DoxaStaking() = this {
 		switch (approvalResult) {
 			case (#err(error)) {
 				Debug.print("Approval error: " # debug_show (error));
-				return;
+				return #err("Approval failed: " # debug_show (error));
 			};
 			case (#ok(_)) {
-				// Transfer from CKUSDC pool to reward account using transfer_from
-				let initialTransferResult = await USDx.icrc2_transfer_from({
-					spender_subaccount = null;
-					from = {
+				// Check current allowance
+				let allowanceResult = await USDx.icrc2_allowance({
+					account = {
 						owner = Principal.fromText("ieja4-4iaaa-aaaak-qddra-cai");
 						subaccount = null;
 					};
-					to = {
+					spender = {
 						owner = Principal.fromActor(this);
-						subaccount = REWARD_SUBACCOUNT;
-					};
-					amount = distributionAmount;
-					fee = null;
-					memo = null;
-					created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
-				});
-
-				Debug.print("Initial transfer result: " # debug_show (initialTransferResult));
-
-				// Transfer 30% to root canister
-				let remainingTransferResult = await USDx.icrc1_transfer({
-					from_subaccount = REWARD_SUBACCOUNT;
-					to = {
-						owner = Principal.fromText("iwpxf-qyaaa-aaaak-qddsa-cai");
 						subaccount = null;
 					};
-					amount = remainingAmount;
-					fee = null;
-					memo = null;
-					created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
 				});
 
-				Debug.print("Remaining 30% transfer result: " # debug_show (remainingTransferResult));
+				Debug.print("Actual allowance after approval: " # debug_show (allowanceResult.allowance));
+
+				if (allowanceResult.allowance < distributionAmount) {
+					return #err("Insufficient allowance");
+				};
+
+				// Check expiry
+				switch (allowanceResult.expires_at) {
+					case (?expiry) {
+						let currentTime = Nat64.fromNat(Int.abs(Time.now()));
+						if (currentTime > expiry) {
+							return #err("Allowance expired");
+						};
+					};
+					case (null) {};
+				};
+				return #ok("Approval successful");
+			};
+		};
+		#err("Unexpected end of function");
+	};
+
+	// Transfer main reward amount
+	public func transferMainReward(totalReward : Nat) : async Result.Result<Text, Text> {
+		let fee : Nat = 20000; // Standard ICRC token fee
+
+		let distributionAmount = totalReward - fee;
+		Debug.print("Attempting transfer of amount: " # debug_show (distributionAmount));
+
+		// Check allowance before transfer
+		let allowanceResult = await USDx.icrc2_allowance({
+			account = {
+				owner = Principal.fromText("ieja4-4iaaa-aaaak-qddra-cai");
+				subaccount = null;
+			};
+			spender = {
+				owner = Principal.fromActor(this);
+				subaccount = null;
+			};
+		});
+		Debug.print("Current allowance: " # debug_show (allowanceResult.allowance));
+
+		// Change to this
+		// if (allowanceResult.allowance < distributionAmount) {
+		//     return #err("Insufficient allowance for transfer. Current allowance: " # debug_show (allowanceResult.allowance));
+		// };
+
+		let transferResult = await USDx.icrc2_transfer_from({
+			spender_subaccount = null;
+			from = {
+				owner = Principal.fromText("ieja4-4iaaa-aaaak-qddra-cai");
+				subaccount = null;
+			};
+			to = {
+				owner = Principal.fromActor(this);
+				subaccount = REWARD_SUBACCOUNT;
+			};
+			amount = distributionAmount;
+			fee = null;
+			memo = null;
+			created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
+		});
+
+		switch (transferResult) {
+			case (#Ok(blockIndex)) {
+				Debug.print("Main transfer successful with block index: " # debug_show (blockIndex));
+				return #ok("Main transfer successful");
+			};
+			case (#Err(transferError)) {
+				switch (transferError) {
+					case (#InsufficientAllowance(err)) {
+						return #err("Insufficient allowance for transfer. Current allowance: " # debug_show (allowanceResult.allowance));
+					};
+					case (#InsufficientFunds(err)) {
+						return #err("Insufficient funds for transfer");
+					};
+					case (#GenericError(err)) {
+						return #err("Generic transfer error: " # err.message);
+					};
+					case (_) {
+						return #err("Unknown transfer error");
+					};
+				};
+			};
+		};
+	};
+
+	// Transfer 30% remaining amount
+	public func transferRemainingReward(totalReward : Nat) : async Result.Result<Text, Text> {
+		let remainingAmount = (totalReward * 30) / 100;
+
+		// Verify balance before transfer
+		let currentBalance = await USDx.icrc1_balance_of({
+			owner = Principal.fromActor(this);
+			subaccount = REWARD_SUBACCOUNT;
+		});
+
+		if (currentBalance < remainingAmount) {
+			return #err("Insufficient balance for remaining transfer");
+		};
+
+		let remainingTransferResult = await USDx.icrc1_transfer({
+			from_subaccount = REWARD_SUBACCOUNT;
+			to = {
+				owner = Principal.fromText("iwpxf-qyaaa-aaaak-qddsa-cai");
+				subaccount = null;
+			};
+			amount = remainingAmount;
+			fee = null;
+			memo = null;
+			created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
+		});
+
+		switch (remainingTransferResult) {
+			case (#Ok(blockIndex)) {
+				return #ok("Remaining transfer successful");
+			};
+			case (#Err(err)) {
+				return #err("Remaining transfer failed: " # debug_show (err));
 			};
 		};
 	};
