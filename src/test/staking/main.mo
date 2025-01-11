@@ -59,8 +59,8 @@ actor class TestStakingCanister(
 		notifyStake : shared (Nat, Nat) -> async Result.Result<(), Text>;
 		previewWeightForDuration : shared (Nat) -> async Nat;
 		toggleAutoCompound : shared (StakeId, Types.AutoCompoundAction) -> async Result.Result<Bool, Text>;
-		transferRewardFromCKUSDCPool : shared (Nat) -> async Result.Result<Text, Text>;
-		triggerRewardDistributionForTesting : shared () -> async Result.Result<(), Text>;
+		transferMainReward : shared (Nat) -> async Result.Result<Text, Text>;
+		transferRemainingReward : shared (Nat) -> async Result.Result<Text, Text>;
 		unstake : shared (StakeId) -> async Result.Result<(), Text>;
 	};
 	// Test distribute weekly rewards
@@ -70,16 +70,6 @@ actor class TestStakingCanister(
 		switch(result) {
 			case (#ok(msg)) Debug.print("Weekly rewards distributed successfully: " # msg);
 			case (#err(e)) Debug.print("Weekly rewards distribution failed: " # e);
-		};
-	};
-
-	// Test transfer reward from CKUSD pool 
-	public shared func testTransferRewardFromCKUSDPool(amount : Nat) : async () {
-		Debug.print("💸 Testing reward transfer from CKUSD pool: " # debug_show(amount));
-		let result = await staking.transferRewardFromCKUSDCPool(amount);
-		switch(result) {
-			case (#ok(msg)) Debug.print("Reward transfer completed successfully: " # msg);
-			case (#err(e)) Debug.print("Reward transfer failed: " # e);
 		};
 	};
 

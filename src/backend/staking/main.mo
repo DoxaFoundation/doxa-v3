@@ -636,9 +636,8 @@ actor class DoxaStaking() = this {
 	// Transfer rewards from CKUSD pool to reward account
 	// Get approval from CKUSDC pool
 	public func approveWeeklyReward(totalReward : Nat) : async Result.Result<Text, Text> {
-		let fee : Nat = 20000; // Standard ICRC token fee
 
-		let distributionAmount = totalReward + fee;
+		let distributionAmount = totalReward;
 		Debug.print("Requesting approval for amount: " # debug_show (distributionAmount));
 
 		let approvalArg : RewardApprovalArg = {
@@ -757,7 +756,8 @@ actor class DoxaStaking() = this {
 
 	// Transfer 30% remaining amount
 	public func transferRemainingReward(totalReward : Nat) : async Result.Result<Text, Text> {
-		let remainingAmount = (totalReward * 30) / 100;
+
+		let remainingAmount = Int.abs(((totalReward - 10000 - 10000) * 30) / 100); // Pehle fees subtract karte hain, phir 30% calculate karte hain
 
 		// Verify balance before transfer
 		let currentBalance = await USDx.icrc1_balance_of({
@@ -989,6 +989,18 @@ actor class DoxaStaking() = this {
 
 				#ok(isAutoCompound);
 			};
+		};
+	};
+	// Get user's USDx balance
+	public shared ({ caller }) func getUserUSDxBalance() : async Result.Result<Nat, Text> {
+		try {
+			let balance = await USDx.icrc1_balance_of({
+				owner = caller;
+				subaccount = null;
+			});
+			#ok(balance);
+		} catch (e) {
+			#err("Error fetching USDx balance: " # Error.message(e));
 		};
 	};
 
