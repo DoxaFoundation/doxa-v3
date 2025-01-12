@@ -32,5 +32,3 @@ dfx canister call staking_canister getPoolData
 dfx canister call staking_canister getPoolData
 # pool data
 dfx canister call staking_canister getPoolData
-
-dfx canister call staking_canister calculateDynamicAPR '(principal "5g24m-kxyrd-yb7wl-up5k6-4egww-miul7-gajat-e2d7i-mdpc7-6dduf-eae", 2_592_000)'

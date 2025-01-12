@@ -8,9 +8,6 @@ import Principal "mo:base/Principal";
 // import Time "mo:base/Time";
 import Result "mo:base/Result";
 import Debug "mo:base/Debug";
-import Error "mo:base/Error";
-import Float "mo:base/Float";
-import Array "mo:base/Array";
 import Nat "mo:base/Nat";
 import Int "mo:base/Int";
 import Buffer "mo:base/Buffer";
@@ -30,51 +27,134 @@ actor class TestStakingCanister(
 	type Transaction = Types.Transaction;
 	type StakeId = Types.StakeId;
 	type Stake = Types.Stake;
-	type StakeMatric = Types.StakeMatric;
-	type StakingPool = Types.StakingPool;
+	type StakeMetrics = Types.StakeMetrics;
+	type StakingPoolDetails = Types.StakingPoolDetails;
 
 	let { amount; stakePeriod } = init;
-
 	let it = C.Tester({ batchSize = 8 });
 	let staking = actor ("mhahe-xqaaa-aaaag-qndha-cai") : actor {
-		getBootstrapStatus : shared () -> async { isBootstrapPhase : Bool; timeRemaining : Int };
-		getPoolData : shared () -> async StakingPool;
-		notifyStake : shared (amount : Nat, lockupPeriod : Nat) -> async Result.Result<(), Text>;
+		calculateAndTransferAutoCompounds : shared () -> async ();
+		calculateUserStakeMatric : shared (StakeId, Principal) -> async Result.Result<StakeMetrics, Text>;
+		manuallyCompoundRewards : shared (StakeId) -> async Result.Result<(), Text>;
+		distributeWeeklyRewards : shared (Nat) -> async Result.Result<Text, Text>;
 		getBootstrapMultiplier : shared () -> async Result.Result<Nat, Text>;
-		calculateUserStakeMatric : shared (stakeIndex : Nat, user : Principal) -> async Result.Result<StakeMatric, Text>;
-		unstake : shared (stakeIndex : Nat) -> async Result.Result<(), Text>;
-		getTotalFeeCollected : shared () -> async Nat;
+		getBootstrapStatus : shared () -> async { isBootstrapPhase : Bool; timeRemaining : Int };
 		getFeeCollectorBalance : shared () -> async Nat;
 		getLastProcessedTxId : shared () -> async Nat;
-		getStakingAccount : shared (Tokens) -> async Account;
-		getTotalFeeCollectedAmount : shared () -> async Nat;
-		getTransactionFromBlockIndex : shared (Nat) -> async Result.Result<Transaction, Text>;
+		getPendingReward : shared (StakeId) -> async Result.Result<Nat, Text>;
+		getPoolData : shared () -> async StakingPoolDetails;
+		fetchRewardWalletBalance : shared () -> async Nat;
+		getStakingCanisterAccount : shared (Tokens) -> async Account;
+		getTotalFeeCollectedFromLastRewardDistribution : shared () -> async Nat;
+		getTotalFeeCollectedSofar : shared () -> async Nat;
+		getTotalWeight : shared () -> async Nat;
+		fetchTransactionByBlockIndex : shared (Nat) -> async Result.Result<Transaction, Text>;
 		getUserStakeDetails : shared () -> async [Stake];
+		getUserStakeRewardStats : shared (StakeId) -> async Result.Result<{ pendingReward : Nat; lastHarvestTime : Time; isAutoCompound : Bool }, Text>;
 		getUserTransactions : shared () -> async [Transaction];
-		calculateUserWeeklyStakeWeight : shared (StakeId) -> async Result.Result<Nat, Text>;
-		iterateAllStakes : shared () -> async [(Text, StakeMatric)];
-		getStakeMetrics : shared (StakeId) -> async [(Text, StakeMatric)];
+		getWeightTable : shared () -> async [(Nat, Nat)];
+		harvestReward : shared (StakeId) -> async Result.Result<(), Text>;
+		initFetchTotalFeeCollected : shared () -> async ();
+		isStakeAutoCompound : shared (StakeId) -> async Result.Result<Bool, Text>;
+		notifyStake : shared (Nat, Nat) -> async Result.Result<(), Text>;
+		previewWeightForDuration : shared (Nat) -> async Nat;
+		toggleAutoCompound : shared (StakeId, Types.AutoCompoundAction) -> async Result.Result<Bool, Text>;
+		transferMainReward : shared (Nat) -> async Result.Result<Text, Text>;
+		transferRemainingReward : shared (Nat) -> async Result.Result<Text, Text>;
+		unstake : shared (StakeId) -> async Result.Result<(), Text>;
+	};
+	// Test distribute weekly rewards
+	public shared func testDistributeWeeklyRewards(amount : Nat) : async () {
+		Debug.print("📅 Testing weekly rewards distribution with amount " # debug_show(amount));
+		let result = await staking.distributeWeeklyRewards(amount);
+		switch(result) {
+			case (#ok(msg)) Debug.print("Weekly rewards distributed successfully: " # msg);
+			case (#err(e)) Debug.print("Weekly rewards distribution failed: " # e);
+		};
+	};
+
+	// Test auto compound reward
+	public shared func testAutoCompoundReward() : async () {
+		Debug.print("🔄 Testing auto compound reward");
+		await staking.calculateAndTransferAutoCompounds();
+		Debug.print("Auto compound completed");
+	};
+
+	// Test compound reward manually
+	public shared func testCompoundRewardManually(stakeId : StakeId) : async Result.Result<(), Text> {
+		Debug.print("🔄 Testing manual compound for stake " # debug_show(stakeId));
+		let result = await staking.manuallyCompoundRewards(stakeId);
+		Debug.print("Manual compound result: " # debug_show(result));
+		result;
+	};
+
+	// Test is stake auto compound
+	public shared func testIsStakeAutoCompound(stakeId : StakeId) : async Result.Result<Bool, Text> {
+		Debug.print("🔍 Checking if stake is auto-compounding: " # debug_show(stakeId));
+		let result = await staking.isStakeAutoCompound(stakeId);
+		Debug.print("Auto compound status: " # debug_show(result));
+		result;
+	};
+
+	// Test toggle auto-compound
+	public shared func testToggleAutoCompound(stakeId : StakeId, action : Types.AutoCompoundAction) : async Result.Result<Bool, Text> {
+		Debug.print("🔄 Testing auto-compound toggle for stake " # debug_show(stakeId));
+		let result = await staking.toggleAutoCompound(stakeId, action);
+		Debug.print("Result: " # debug_show(result));
+		result;
+	};
+
+	// Test harvest reward
+	public shared func testHarvestReward(stakeId : StakeId) : async Result.Result<(), Text> {
+		Debug.print("🌾 Testing reward harvest for stake " # debug_show(stakeId));
+		let result = await staking.harvestReward(stakeId);
+		Debug.print("Result: " # debug_show(result));
+		result;
+	};
+
+	// Get pending reward
+	public shared func testGetPendingReward(stakeId : StakeId) : async Result.Result<Nat, Text> {
+		Debug.print("💰 Getting pending reward for stake " # debug_show(stakeId));
+		let result = await staking.getPendingReward(stakeId);
+		Debug.print("Pending reward: " # debug_show(result));
+		result;
+	};
+
+	// Get stake reward stats
+	public shared func testGetStakeRewardStats(stakeId : StakeId) : async Result.Result<{ pendingReward : Nat; lastHarvestTime : Time; isAutoCompound : Bool }, Text> {
+		Debug.print("📊 Getting reward stats for stake " # debug_show(stakeId));
+		let result = await staking.getUserStakeRewardStats(stakeId);
+		Debug.print("Reward stats: " # debug_show(result));
+		result;
+	};
+
+	// Get reward account balance
+	public shared func testGetRewardBalance() : async Nat {
+		Debug.print("💳 Getting reward account balance");
+		let result = await staking.fetchRewardWalletBalance();
+		Debug.print("Balance: " # debug_show(result));
+		result;
 	};
 
 	// Public functions to check stake status
-	public shared func getStakeDetails() : async [Stake] {
+	public shared func getUserStakeDetails() : async [Stake] {
 		await staking.getUserStakeDetails();
 	};
 
-	public shared func getPoolInfo() : async StakingPool {
+	public shared func getPoolData() : async StakingPoolDetails {
 		await staking.getPoolData();
 	};
 
-	public shared func getBootstrapInfo() : async { isBootstrapPhase : Bool; timeRemaining : Int } {
+	public shared func getBootstrapStatus() : async { isBootstrapPhase : Bool; timeRemaining : Int } {
 		await staking.getBootstrapStatus();
 	};
 
-	public shared func getStakeMetric() : async Result.Result<[StakeMatric], Text> {
+	public shared func calculateUserStakeMatric() : async Result.Result<[StakeMetrics], Text> {
 		let stakeDetails = await staking.getUserStakeDetails();
 
 		Debug.print(debug_show ("stakeDetails", stakeDetails));
 
-		let buffer = Buffer.Buffer<StakeMatric>(0);
+		let buffer = Buffer.Buffer<StakeMetrics>(0);
 
 		for (stake in stakeDetails.vals()) {
 			let { id; staker } = stake;
@@ -89,16 +169,8 @@ actor class TestStakingCanister(
 		#ok(Buffer.toArray(buffer));
 	};
 
-	public shared func getTransactions() : async [Transaction] {
+	public shared func getUserTransactions() : async [Transaction] {
 		await staking.getUserTransactions();
-	};
-
-	public shared func getFees() : async Nat {
-		await staking.getTotalFeeCollected();
-	};
-
-	public shared func getWeeklyWeight(stakeId : StakeId) : async Result.Result<Nat, Text> {
-		await staking.calculateUserWeeklyStakeWeight(stakeId);
 	};
 
 	public shared func test() : async Text {

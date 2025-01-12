@@ -18,23 +18,23 @@ for i in $(seq 0 $((no_of_test_canisters - 1))); do
     echo >> "$log_file"
     
     echo "Bootstrap Info:" >> "$log_file"
-    dfx canister call test_canister_${canister_num} getBootstrapInfo >> "$log_file" 2>&1
+    dfx canister call test_canister_${canister_num} getBootstrapStatus >> "$log_file" 2>&1
     echo >> "$log_file"
     
     echo "Stake Details:" >> "$log_file"
-    dfx canister call test_canister_${canister_num} getStakeDetails >> "$log_file" 2>&1
+    dfx canister call test_canister_${canister_num} getUserStakeDetails >> "$log_file" 2>&1
     echo >> "$log_file"
     
     echo "Stake Metrics:" >> "$log_file"
-    dfx canister call test_canister_${canister_num} getStakeMetric >> "$log_file" 2>&1
+    dfx canister call test_canister_${canister_num} calculateUserStakeMatric >> "$log_file" 2>&1
     echo >> "$log_file"
     
     echo "Pool Data:" >> "$log_file"
-    dfx canister call test_canister_${canister_num} getPoolInfo >> "$log_file" 2>&1
+    dfx canister call test_canister_${canister_num} getPoolData >> "$log_file" 2>&1
     echo >> "$log_file"
 
     # Get total stake from pool data
-    total_stake=$(grep "totalStaked =" "$log_file" | head -n 1 | sed 's/[^0-9]*//g')
+    total_stake=$(grep "totalTokensStaked =" "$log_file" | head -n 1 | sed 's/[^0-9]*//g')
 
     # Add verification calculations with detailed explanations
     echo "// Verification of calculations:" >> "$log_file"
@@ -52,7 +52,7 @@ for i in $(seq 0 $((no_of_test_canisters - 1))); do
     stake_amount=$(grep "amount =" "$log_file" | head -n 1 | sed 's/[^0-9]*//g')
     lock_start=$(grep "stakeTime =" "$log_file" | head -n 1 | sed 's/[^0-9]*//g')
     lock_end=$(grep "lockEndTime =" "$log_file" | head -n 1 | sed 's/[^0-9]*//g')
-    user_weight=$(grep "userWeight =" "$log_file" | head -n 1 | sed 's/[^0-9]*//g')
+    user_weight=$(grep "userStakeWeight =" "$log_file" | head -n 1 | sed 's/[^0-9]*//g')
     bootstrap_multiplier=$(grep "bootstrapMultiplier =" "$log_file" | head -n 1 | sed 's/[^0-9]*//g')
     is_bootstrap=$(grep "isBootstrapPhase = true" "$log_file" | wc -l)
     
@@ -102,7 +102,7 @@ for i in $(seq 0 $((no_of_test_canisters - 1))); do
         
         echo "// 2. APY Verification:" >> "$log_file"
         fee_collected=$(grep "totalFeeCollected =" "$log_file" | head -n 1 | sed 's/[^0-9]*//g')
-        total_weight=$(grep "totalWeight =" "$log_file" | head -n 1 | sed 's/[^0-9]*//g')
+        total_weight=$(grep "totalStakeWeight =" "$log_file" | head -n 1 | sed 's/[^0-9]*//g')
         apy=$(grep "apy =" "$log_file" | head -n 1 | sed 's/[^0-9]*//g')
         
         if [ ! -z "$fee_collected" ] && [ ! -z "$total_weight" ] && [ ! -z "$apy" ]; then
