@@ -1,15 +1,15 @@
 <script lang="ts">
-	import { authStore } from '../stores/auth.store';
+	import { authStore } from '$lib/stores/auth.store';
 
-	$: isAuthenticated = $authStore.isAuthenticated;
+	let isAuthenticated = $derived($authStore.isAuthenticated);
 
 	const login = async () => {
-		await authStore.signIn();
+		await authStore.signInWithII();
 	};
 </script>
 
 {#if isAuthenticated}
-	<button on:click={() => authStore.signOut()}>LOGOUT</button>
+	<button onclick={() => authStore.signOut()}>LOGOUT</button>
 {:else}
-	<button on:click={() => login()}>LOGIN</button>
+	<button onclick={() => login()}>LOGIN</button>
 {/if}

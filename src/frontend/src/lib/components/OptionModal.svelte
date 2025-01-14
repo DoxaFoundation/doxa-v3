@@ -9,10 +9,14 @@
 	import { Tooltip } from 'flowbite-svelte';
 	import { ckUsdcBase64 } from '../../assets/base64-svg';
 
-	export let open = false;
+	interface Props {
+		open?: boolean;
+	}
 
-	let isRefreshing = false;
-	let isRefreshingUsdx = false;
+	let { open = $bindable(false) }: Props = $props();
+
+	let isRefreshing = $state(false);
+	let isRefreshingUsdx = $state(false);
 
 	function formatNumber(number: number): string {
 		let [intPart, decimalPart] = number.toString().split('.');
@@ -24,7 +28,7 @@
 		return formatNumber(from6Decimals(balance));
 	}
 
-	let openTransferModal = false;
+	let openTransferModal = $state(false);
 </script>
 
 <Modal size="sm" bind:open outsideclose placement="top-right" color="primary" class="pt-2">
@@ -53,7 +57,7 @@
 					<span class="ml-2">Doxa Dollar</span>
 				</div>
 				<button
-					on:click={async () => {
+					onclick={async () => {
 						isRefreshingUsdx = true;
 						await balanceStore.updateUsdxBalance();
 						isRefreshingUsdx = false;
@@ -83,7 +87,7 @@
 					<span class="ml-2">ckUSDC</span>
 				</div>
 				<button
-					on:click={async () => {
+					onclick={async () => {
 						isRefreshing = true;
 						await balanceStore.updateCkUsdcBalance();
 						isRefreshing = false;

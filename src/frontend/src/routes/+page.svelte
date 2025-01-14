@@ -11,8 +11,8 @@
 	import SelectDropDown from '$lib/components/SelectDropDown.svelte';
 	import { ckUsdcBase64 } from '../assets/base64-svg';
 
-	let selectedToken: string = 'ckUSDC';
-	let selectedMint: string = 'USDx';
+	let selectedToken: string = $state('ckUSDC');
+	let selectedMint: string = $state('USDx');
 	let mintUsing = [
 		{ id: 1, value: 'ckUSDC', img: ckUsdcBase64, name: 'ckUSDC' },
 		{ id: 2, value: 'ICP', img: '/images/ICP-Token-dark.svg', name: 'ICP' },
@@ -33,11 +33,11 @@
 		{ value: 'Doxa GBP', name: 'Doxa GBP' }
 	];
 
-	let selectTokenAmount_ckUSDC = 0;
+	let selectTokenAmount_ckUSDC = $state(0);
 	// let mintAmount_usdx = 0;
 
-	let mintButtonDisable = true;
-	let buttonMessage = 'Mint';
+	let mintButtonDisable = $state(true);
+	let buttonMessage = $state('Mint');
 
 	function setMaxCkUSDC() {
 		let balance = from6Decimals($balanceStore.ckUsdc);
@@ -97,7 +97,7 @@
 			{ id: 4, text: 'Minting USDx', status: 'pending' as Status }
 		];
 	}
-	let steps = getInitialSteps();
+	let steps = $state(getInitialSteps());
 
 	async function mintAndUpdateBalance() {
 		await mintUSDxWithCkUSDC();
@@ -186,7 +186,7 @@
 		});
 	}
 
-	let toggleMintForm = true;
+	let toggleMintForm = $state(true);
 
 	async function onClickMintButton() {
 		await tick();
@@ -227,7 +227,7 @@
 							items={mintUsing}
 							placeholder="Choose token"
 							class="mt-2 max-md:w-full"
-							on:change={disableMintButton}
+							change={disableMintButton}
 							bind:value={selectedToken}
 						/>
 						<div class="md:flex md:flex-col-reverse md:pl-2 max-md:mt-3">
@@ -257,7 +257,7 @@
 							items={mintToken_}
 							placeholder="Choose token"
 							class="mt-2 max-md:w-full"
-							on:change={disableMintButton}
+							change={disableMintButton}
 							bind:value={selectedMint}
 						/>
 
@@ -287,7 +287,7 @@
 		{:else}
 			<ProgressSteps {steps} />
 			<div class="flex justify-center">
-				<button on:click={onClickBackButton}>
+				<button onclick={onClickBackButton}>
 					<ArrowLeftOutline
 						size="xl"
 						class="bg-black text-white w-fit rounded-full drop-shadow-md"

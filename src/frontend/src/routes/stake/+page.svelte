@@ -8,13 +8,13 @@
 		{ id: 1, value: 'USDx', name: 'Doxa Dollar', img: '/images/USDx-black.svg' }
 	];
 
-	let value: string;
+	let value: string = $state('');
 
 	// select previous style
 	// class="mt-2 w-fit box py-8 max-md:w-full bg-white border shadow-md"
 
 	import { Range, Label } from 'flowbite-svelte';
-	let minmaxValue = 6;
+	let minmaxValue = $state(6);
 </script>
 
 <div class="flex flex-col items-center justify-center mt-2">
@@ -25,7 +25,6 @@
 			<div class="md:flex gap-2">
 				<SelectDropDown
 					placeholder="Deposit token"
-					size="sm"
 					class="mt-2 max-md:w-full w-[180px]"
 					dropDownClass="w-[180px]"
 					items={depositTokens}

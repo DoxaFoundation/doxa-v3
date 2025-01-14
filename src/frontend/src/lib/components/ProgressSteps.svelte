@@ -1,14 +1,12 @@
 <script lang="ts">
 	type Status = 'completed' | 'in-progress' | 'error' | 'pending';
 
-	export let steps: { id: number; text: string; status: Status }[] = [];
-
-	import { createEventDispatcher } from 'svelte';
-	const dispatch = createEventDispatcher();
-
-	function updateStep(index: number, newStatus: Status) {
-		dispatch('updateStep', { index, newStatus });
+	interface Props {
+		steps?: { id: number; text: string; status: Status }[];
+		updateStep?: (index: number, newStatus: Status) => void;
 	}
+
+	let { steps = [] }: Props = $props();
 </script>
 
 <div class=" text-black p-5 font-sans">
