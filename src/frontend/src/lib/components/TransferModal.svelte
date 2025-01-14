@@ -10,24 +10,29 @@
 	import { CheckCircleSolid, CloseCircleSolid } from 'flowbite-svelte-icons';
 	import { Select, Label, Input, Spinner } from 'flowbite-svelte';
 	import { fly } from 'svelte/transition';
+	import { assertNonNullish } from '@dfinity/utils';
 
-	export let openTransferModal: boolean;
-	let selectedToken = '';
+	interface Props {
+		openTransferModal: boolean;
+	}
+
+	let { openTransferModal = $bindable() }: Props = $props();
+	let selectedToken = $state('');
 	let tokenslist = [
 		{ value: 'USDx', name: 'Doxa Dollar' },
 		{ value: 'ckUSDC', name: 'ckUSDC' }
 	];
 
 	let disableButton = false;
-	let amount: number;
-	let textPrincipal: string = '';
+	let amount = $state<number>();
+	let textPrincipal: string = $state('');
 	let principal: Principal;
 
-	let buttomMessage = 'Confirm Transfer';
-	let buttonDisable = true;
+	let buttomMessage = $state('Confirm Transfer');
+	let buttonDisable = $state(true);
 
-	let transferSuccessToast = false;
-	let transferFailedToast = false;
+	let transferSuccessToast = $state(false);
+	let transferFailedToast = $state(false);
 
 	function disableTransferButton() {
 		if (selectedToken === '') {
@@ -81,7 +86,7 @@
 		}
 	}
 
-	let amountPlaceholder = 'Amount';
+	let amountPlaceholder = $state('Amount');
 	function changeAmountPlaceholder() {
 		if (selectedToken === 'USDx') {
 			amountPlaceholder = 'Balance: ' + from6Decimals($balanceStore.usdx);
@@ -114,6 +119,7 @@
 	}
 
 	async function transferToken() {
+		assertNonNullish(amount, 'Amount is undefined');
 		let transferArg: IcrcTransferArg = {
 			to: { owner: principal, subaccount: [] },
 			fee: [],
@@ -146,7 +152,7 @@
 		}
 	}
 
-	let loadSpinner = false;
+	let loadSpinner = $state(false);
 	async function onClickTransferButton() {
 		loadSpinner = true;
 		buttonDisable = true;
@@ -202,8 +208,7 @@
 	<Label class="space-y-2">
 		<div class="flex justify-between">
 			<span>Amount</span>
-			<button on:click={onClickMaxButton}
-				><p class="underline hover:text-neutral-200">Max</p></button
+			<button onclick={onClickMaxButton}><p class="underline hover:text-neutral-200">Max</p></button
 			>
 		</div>
 		<Input
@@ -221,38 +226,38 @@
 		</p>
 	{/if}
 
-	<svelte:fragment slot="footer">
+	{#snippet footer()}
 		<Button on:click={onClickTransferButton} disabled={buttonDisable} class="w-full">
 			{#if loadSpinner}<Spinner class="me-3" size="6" color="white" />{/if}{buttomMessage}</Button
 		>
 		<!-- <Button color="alternative">Decline</Button> -->
-	</svelte:fragment>
+	{/snippet}
 </Modal>
 
 <Toast
 	transition={fly}
 	params={{ x: 200 }}
-	bind:open={transferSuccessToast}
+	bind:toastStatus={transferSuccessToast}
 	color="green"
 	position="top-right"
 >
-	<svelte:fragment slot="icon">
+	{#snippet icon()}
 		<CheckCircleSolid class="w-5 h-5" />
 		<span class="sr-only">Check icon</span>
-	</svelte:fragment>
+	{/snippet}
 	Transferred successfully.
 </Toast>
 
 <Toast
 	transition={fly}
 	params={{ x: 200 }}
-	bind:open={transferFailedToast}
+	bind:toastStatus={transferFailedToast}
 	color="red"
 	position="top-right"
 >
-	<svelte:fragment slot="icon">
+	{#snippet icon()}
 		<CloseCircleSolid class="w-5 h-5" />
 		<span class="sr-only">Error icon</span>
-	</svelte:fragment>
+	{/snippet}
 	Transfer Failed.
 </Toast>

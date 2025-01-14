@@ -1,7 +1,6 @@
-<script>
-	export let href = '';
+<script lang="ts">
+	let { href = '', children, ...rest } = $props();
 	let liClass = 'block py-2 pe-4 ps-3 lg:p-0 rounded lg:border-0';
-	// $: console.log()
 </script>
 
 <li>
@@ -9,20 +8,10 @@
 		this={href ? 'a' : 'div'}
 		role={href ? undefined : 'link'}
 		{href}
-		{...$$restProps}
-		on:blur
-		on:change
-		on:click
-		on:focus
-		on:keydown
-		on:keypress
-		on:keyup
-		on:mouseenter
-		on:mouseleave
-		on:mouseover
+		{...rest}
 		class={liClass}
 	>
-		<slot />
+		{@render children()}
 	</svelte:element>
 </li>
 

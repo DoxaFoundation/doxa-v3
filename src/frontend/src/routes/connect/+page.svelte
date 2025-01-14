@@ -7,7 +7,7 @@
 	<hr class="sm:w-72 w-64 border-b-[3px] border-[#404361] mt-4 md:mb-8 mb-2 rounded-full" />
 
 	<button
-		on:click={async () => await authStore.signInWithII()}
+		onclick={async () => await authStore.signInWithII()}
 		class="bg-[#1c1f43] hover:bg-[#555db6] active:bg-[#7a85ff] focus:outline-none focus:ring focus:ring-[#6773f9] rounded-full m-2"
 	>
 		<div class="rounded-full p-3 w-64 sm:p-4 sm:w-96 flex border-2 border-[#5061c0]">
@@ -19,7 +19,7 @@
 	</button>
 
 	<button
-		on:click={async () => await authStore.signInWithPlug()}
+		onclick={async () => await authStore.signInWithPlug()}
 		class="bg-[#1c1f43] hover:bg-[#555db6] active:bg-[#7a85ff] focus:outline-none focus:ring focus:ring-[#6773f9] rounded-full m-2"
 	>
 		<div class="rounded-full p-3 w-64 sm:p-4 sm:w-96 flex border-2 border-[#5061c0]">

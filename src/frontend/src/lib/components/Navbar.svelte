@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { Navbar, NavBrand, NavUl, Tooltip } from 'flowbite-svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import NavHamburger from './Navbar/NavHamburger.svelte';
 	import NavLi from './Navbar/NavLi.svelte';
 	import ConnectButton from './ConnectButton.svelte';
 
-	$: activeUrl = $page.url.pathname;
+	let activeUrl = $derived(page.url.pathname);
 
 	let activeClass =
 		'text-white bg-black text-sm border border-black py-2 w-fit px-7 rounded-md box';

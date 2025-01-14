@@ -1,10 +1,9 @@
-<script lang="ts">
+<script>
+	// @ts-nocheck
 	import { Badge, Card, Toast, Tooltip } from 'flowbite-svelte';
 	import { CheckCircleOutline } from 'flowbite-svelte-icons';
 
-	$: open = copied;
-
-	let copied = false;
+	let copied = $state(false);
 
 	function copyPrincipalToClipboard() {
 		navigator.clipboard
@@ -19,10 +18,9 @@
 				console.error('Failed to copy text: ', err);
 			});
 	}
-	export let badge: string;
-	export let text: string;
 
-	// function getTextWithBreaks(text: string) {
+	let { badge, text } = $props();
+
 	// 	if (text.length > 41) {
 	// 		const firstPart = text.slice(0, 41);
 	// 		const secondPart = text.slice(41);
@@ -35,7 +33,7 @@
 
 <Card size="lg">
 	<Badge rounded border class="w-fit">{badge}</Badge>
-	<button on:click={copyPrincipalToClipboard}>
+	<button onclick={copyPrincipalToClipboard}>
 		<p
 			class="font-normal text-gray-700 dark:text-gray-400 leading-tight hover:underline text-start whitespace-pre-wrap"
 		>
@@ -45,7 +43,9 @@
 	<Tooltip>Copy</Tooltip>
 </Card>
 
-<Toast color="none" bind:open position="top-right">
-	<CheckCircleOutline slot="icon" />
+<Toast color="none" bind:toastStatus={copied} position="top-right">
+	{#snippet icon()}
+		<CheckCircleOutline />
+	{/snippet}
 	Copied!
 </Toast>
