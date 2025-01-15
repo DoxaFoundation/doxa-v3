@@ -2,78 +2,73 @@ import type { Principal } from '@dfinity/principal';
 import type { ActorMethod } from '@dfinity/agent';
 import type { IDL } from '@dfinity/candid';
 
-export interface Account {
-  'owner' : Principal,
-  'subaccount' : [] | [Uint8Array | number[]],
-}
+export type AutoCompoundAction = { 'Enable' : null } |
+  { 'Cancel' : null };
 export interface DoxaStaking {
-  'calculateUserStakeMatric' : ActorMethod<[StakeId, Principal], Result_4>,
-  'calculateUserWeeklyStakeWeight' : ActorMethod<[StakeId], Result_3>,
-  'getBootstrapMultiplier' : ActorMethod<[], Result_3>,
+  'calculateUserStakeMatric' : ActorMethod<[StakeId, Principal], Result_2>,
   'getBootstrapStatus' : ActorMethod<
     [],
     { 'isBootstrapPhase' : boolean, 'timeRemaining' : bigint }
   >,
-  'getFeeCollectorBalance' : ActorMethod<[], bigint>,
   'getLastProcessedTxId' : ActorMethod<[], bigint>,
-  'getLockupWeight' : ActorMethod<[bigint], Result_2>,
-  'getPoolData' : ActorMethod<[], StakingPool>,
-  'getStakingAccount' : ActorMethod<[Tokens], Account>,
-  'getTotalFeeCollected' : ActorMethod<[], bigint>,
-  'getTotalFeeCollectedAmount' : ActorMethod<[], bigint>,
-  'getTransactionFromBlockIndex' : ActorMethod<[bigint], Result_1>,
+  'getPoolData' : ActorMethod<[], StakingPoolDetails>,
+  'getTotalFeeCollectedFromLastRewardDistribution' : ActorMethod<[], bigint>,
+  'getTotalFeeCollectedSofar' : ActorMethod<[], bigint>,
   'getUserStakeDetails' : ActorMethod<[], Array<Stake>>,
   'getUserTransactions' : ActorMethod<[], Array<Transaction>>,
+  'getWeightTable' : ActorMethod<[], Array<[bigint, bigint]>>,
+  'harvestReward' : ActorMethod<[StakeId], Result>,
+  'isStakeAutoCompound' : ActorMethod<[StakeId], Result_1>,
+  'manuallyCompoundRewards' : ActorMethod<[StakeId], Result>,
   'notifyStake' : ActorMethod<[bigint, bigint], Result>,
+  'previewWeightForDuration' : ActorMethod<[bigint], bigint>,
+  'toggleAutoCompound' : ActorMethod<[StakeId, AutoCompoundAction], Result_1>,
   'unstake' : ActorMethod<[StakeId], Result>,
 }
 export type Result = { 'ok' : null } |
   { 'err' : string };
-export type Result_1 = { 'ok' : Transaction } |
+export type Result_1 = { 'ok' : boolean } |
   { 'err' : string };
-export type Result_2 = { 'ok' : bigint } |
-  { 'err' : string };
-export type Result_3 = { 'ok' : number } |
-  { 'err' : string };
-export type Result_4 = { 'ok' : StakeMatric } |
+export type Result_2 = { 'ok' : StakeMetrics } |
   { 'err' : string };
 export interface Stake {
   'id' : StakeId,
+  'stakedReward' : bigint,
   'staker' : Principal,
   'lockEndTime' : bigint,
+  'pendingRewards' : bigint,
   'lastHarvestTime' : bigint,
   'stakeTime' : bigint,
   'amount' : bigint,
 }
 export type StakeId = bigint;
-export interface StakeMatric {
-  'apy' : number,
-  'lockDuration' : bigint,
+export interface StakeMetrics {
+  'apy' : bigint,
   'stakeId' : StakeId,
   'totalFeeCollected' : bigint,
-  'finalReward' : number,
-  'proportion' : number,
-  'bootstrapMultiplier' : number,
-  'lockupWeight' : bigint,
-  'totalWeight' : number,
-  'userWeight' : number,
+  'stakeLockPeriod' : bigint,
+  'bootstrapMultiplier' : bigint,
+  'userFinalReward' : bigint,
+  'totalStakeWeight' : bigint,
+  'userStakeWeight' : bigint,
+  'lockPeriodWeight' : bigint,
+  'stakeContributionRatio' : bigint,
 }
-export interface StakingPool {
-  'startTime' : Time,
-  'minimumStake' : bigint,
-  'lockDuration' : bigint,
-  'stakingToken' : string,
-  'rewardToken' : string,
-  'endTime' : Time,
-  'name' : string,
-  'rewardSymbol' : string,
-  'stakingSymbol' : string,
-  'totalRewardPerSecond' : bigint,
-  'rewardTokenFee' : number,
-  'totalStaked' : bigint,
+export interface StakingPoolDetails {
+  'stakingTokenSymbol' : string,
+  'rewardTokenSymbol' : string,
+  'minimumStakeAmount' : bigint,
+  'totalFeeCollected' : bigint,
+  'stakeLockDuration' : bigint,
+  'poolEndTime' : Time,
+  'minimumTotalStake' : bigint,
+  'rewardTokenCanisterId' : string,
+  'poolStartTime' : Time,
+  'poolName' : string,
+  'stakingTokenName' : string,
+  'totalTokensStaked' : bigint,
 }
 export type Time = bigint;
-export type Tokens = { 'USDx' : null };
 export interface Transaction {
   'to' : Principal,
   'method' : string,

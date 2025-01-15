@@ -6,35 +6,34 @@ type Transaction =
    time: Time;
    to: principal;
  };
-type Tokens = variant {USDx;};
 type Time = int;
-type StakingPool = 
+type StakingPoolDetails = 
  record {
-   endTime: Time;
-   lockDuration: nat;
-   minimumStake: nat;
-   name: text;
-   rewardSymbol: text;
-   rewardToken: text;
-   rewardTokenFee: float64;
-   stakingSymbol: text;
-   stakingToken: text;
-   startTime: Time;
-   totalRewardPerSecond: nat;
-   totalStaked: nat;
- };
-type StakeMatric = 
- record {
-   apy: float64;
-   bootstrapMultiplier: float64;
-   finalReward: float64;
-   lockDuration: int;
-   lockupWeight: int;
-   proportion: float64;
-   stakeId: StakeId;
+   minimumStakeAmount: nat;
+   minimumTotalStake: nat;
+   poolEndTime: Time;
+   poolName: text;
+   poolStartTime: Time;
+   rewardTokenCanisterId: text;
+   rewardTokenSymbol: text;
+   stakeLockDuration: nat;
+   stakingTokenName: text;
+   stakingTokenSymbol: text;
    totalFeeCollected: nat;
-   totalWeight: float64;
-   userWeight: float64;
+   totalTokensStaked: nat;
+ };
+type StakeMetrics = 
+ record {
+   apy: nat;
+   bootstrapMultiplier: nat;
+   lockPeriodWeight: int;
+   stakeContributionRatio: nat;
+   stakeId: StakeId;
+   stakeLockPeriod: int;
+   totalFeeCollected: nat;
+   totalStakeWeight: nat;
+   userFinalReward: nat;
+   userStakeWeight: nat;
  };
 type StakeId = nat;
 type Stake = 
@@ -43,28 +42,20 @@ type Stake =
    id: StakeId;
    lastHarvestTime: int;
    lockEndTime: int;
+   pendingRewards: nat;
    stakeTime: int;
+   stakedReward: nat;
    staker: principal;
- };
-type Result_4 = 
- variant {
-   err: text;
-   ok: StakeMatric;
- };
-type Result_3 = 
- variant {
-   err: text;
-   ok: float64;
  };
 type Result_2 = 
  variant {
    err: text;
-   ok: nat;
+   ok: StakeMetrics;
  };
 type Result_1 = 
  variant {
    err: text;
-   ok: Transaction;
+   ok: bool;
  };
 type Result = 
  variant {
@@ -73,30 +64,33 @@ type Result =
  };
 type DoxaStaking = 
  service {
-   calculateUserStakeMatric: (StakeId, principal) -> (Result_4);
-   calculateUserWeeklyStakeWeight: (StakeId) -> (Result_3);
-   getBootstrapMultiplier: () -> (Result_3);
+   calculateUserStakeMatric: (StakeId, principal) -> (Result_2) query;
    getBootstrapStatus: () ->
     (record {
        isBootstrapPhase: bool;
        timeRemaining: int;
      }) query;
-   getFeeCollectorBalance: () -> (nat);
    getLastProcessedTxId: () -> (nat) query;
-   getLockupWeight: (nat) -> (Result_2);
-   getPoolData: () -> (StakingPool);
-   getStakingAccount: (Tokens) -> (Account);
-   getTotalFeeCollected: () -> (nat);
-   getTotalFeeCollectedAmount: () -> (nat) query;
-   getTransactionFromBlockIndex: (nat) -> (Result_1);
+   getPoolData: () -> (StakingPoolDetails);
+   getTotalFeeCollectedFromLastRewardDistribution: () -> (nat) query;
+   getTotalFeeCollectedSofar: () -> (nat) query;
    getUserStakeDetails: () -> (vec Stake) query;
    getUserTransactions: () -> (vec Transaction);
+   getWeightTable: () -> (vec record {
+                                nat;
+                                nat;
+                              }) query;
+   harvestReward: (StakeId) -> (Result);
+   isStakeAutoCompound: (StakeId) -> (Result_1) query;
+   manuallyCompoundRewards: (StakeId) -> (Result);
    notifyStake: (nat, nat) -> (Result);
+   previewWeightForDuration: (nat) -> (nat) query;
+   toggleAutoCompound: (StakeId, AutoCompoundAction) -> (Result_1);
    unstake: (StakeId) -> (Result);
  };
-type Account = 
- record {
-   owner: principal;
-   subaccount: opt blob;
+type AutoCompoundAction = 
+ variant {
+   Cancel;
+   Enable;
  };
 service : () -> DoxaStaking
