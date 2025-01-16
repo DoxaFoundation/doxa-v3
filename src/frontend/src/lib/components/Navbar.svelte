@@ -13,7 +13,7 @@
 		'text-black bg-white text-sm border border-black py-2 w-fit px-7 rounded-md hover:text-white hover:bg-black shadow';
 </script>
 
-<Navbar class="px-2 sm:px-4 py-2.5 fixed w-full z-20 top-0 start-0 border-b">
+<Navbar class="px-2 sm:px-4 py-2.5 w-full border-b">
 	<NavBrand href="/">
 		<img src="/images/Doxa.svg" class="me-3 h-10 sm:h-12" alt="Doxa Logo" />
 		<span class="self-center whitespace-nowrap text-2xl font-semibold text-black dark:text-white"

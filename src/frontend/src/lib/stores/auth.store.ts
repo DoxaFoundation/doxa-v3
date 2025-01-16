@@ -1,248 +1,71 @@
-import { type Identity, type ActorSubclass, AnonymousIdentity } from '@dfinity/agent';
-import type { _SERVICE as ICRC_LEDGER_SERVICE } from '@dfinity/ledger-icrc/dist/candid/icrc_ledger';
-import type { _SERVICE as MINTER_SERVICE } from '../../../../declarations/stablecoin_minter/stablecoin_minter.did';
 import { writable, type Readable, get } from 'svelte/store';
-import { AuthClient } from '@dfinity/auth-client';
-import { getActors } from '../actor';
-import { goto } from '$app/navigation';
 import { type Principal } from '@dfinity/principal';
-import { getActorsFromPlug } from '$lib/plug';
+import type { IcrcLedgerActor, StablecoinMinterActor, StakingActor } from '$lib/types/actors';
+import {
+	authClientLogin,
+	authClientLogout,
+	syncAuthClient
+} from '$lib/connection/authclient.connection';
+import { connectPlug, disconnectPlug, syncPlugConnection } from '$lib/connection/plug.connection';
+import { connectAnonymously } from '$lib/connection/anonymous.connection';
 
 export interface AuthStoreData {
 	isAuthenticated: boolean;
 	// identity: Identity;
-	stablecoinMinter: ActorSubclass<MINTER_SERVICE>;
-	ckUsdc: ActorSubclass<ICRC_LEDGER_SERVICE>;
-	usdx: ActorSubclass<ICRC_LEDGER_SERVICE>;
+	stablecoinMinter: StablecoinMinterActor;
+	ckUsdc: IcrcLedgerActor;
+	usdx: IcrcLedgerActor;
 	identityProvider: string;
 	principal: Principal;
+	staking: StakingActor;
+}
+
+export interface AuthSignInParams {
+	// domain?: 'ic0.app' | 'internetcomputer.org';
+	identityProvider?: 'ii' | 'plug';
 }
 
 export interface AuthStore extends Readable<AuthStoreData> {
 	sync: () => Promise<void>;
-	signInWithII: () => Promise<void>;
+	signIn: (authSignInParams: AuthSignInParams) => Promise<void>;
 	signOut: () => Promise<void>;
-	signInWithPlug: () => Promise<void>;
 }
 
-let authClient: AuthClient | null | undefined;
-
-const anonIdentity = new AnonymousIdentity();
-const anonPrincipal: Principal = anonIdentity.getPrincipal();
-const anonActors = await getActors(anonIdentity);
-
-const init = async (): Promise<AuthStore> => {
-	const { subscribe, set } = writable<AuthStoreData>({
-		isAuthenticated: false,
-		// identity: new AnonymousIdentity(),
-		stablecoinMinter: anonActors.stablecoinMinterActor,
-		identityProvider: 'anonymous',
-		principal: anonPrincipal,
-		ckUsdc: anonActors.ckUsdcActor,
-		usdx: anonActors.usdxActor
-	});
-
-	runOnDesktopExceptSafari(async () => {
-		await checkPlugConnectionIfTrueUpdateAuth(set);
-	});
+const init = (): AuthStore => {
+	const { subscribe, set } = writable<AuthStoreData>();
 
 	return {
 		subscribe,
 		sync: async () => {
-			authClient = authClient ?? (await AuthClient.create());
-			const isAuthenticated: boolean = await authClient.isAuthenticated();
+			const authClientResult = await syncAuthClient(set);
+			if (authClientResult.success) return;
 
-			if (isAuthenticated) {
-				const signIdentity = authClient.getIdentity();
-				const { stablecoinMinterActor, ckUsdcActor, usdxActor } = await getActors(signIdentity);
-				return set({
-					isAuthenticated,
-					// identity: signIdentity,
-					stablecoinMinter: stablecoinMinterActor,
-					ckUsdc: ckUsdcActor,
-					usdx: usdxActor,
-					identityProvider: 'ii',
-					principal: signIdentity.getPrincipal()
-				});
-			}
-			return set({
-				isAuthenticated,
-				// identity: anonIdentity,
-				stablecoinMinter: anonActors.stablecoinMinterActor,
-				identityProvider: 'anonymous',
-				principal: anonPrincipal,
-				ckUsdc: anonActors.ckUsdcActor,
-				usdx: anonActors.usdxActor
-			});
+			const plugResult = await syncPlugConnection(set);
+			if (plugResult.success) return;
+
+			await connectAnonymously(set);
 		},
-		signInWithII: async () =>
-			new Promise<void>(async (resolve, reject) => {
-				authClient = authClient ?? (await AuthClient.create());
+		signIn: async ({ identityProvider }) => {
+			let provider = identityProvider ?? 'ii';
 
-				const identityProvider =
-					import.meta.env.VITE_DFX_NETWORK === 'local'
-						? 'http://rdmx6-jaaaa-aaaaa-aaadq-cai.localhost:8080'
-						: 'https://identity.internetcomputer.org/';
-
-				if (get(authStore).identityProvider === 'plug') {
-					await plug?.disconnect();
-				}
-				await authClient.login({
-					identityProvider,
-					maxTimeToLive: BigInt(7) * BigInt(24) * BigInt(3_600_000_000_000), // 1 week
-					onSuccess: async () => {
-						await sync();
-						goto('/');
-						resolve();
-					},
-					onError: reject
-				});
-			}),
+			if (provider === 'ii') {
+				await authClientLogin(set);
+			} else {
+				await connectPlug(set);
+			}
+		},
 		signOut: async () => {
-			if (get(authStore).identityProvider === 'ii') {
-				const client = authClient ?? (await AuthClient.create());
-				client.logout();
+			const { identityProvider } = get(authStore);
 
-				// This fix a "sign in -> sign out -> sign in again" flow without window reload.
-				authClient = null;
-			} else if (get(authStore).identityProvider === 'plug') {
-				await plug?.disconnect();
+			if (identityProvider === 'ii') {
+				await authClientLogout();
+			} else if (identityProvider === 'plug') {
+				await disconnectPlug();
 			}
 
-			set({
-				isAuthenticated: false,
-				// identity: anonIdentity,
-				stablecoinMinter: anonActors.stablecoinMinterActor,
-				identityProvider: 'anonymous',
-				principal: anonPrincipal,
-				ckUsdc: anonActors.ckUsdcActor,
-				usdx: anonActors.usdxActor
-			});
-		},
-		signInWithPlug: async () => {
-			await connectPlug(set);
+			await connectAnonymously(set);
 		}
 	};
 };
 
-type CallbackFunction = () => void | Promise<void>;
-
-async function runOnDesktopExceptSafari(callback: CallbackFunction): Promise<void> {
-	// Check if the device is not mobile and not Safari
-	const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-		navigator.userAgent
-	);
-	const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-	const isDesktopWidth = window.innerWidth > 768; // You can adjust this threshold
-
-	if (!isMobile && !isSafari && isDesktopWidth) {
-		try {
-			await callback();
-		} catch (error) {
-			console.error('Error in desktop callback:', error);
-		}
-	}
-}
-
-// @ts-ignore: next-line
-const plug = window?.ic?.plug;
-
-const checkPlugConnectionIfTrueUpdateAuth = async (
-	set: (this: void, value: AuthStoreData) => void
-) => {
-	let isAuthenticated = await plug?.isConnected();
-	if (isAuthenticated) {
-		const { stablecoinMinterActor, ckUsdcActor, usdxActor } = await getActorsFromPlug();
-		const principal = await plug.getPrincipal();
-
-		set({
-			isAuthenticated,
-			// identity: publicKey,
-			stablecoinMinter: stablecoinMinterActor,
-			identityProvider: 'plug',
-			principal,
-			ckUsdc: ckUsdcActor,
-			usdx: usdxActor
-		});
-	}
-};
-
-const onConnectionUpdateHelper = async (set: (this: void, value: AuthStoreData) => void) => {
-	let isAuthenticated = await plug?.isConnected();
-	if (isAuthenticated) {
-		const { stablecoinMinterActor, ckUsdcActor, usdxActor } = await getActorsFromPlug();
-		const principal = await plug.getPrincipal();
-
-		set({
-			isAuthenticated,
-			// identity: publicKey,
-			stablecoinMinter: stablecoinMinterActor,
-			identityProvider: 'plug',
-			principal,
-			ckUsdc: ckUsdcActor,
-			usdx: usdxActor
-		});
-	} else {
-		set({
-			isAuthenticated: false,
-			// identity: anonIdentity,
-			stablecoinMinter: anonActors.stablecoinMinterActor,
-			identityProvider: 'anonymous',
-			principal: anonPrincipal,
-			ckUsdc: anonActors.ckUsdcActor,
-			usdx: anonActors.usdxActor
-		});
-	}
-};
-
-const connectPlug = async (set: (this: void, value: AuthStoreData) => void) => {
-	if (plug) {
-		try {
-			const STABLECOIN_MINTER_CANISTER_ID = import.meta.env
-				.VITE_STABLECOIN_MINTER_CANISTER_ID as string;
-			const USDX_CANISTER_ID = import.meta.env.VITE_USDX_LEDGER_CANISTER_ID as string;
-			const CKUSDC_CANISTER_ID = import.meta.env.VITE_CKUSDC_LEDGER_CANISTER_ID as string;
-
-			const host = import.meta.env.VITE_HOST as string;
-
-			const whitelist = [STABLECOIN_MINTER_CANISTER_ID, USDX_CANISTER_ID, CKUSDC_CANISTER_ID];
-
-			const onConnectionUpdate = async () => {
-				await onConnectionUpdateHelper(set);
-			};
-
-			const publicKey = await plug.requestConnect({
-				whitelist,
-				host,
-				onConnectionUpdate
-			});
-			await onConnectionUpdateHelper(set);
-			goto('/');
-		} catch (e) {
-			console.log(e);
-			set({
-				isAuthenticated: false,
-				// identity: anonIdentity,
-				stablecoinMinter: anonActors.stablecoinMinterActor,
-				identityProvider: 'anonymous',
-				principal: anonPrincipal,
-				ckUsdc: anonActors.ckUsdcActor,
-				usdx: anonActors.usdxActor
-			});
-		}
-	} else {
-		window.open('https://plugwallet.ooo/', '_blank');
-		set({
-			isAuthenticated: false,
-			// identity: anonIdentity,
-			stablecoinMinter: anonActors.stablecoinMinterActor,
-			identityProvider: 'anonymous',
-			principal: anonPrincipal,
-			ckUsdc: anonActors.ckUsdcActor,
-			usdx: anonActors.usdxActor
-		});
-	}
-};
-
-export const authStore: AuthStore = await init();
-const sync = async () => await authStore.sync();
+export const authStore: AuthStore = init();

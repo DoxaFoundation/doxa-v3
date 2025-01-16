@@ -53,22 +53,16 @@ dfx canister create root_canister --specified-id iwpxf-qyaaa-aaaak-qddsa-cai
 # Deploy USDx Ledger Locally
 ./scripts/deploy-local-usdx.sh
 
-
-
-
 dfx deploy stablecoin_minter
 
 dfx deploy root_canister
 
 dfx deploy ckusdc_pool
 
-chmod +x scripts/deploy-usdx-index.sh
-
 
 dfx deploy staking_canister --specified-id mhahe-xqaaa-aaaag-qndha-cai
 
 dfx canister create usdx_index --specified-id modmy-byaaa-aaaag-qndgq-cai
-chmod +x scripts/deploy-usdx-index.sh
-./scripts/deploy-usdx-index.sh
 
+chmod +x scripts/deploy-usdx-index.sh
 ./scripts/deploy-usdx-index.sh 

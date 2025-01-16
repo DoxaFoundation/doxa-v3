@@ -48,7 +48,7 @@
 	}
 
 	function disableMintButton() {
-		if (!$authStore.isAuthenticated) {
+		if (!$authStore?.isAuthenticated) {
 			mintButtonDisable = true;
 			buttonMessage = 'Connect to mint';
 			return;

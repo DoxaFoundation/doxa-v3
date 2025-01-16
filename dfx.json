@@ -18,7 +18,7 @@
 		"stablecoin_minter": {
 			"main": "src/backend/stablecoin-minter/main.mo",
 			"type": "motoko",
-			"dependencies": ["icp_ledger", "exchange_rate_canister"]
+			"dependencies": ["exchange_rate_canister"]
 		},
 		"root_canister": {
 			"main": "src/backend/root-canister/main.mo",
