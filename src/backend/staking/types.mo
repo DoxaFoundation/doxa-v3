@@ -18,6 +18,7 @@ module {
 		rewardTokenCanisterId : Text; // Canister ID of the reward token
 		minimumStakeAmount : Nat; // Minimum amount of tokens a user can stake
 		stakeLockDuration : Nat; // Duration (in seconds) for which stakes are locked
+		noOfStakers : Nat; // Number of stakers in the pool
 	};
 
 	// Add a unique ID for each stake
@@ -59,7 +60,7 @@ module {
 	public type Tokens = {
 		#USDx;
 	};
-	
+
 	public type StakeMetrics = {
 		stakeId : StakeId;
 		stakeLockPeriod : Int;

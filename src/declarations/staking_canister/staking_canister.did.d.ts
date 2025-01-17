@@ -62,6 +62,7 @@ export interface StakingPoolDetails {
   'stakeLockDuration' : bigint,
   'poolEndTime' : Time,
   'minimumTotalStake' : bigint,
+  'noOfStakers' : bigint,
   'rewardTokenCanisterId' : string,
   'poolStartTime' : Time,
   'poolName' : string,

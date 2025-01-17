@@ -11,6 +11,7 @@ type StakingPoolDetails =
  record {
    minimumStakeAmount: nat;
    minimumTotalStake: nat;
+   noOfStakers: nat;
    poolEndTime: Time;
    poolName: text;
    poolStartTime: Time;

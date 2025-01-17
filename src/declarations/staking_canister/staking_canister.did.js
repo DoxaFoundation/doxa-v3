@@ -22,6 +22,7 @@ export const idlFactory = ({ IDL }) => {
     'stakeLockDuration' : IDL.Nat,
     'poolEndTime' : Time,
     'minimumTotalStake' : IDL.Nat,
+    'noOfStakers' : IDL.Nat,
     'rewardTokenCanisterId' : IDL.Text,
     'poolStartTime' : Time,
     'poolName' : IDL.Text,

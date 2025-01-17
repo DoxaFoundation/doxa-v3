@@ -38,7 +38,7 @@ actor class DoxaStaking() = this {
 	private let MAX_STAKE_PER_ADDRESS : Nat = MIN_TOTAL_STAKE / 5; // 20% of minimum total stake
 
 	// Pool configuration
-	private stable var pool : Types.StakingPoolDetails = {
+	private stable var pool = {
 		poolName = "Doxa Dynamic Staking";
 		poolStartTime = Time.now();
 		poolEndTime = Time.now() + ONE_YEAR_IN_NANOS;
@@ -1223,7 +1223,8 @@ actor class DoxaStaking() = this {
 	public func getPoolData() : async Types.StakingPoolDetails {
 		{
 			pool with
-			totalFeeCollected = totalFeeCollectedFromLastRewardDistribution
+			totalFeeCollected = totalFeeCollectedFromLastRewardDistribution;
+			noOfStakers = Map.size(userStakes);
 		};
 	};
 
