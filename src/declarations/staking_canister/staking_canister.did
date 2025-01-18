@@ -75,6 +75,7 @@ type DoxaStaking =
    getPoolData: () -> (StakingPoolDetails);
    getTotalFeeCollectedFromLastRewardDistribution: () -> (nat) query;
    getTotalFeeCollectedSofar: () -> (nat) query;
+   getTotalStakersWeight: () -> (nat);
    getUserStakeDetails: () -> (vec Stake) query;
    getUserTransactions: () -> (vec Transaction);
    getWeightTable: () -> (vec record {

@@ -76,6 +76,7 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'getTotalFeeCollectedSofar' : IDL.Func([], [IDL.Nat], ['query']),
+    'getTotalStakersWeight' : IDL.Func([], [IDL.Nat], []),
     'getUserStakeDetails' : IDL.Func([], [IDL.Vec(Stake)], ['query']),
     'getUserTransactions' : IDL.Func([], [IDL.Vec(Transaction)], []),
     'getWeightTable' : IDL.Func(

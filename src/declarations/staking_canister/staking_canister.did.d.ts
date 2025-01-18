@@ -14,6 +14,7 @@ export interface DoxaStaking {
   'getPoolData' : ActorMethod<[], StakingPoolDetails>,
   'getTotalFeeCollectedFromLastRewardDistribution' : ActorMethod<[], bigint>,
   'getTotalFeeCollectedSofar' : ActorMethod<[], bigint>,
+  'getTotalStakersWeight' : ActorMethod<[], bigint>,
   'getUserStakeDetails' : ActorMethod<[], Array<Stake>>,
   'getUserTransactions' : ActorMethod<[], Array<Transaction>>,
   'getWeightTable' : ActorMethod<[], Array<[bigint, bigint]>>,

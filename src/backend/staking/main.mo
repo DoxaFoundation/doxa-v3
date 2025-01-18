@@ -247,6 +247,10 @@ actor class DoxaStaking() = this {
 		return #ok(stakeMetric);
 	};
 
+	public func getTotalStakersWeight() : async Nat {
+		getTotalWeight();
+	};
+
 	func getTotalWeight() : Nat {
 		var totalWeight : Nat = 0;
 
