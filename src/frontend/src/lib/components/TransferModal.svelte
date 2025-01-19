@@ -3,7 +3,7 @@
 	import { Button } from 'flowbite-svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { Modal } from 'flowbite-svelte';
-	import { balanceStore, from6Decimals, to6Decimals } from '$lib/stores/balance.store';
+	import { balanceStore } from '$lib/stores/balance.store';
 	import { authStore } from '$lib/stores/auth.store';
 	import { type IcrcTransferArg } from '@dfinity/ledger-icrc';
 	import { Toast } from 'flowbite-svelte';
@@ -11,6 +11,7 @@
 	import { Select, Label, Input, Spinner } from 'flowbite-svelte';
 	import { fly } from 'svelte/transition';
 	import { assertNonNullish } from '@dfinity/utils';
+	import { from6Decimals, to6Decimals } from '@utils/decimals.utils';
 
 	interface Props {
 		openTransferModal: boolean;
@@ -130,7 +131,7 @@
 		};
 		try {
 			if (selectedToken === 'USDx') {
-				let transferResult = await $authStore.usdx.icrc1_transfer(transferArg);
+				let transferResult = await $authStore.USDx.icrc1_transfer(transferArg);
 				if ('Ok' in transferResult) {
 					transferSuccessToast = true;
 				} else if ('Err' in transferResult) {
@@ -138,7 +139,7 @@
 					console.error(JSON.stringify(transferResult.Err));
 				}
 			} else if (selectedToken === 'ckUSDC') {
-				let transferResult = await $authStore.ckUsdc.icrc1_transfer(transferArg);
+				let transferResult = await $authStore.ckUSDC.icrc1_transfer(transferArg);
 				if ('Ok' in transferResult) {
 					transferSuccessToast = true;
 				} else if ('Err' in transferResult) {

@@ -1,73 +1,199 @@
 <script lang="ts">
 	import SelectDropDown from '$lib/components/SelectDropDown.svelte';
-	import { Button, Tooltip } from 'flowbite-svelte';
+	import { Button } from 'flowbite-svelte';
 	import { Select, Input } from 'flowbite-svelte';
-	import { LockTimeOutline, LockTimeSolid, QuestionCircleOutline } from 'flowbite-svelte-icons';
-
-	let depositTokens = [
-		{ id: 1, value: 'USDx', name: 'Doxa Dollar', img: '/images/USDx-black.svg' }
-	];
-
-	let value: string = $state('');
-
-	// select previous style
-	// class="mt-2 w-fit box py-8 max-md:w-full bg-white border shadow-md"
-
+	import { LockTimeSolid } from 'flowbite-svelte-icons';
+	import { DarkMode } from 'flowbite-svelte';
+	import { onDestroy, onMount } from 'svelte';
+	import { fetchStakingPoolDetails, stakeUSDx } from '@services/staking.service';
+	import { stakingPoolDetails } from '@states/staking.svelte';
+	import { fetchFeecollecteds } from '@services/fee-collected.service';
+	import { feeCollected } from '@states/fee-collected.svelte';
+	import { balanceStore } from '@stores/balance.store';
+	import { displayBalanceInFormat } from '@utils/fromat.utils';
+	import { from6Decimals } from '@utils/decimals.utils';
+	import { assertNonNullish, isNullish } from '@dfinity/utils';
+	import {
+		MAXIMUM_STAKE_DURATION_IN_DAYS,
+		MINIMUM_STAKE_AMOUNT,
+		MINMUM_STAKE_DURATION_IN_DAYS
+	} from '@constants/staking.constants';
+	import { authStore } from '@stores/auth.store';
 	import { Range, Label } from 'flowbite-svelte';
-	let minmaxValue = $state(6);
+
+	let days = $state(MINMUM_STAKE_DURATION_IN_DAYS);
+
+	const unsubscribe = authStore.subscribe((value) => {
+		if (value) {
+			fetchStakingPoolDetails();
+			fetchFeecollecteds();
+		}
+	});
+	onDestroy(unsubscribe);
+
+	let amount = $state<number>();
+
+	let balance = $state(from6Decimals($balanceStore.usdx));
+	$effect(() => {
+		balance = from6Decimals($balanceStore.usdx);
+	});
+
+	let buttonContent = $derived.by<string>(() => {
+		if (isNullish(amount)) {
+			return 'Enter the amount';
+		} else if (amount > balance - 0.01) {
+			return 'Insufficient balance';
+		} else if (amount < MINIMUM_STAKE_AMOUNT) {
+			return 'Minimum stake is 10';
+		} else {
+			return 'Stake';
+		}
+	});
+	let disabled = $derived.by<boolean>(() => {
+		if (isNullish(amount)) {
+			return true;
+		} else if (amount > balance - 0.01) {
+			return true;
+		} else if (amount < MINIMUM_STAKE_AMOUNT) {
+			return true;
+		} else {
+			return false;
+		}
+	});
+
+	const max = () => {
+		if (balance > 0.01) {
+			amount = balance - 0.01;
+		}
+	};
+
+	const onclick = async () => {
+		assertNonNullish(amount);
+		await stakeUSDx({ amount, days });
+		balance = from6Decimals($balanceStore.usdx);
+		amount = 0;
+	};
+
+	// total staking amout , total fee collected sofar, current week fee. number of stakers
+
+	// expected APY calculation, total fee collected sofar / current week from when fee collection started
+
+	/// bg-[rgba(26,34,63)] border-[rgba(255,255,255,0.04)]
+
+	/// add start time ckUSDC pool
+
+	///
+	import { Tabs, TabItem } from 'flowbite-svelte';
 </script>
 
-<div class="flex flex-col items-center justify-center mt-2">
-	<div class="md:p-8 p-4 dark:bg-sky-200 md:w-fit w-full rounded-2xl border box mb-4">
-		<h1 class="text-3xl font-normal mb-4 text-center">Deposit</h1>
-		<p class="font-light text-sm text-center">Earn native yield with USDx</p>
-		<div class="max-sm:flex max-sm:flex-col max-sm:items-center">
-			<div class="md:flex gap-2">
-				<SelectDropDown
-					placeholder="Deposit token"
-					class="mt-2 max-md:w-full w-[180px]"
-					dropDownClass="w-[180px]"
-					items={depositTokens}
-					bind:value
-				/>
-				<div class="md:flex md:flex-col-reverse md:pl-2 max-md:mt-3">
-					<Input
-						class="mt-2 py-5  w-[180px] max-md:w-full box bg-white border-2 shadow-md text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-						type="number"
-						placeholder="Amount"
-						size="md"
-					>
-						<!-- <svelte:fragment slot="right">
-									{#if selectTokenAmount_ckUSDC + 0.01 !== from6Decimals($balanceStore.ckUsdc) && selectedToken === 'ckUSDC'}
-										<button class="text-center" on:click={setMaxCkUSDC}>Max</button>
-									{/if}
-								</svelte:fragment> -->
-					</Input>
-					<Tooltip>Enter amount</Tooltip>
-				</div>
+<DarkMode />
+
+<div class="flex flex-col items-center justify-center mt-2 dark:text-white">
+	<div class="bg-gray-100 dark:bg-gray-900 box-border max-w-[548px] w-full rounded-xl p-4 md:p-6">
+		<div
+			class="box-border w-full p-4 border-2 border-gray-300 dark:border-gray-700 rounded-xl bg-gray-200 dark:bg-gray-800 grid grid-cols-1 md:grid-cols-2 gap-6"
+		>
+			<div>
+				<p class="text-sm text-gray-500 dark:text-gray-400">Total Staked</p>
+				<p class="text-xl font-semibold mt-3">
+					{stakingPoolDetails.totalTokensStaked}
+					{stakingPoolDetails.stakingTokenSymbol}
+				</p>
+			</div>
+
+			<div>
+				<p class="text-sm text-gray-500 dark:text-gray-400">Total Fee collected</p>
+				<p class="text-xl font-semibold mt-3">
+					{feeCollected.total}
+					{stakingPoolDetails.stakingTokenSymbol}
+				</p>
+			</div>
+
+			<div>
+				<p class="text-sm text-gray-500 dark:text-gray-400">This Week Fee</p>
+				<p class="text-xl font-semibold mt-3">
+					{feeCollected.fromLastRewardDistribution}
+					{stakingPoolDetails.stakingTokenSymbol}
+				</p>
+			</div>
+			<div>
+				<p class="text-sm text-gray-500 dark:text-gray-400">Number of Stakers</p>
+				<p class="text-xl font-semibold mt-3">
+					{stakingPoolDetails.noOfStakers}
+				</p>
 			</div>
 		</div>
-		<div class="mt-3">
-			<Label class="text-base inline-flex">Lock Duration<LockTimeSolid /></Label>
-			<Range class="bg-black" id="range-minmax" min="6" max="48" bind:value={minmaxValue} />
-			<p>Lock upto: {minmaxValue} months</p>
-		</div>
-		<div class="mt-3 flex justify-between flex-wrap">
-			<p class="w-1/2 text-start font-light">Staked 0M</p>
-			<p class="w-1/2 text-end text-red-400 font-light">APY 0%</p>
-			<p class="w-1/2 text-start inline-flex font-light">
-				Reward <QuestionCircleOutline class="ml-1" />
-			</p>
-			<p class="w-1/2 text-end font-light inline">
-				0.00 USD <QuestionCircleOutline class="inline" />
-			</p>
-		</div>
-		<div class="flex justify-center mt-8">
-			<Button class="bg-black text-base p-6 w-44 md:w-60 rounded-3xl font-light  hover:bg-blue-400">
-				Stake
-			</Button>
-			<Tooltip>Coming soon...</Tooltip>
-		</div>
+
+		<Tabs
+			tabStyle="full"
+			defaultClass="flex rounded-xl divide-x rtl:divide-x-reverse divide-gray-200 shadow dark:divide-gray-700 mt-4"
+			contentClass="p-4 bg-gray-200 rounded-xl dark:bg-gray-800 mt-4"
+		>
+			<TabItem class="w-full" open>
+				<span slot="title">Stake</span>
+				<div class="w-full">
+					<h1 class="text-3xl font-normal mb-4 text-center">Stake USDx</h1>
+					<p class="font-light text-sm text-center">Earn native yield with USDx</p>
+					<div class="max-sm:flex max-sm:flex-col max-sm:items-center">
+						<div class="flex gap-2 mt-4 justify-between w-full">
+							<img
+								src="/images/USDx-black.svg"
+								alt="USDx Icon"
+								class="md:size-14 size-12 dark:hidden"
+							/>
+							<img
+								src="/images/USDx-white.svg"
+								alt="USDx Icon"
+								class="md:size-14 size-12 hidden dark:block"
+							/>
+
+							<Input
+								class="text-right ring-0 outline-0 text-xl px-0 md:text-2xl bg-gray-200 dark:bg-gray-800  border-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+								type="number"
+								placeholder="0.00"
+								size="md"
+								bind:value={amount}
+							></Input>
+						</div>
+						<div class="flex justify-between items-center mt-3 w-full">
+							<p class="text-sm text-gray-500 dark:text-gray-400">
+								Balance: {displayBalanceInFormat($balanceStore.usdx)}
+							</p>
+							<button
+								class="w-fit underline rounded text-sm text-gray-500 dark:text-gray-400"
+								onclick={max}>Max</button
+							>
+						</div>
+					</div>
+					<div class="mt-3">
+						<Label class="text-base inline-flex">Lock Duration<LockTimeSolid /></Label>
+						<Range
+							class="bg-gray-300"
+							id="staking-duration-range"
+							min={MINMUM_STAKE_DURATION_IN_DAYS}
+							max={MAXIMUM_STAKE_DURATION_IN_DAYS}
+							bind:value={days}
+						/>
+						<p>Lock upto: {days} days</p>
+					</div>
+
+					<div class="flex justify-center mt-8">
+						<Button
+							{onclick}
+							{disabled}
+							class="bg-black hover:bg-gray-800  disabled:opacity-50 disabled:bg-gray-800 dark:bg-gray-950 dark:hover:bg-gray-900 dark:disabled:bg-gray-600 text-base p-4 w-full rounded-2xl font-light "
+						>
+							{buttonContent}
+						</Button>
+					</div>
+				</div>
+			</TabItem>
+
+			<TabItem class="w-full">
+				<span slot="title">Your stakes</span>
+				<div></div>
+			</TabItem>
+		</Tabs>
 	</div>
 </div>
 

@@ -19,11 +19,11 @@ export const getActorsFromPlug = async (): Promise<Actors> => ({
 		canisterId: STABLECOIN_MINTER_CANISTER_ID,
 		interfaceFactory: stablecoinMinterIdlFactory
 	}),
-	ckUsdc: await plug.createActor({
+	ckUSDC: await plug.createActor({
 		canisterId: CKUSDC_LEDGER_CANISTER_ID,
 		interfaceFactory: icrcLedgerIdlFactory
 	}),
-	usdx: await plug.createActor({
+	USDx: await plug.createActor({
 		canisterId: USDX_LEDGER_CANISTER_ID,
 		interfaceFactory: icrcLedgerIdlFactory
 	}),

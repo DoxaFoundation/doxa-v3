@@ -72,7 +72,7 @@ type DoxaStaking =
        timeRemaining: int;
      }) query;
    getLastProcessedTxId: () -> (nat) query;
-   getPoolData: () -> (StakingPoolDetails);
+   getPoolData: () -> (StakingPoolDetails) query;
    getTotalFeeCollectedFromLastRewardDistribution: () -> (nat) query;
    getTotalFeeCollectedSofar: () -> (nat) query;
    getTotalStakersWeight: () -> (nat);

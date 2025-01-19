@@ -13,8 +13,8 @@ export interface AuthStoreData {
 	isAuthenticated: boolean;
 	// identity: Identity;
 	stablecoinMinter: StablecoinMinterActor;
-	ckUsdc: IcrcLedgerActor;
-	usdx: IcrcLedgerActor;
+	ckUSDC: IcrcLedgerActor;
+	USDx: IcrcLedgerActor;
 	identityProvider: string;
 	principal: Principal;
 	staking: StakingActor;

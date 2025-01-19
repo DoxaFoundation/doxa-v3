@@ -36,7 +36,6 @@
 		</NavLi>
 		<NavLi href="/stake/">
 			<div class={activeUrl === '/stake/' ? activeClass : nonActiveClass}>Stake</div>
-			<Tooltip type="light">Coming soon...</Tooltip>
 		</NavLi>
 		<NavLi>
 			<div class={activeUrl === '/swap/' ? activeClass : nonActiveClass}>Swap</div>

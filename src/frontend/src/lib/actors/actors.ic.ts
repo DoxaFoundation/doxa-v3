@@ -49,7 +49,7 @@ export const getStakingActor = async (identity: Identity): Promise<StakingActor>
 
 export const getActors = async (identity: Identity): Promise<Actors> => ({
 	stablecoinMinter: await getStablecoinMinterActor(identity),
-	ckUsdc: await getCkUsdcActor(identity),
-	usdx: await getUsdxActor(identity),
+	ckUSDC: await getCkUsdcActor(identity),
+	USDx: await getUsdxActor(identity),
 	staking: await getStakingActor(identity)
 });

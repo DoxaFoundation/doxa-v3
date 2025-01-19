@@ -3,13 +3,14 @@
 	import { Principal } from '@dfinity/principal';
 	import { onMount, onDestroy, tick } from 'svelte';
 	import { Button, Tooltip } from 'flowbite-svelte';
-	import { balanceStore, from6Decimals, to6Decimals } from '$lib/stores/balance.store';
+	import { balanceStore } from '$lib/stores/balance.store';
 	import { Select, Label, Input } from 'flowbite-svelte';
 	import ProgressSteps from '$lib/components/ProgressSteps.svelte';
 	import type { Account, BlockIndex } from '@dfinity/ledger-icrc/dist/candid/icrc_ledger';
 	import { ArrowLeftOutline } from 'flowbite-svelte-icons';
 	import SelectDropDown from '$lib/components/SelectDropDown.svelte';
 	import { ckUsdcBase64 } from '../assets/base64-svg';
+	import { from6Decimals, to6Decimals } from '@utils/decimals.utils';
 
 	let selectedToken: string = $state('ckUSDC');
 	let selectedMint: string = $state('USDx');
@@ -121,7 +122,7 @@
 	async function transferCkusdcToReserve(): Promise<BlockIndex> {
 		try {
 			const usdxReserveAccount: Account = getUsdxReserveAccount();
-			const transferResult = await $authStore.ckUsdc.icrc1_transfer({
+			const transferResult = await $authStore.ckUSDC.icrc1_transfer({
 				to: usdxReserveAccount,
 				fee: [],
 				memo: [],

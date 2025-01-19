@@ -1,6 +1,6 @@
 import { get, writable, type Writable } from 'svelte/store';
 import { authStore } from './auth.store';
-import { onDestroy } from 'svelte';
+import { isNullish } from '@dfinity/utils';
 
 export interface BalanceStoreData {
 	usdx: bigint;
@@ -49,7 +49,7 @@ const init = async (): Promise<BalanceStore> => {
 
 async function getUsdxBalance(): Promise<bigint> {
 	if (get(authStore).identityProvider === 'anonymous') return BigInt(0);
-	return await get(authStore).usdx.icrc1_balance_of({
+	return await get(authStore).USDx.icrc1_balance_of({
 		owner: get(authStore).principal,
 		subaccount: []
 	});
@@ -57,7 +57,7 @@ async function getUsdxBalance(): Promise<bigint> {
 
 async function getCkUsdcBalance(): Promise<bigint> {
 	if (get(authStore).identityProvider === 'anonymous') return BigInt(0);
-	return await get(authStore).ckUsdc.icrc1_balance_of({
+	return await get(authStore).ckUSDC.icrc1_balance_of({
 		owner: get(authStore).principal,
 		subaccount: []
 	});
@@ -66,11 +66,3 @@ async function getCkUsdcBalance(): Promise<bigint> {
 export const balanceStore: BalanceStore = await init();
 
 // authStore.subscribe(async (value) => await balanceStore.sync());
-
-export function from6Decimals(value: bigint): number {
-	return Number(value) / 1000000;
-}
-
-export function to6Decimals(value: number): bigint {
-	return BigInt(value * 1000000);
-}

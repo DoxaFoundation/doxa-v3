@@ -14,3 +14,6 @@ export const CKUSDC_LEDGER_CANISTER_ID = import.meta.env.VITE_CKUSDC_LEDGER_CANI
 export const USDX_LEDGER_CANISTER_ID = import.meta.env.VITE_USDX_LEDGER_CANISTER_ID as string;
 
 export const STAKING_CANISTER_ID = import.meta.env.VITE_STAKING_CANISTER_CANISTER_ID as string;
+
+export const DECIMALS = 6;
+export const DIVISOR = 10 ** DECIMALS; // 1e8

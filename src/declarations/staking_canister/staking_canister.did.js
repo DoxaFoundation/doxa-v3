@@ -69,7 +69,7 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'getLastProcessedTxId' : IDL.Func([], [IDL.Nat], ['query']),
-    'getPoolData' : IDL.Func([], [StakingPoolDetails], []),
+    'getPoolData' : IDL.Func([], [StakingPoolDetails], ['query']),
     'getTotalFeeCollectedFromLastRewardDistribution' : IDL.Func(
         [],
         [IDL.Nat],

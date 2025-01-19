@@ -16,7 +16,7 @@ export type StakingActor = ActorSubclass<STAKING_SERVICE>;
 
 export type Actors = {
 	stablecoinMinter: StablecoinMinterActor;
-	ckUsdc: IcrcLedgerActor;
-	usdx: IcrcLedgerActor;
+	ckUSDC: IcrcLedgerActor;
+	USDx: IcrcLedgerActor;
 	staking: StakingActor;
 };

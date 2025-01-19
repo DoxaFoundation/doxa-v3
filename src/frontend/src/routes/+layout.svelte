@@ -4,6 +4,7 @@
 	import { onDestroy, onMount } from 'svelte';
 	import '../app.css';
 	import { authStore } from '$lib/stores/auth.store';
+	import { Toaster, toast } from 'svelte-sonner';
 
 	let { children } = $props();
 
@@ -19,7 +20,8 @@
 	onDestroy(unsubscribe);
 </script>
 
-<!-- solution 1 -->
+<Toaster />
+
 <div class="flex flex-col items-stretch">
 	<div>
 		<Navbar />
@@ -27,18 +29,3 @@
 
 	<div class="px-2 self-stretch">{@render children()}</div>
 </div>
-
-<!-- solution 2 -->
-
-<!-- <div class="relative">
-	<div class="inset-x-0 top-0"><Navbar /></div>
-
-	<div class="px-2 self-stretch">{@render children()}</div>
-</div> -->
-
-<!-- solution 4 -->
-<!-- <div class="relative">
-	<div class="inset-x-0 top-0"><Navbar /></div>
-
-	<div class="px-2 inset-x-0 top-[73px] lg:top-[75px]">{@render children()}</div>
-</div> -->

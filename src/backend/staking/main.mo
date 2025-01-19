@@ -1028,18 +1028,14 @@ actor class DoxaStaking() = this {
 		// Check if bootstrap period is active
 		let currentTime = Time.now();
 		if (isBootstrapPhase) {
-			// Check if max stakers limit reached
-			if (Map.size(userStakes) >= MIN_STAKERS) {
-				return #err("Bootstrap period max stakers limit reached");
-			};
 
 			// During bootstrap, strictly check if user has already staked
-			switch (Map.get(userStakes, phash, caller)) {
-				case (?existingStakes) {
-					return #err("During bootstrap period you can only have 1 active stake. Please wait for bootstrap period to end for additional stakes");
-				};
-				case (null) {};
-			};
+			// switch (Map.get(userStakes, phash, caller)) {
+			//     case (?existingStakes) {
+			//         return #err("During bootstrap period you can only have 1 active stake. Please wait for bootstrap period to end for additional stakes");
+			//     };
+			//     case (null) {};
+			// };
 
 			// Check max stake per address during bootstrap
 			if (transfer.amount > MAX_STAKE_PER_ADDRESS) {
@@ -1224,7 +1220,7 @@ actor class DoxaStaking() = this {
 	///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	// Public getter function for all pool data
-	public func getPoolData() : async Types.StakingPoolDetails {
+	public query func getPoolData() : async Types.StakingPoolDetails {
 		{
 			pool with
 			totalFeeCollected = totalFeeCollectedFromLastRewardDistribution;
