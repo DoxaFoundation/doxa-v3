@@ -959,28 +959,19 @@ actor class DoxaStaking() = this {
 				};
 
 				// Check if stake is auto-compounding
-				let isAutoCompound = Set.has<Nat>(
-					autoCompoundPreferences,
-					nhash,
-					stakeId
-				);
-
-				#ok(isAutoCompound);
+				#ok(isRewardsAutoStaked(stakeId));
 			};
 		};
 	};
-	// Get user's USDx balance
-	// public shared ({ caller }) func getUserUSDxBalance() : async Result.Result<Nat, Text> {
-	//     try {
-	//         let balance = await USDx.icrc1_balance_of({
-	//             owner = caller;
-	//             subaccount = null;
-	//         });
-	//         #ok(balance);
-	//     } catch (e) {
-	//         #err("Error fetching USDx balance: " # Error.message(e));
-	//     };
-	// };
+
+	// Check if stake is auto-compounding
+	func isRewardsAutoStaked(stakeId : Types.StakeId) : Bool {
+		Set.has<Nat>(
+			autoCompoundPreferences,
+			nhash,
+			stakeId
+		);
+	};
 
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	////////////////////////////////////// api  //////////////////////////////////////////////////
@@ -1228,29 +1219,31 @@ actor class DoxaStaking() = this {
 		};
 	};
 
-	// Get user stake details
-	public shared query ({ caller }) func getUserStakeDetails() : async [Types.Stake] {
-		// Fetch all stakes for the caller
+	// Get user stakes details
+	public shared query ({ caller }) func getUserStakes() : async Types.QueryStakes {
 		let userStakeIds = switch (Map.get(userStakes, phash, caller)) {
 			case (?ids) { ids };
-			case (null) { [] }; // Return empty array if no stakes found
+			case (null) { [] };
 		};
+		let buffer = Buffer.Buffer<Types.QueryStake>(Array.size(userStakeIds));
 
-		// Get stake details for each stake ID
-		let buffer = Buffer.Buffer<Types.Stake>(Array.size(userStakeIds));
 		for (stakeId in userStakeIds.vals()) {
 			switch (Map.get(stakes, nhash, stakeId)) {
-				case (?stake) {
-					// Add valid stake to buffer
-					buffer.add(stake);
+				case (?st) {
+					buffer.add({
+						id = st.id;
+						amount = st.amount;
+						stakedAt = st.stakeTime;
+						unlockAt = st.lockEndTime;
+						lastRewardsClaimedAt = st.lastHarvestTime;
+						unclaimedRewards = st.pendingRewards;
+						stakedReward = st.stakedReward;
+						isRewardsAutoStaked = isRewardsAutoStaked(st.id);
+					});
 				};
-				case (null) {
-					// Ignore invalid stake ID
-				};
+				case (null) {};
 			};
 		};
-
-		// Convert buffer to array and return
 		Buffer.toArray(buffer);
 	};
 

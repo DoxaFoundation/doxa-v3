@@ -36,6 +36,19 @@ module {
 		stakedReward : Nat;
 	};
 
+	public type QueryStakes = [QueryStake];
+
+	public type QueryStake = {
+		id : StakeId;
+		amount : Nat;
+		stakedAt : Int;
+		unlockAt : Int;
+		lastRewardsClaimedAt : Int;
+		unclaimedRewards : Nat;
+		stakedReward : Nat;
+		isRewardsAutoStaked : Bool;
+	};
+
 	// Transaction record
 	public type Transaction = {
 		from : Principal;

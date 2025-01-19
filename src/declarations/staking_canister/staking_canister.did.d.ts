@@ -15,7 +15,7 @@ export interface DoxaStaking {
   'getTotalFeeCollectedFromLastRewardDistribution' : ActorMethod<[], bigint>,
   'getTotalFeeCollectedSofar' : ActorMethod<[], bigint>,
   'getTotalStakersWeight' : ActorMethod<[], bigint>,
-  'getUserStakeDetails' : ActorMethod<[], Array<Stake>>,
+  'getUserStakes' : ActorMethod<[], QueryStakes>,
   'getUserTransactions' : ActorMethod<[], Array<Transaction>>,
   'getWeightTable' : ActorMethod<[], Array<[bigint, bigint]>>,
   'harvestReward' : ActorMethod<[StakeId], Result>,
@@ -26,22 +26,23 @@ export interface DoxaStaking {
   'toggleAutoCompound' : ActorMethod<[StakeId, AutoCompoundAction], Result_1>,
   'unstake' : ActorMethod<[StakeId], Result>,
 }
+export interface QueryStake {
+  'id' : StakeId,
+  'stakedReward' : bigint,
+  'stakedAt' : bigint,
+  'lastRewardsClaimedAt' : bigint,
+  'unlockAt' : bigint,
+  'unclaimedRewards' : bigint,
+  'amount' : bigint,
+  'isRewardsAutoStaked' : boolean,
+}
+export type QueryStakes = Array<QueryStake>;
 export type Result = { 'ok' : null } |
   { 'err' : string };
 export type Result_1 = { 'ok' : boolean } |
   { 'err' : string };
 export type Result_2 = { 'ok' : StakeMetrics } |
   { 'err' : string };
-export interface Stake {
-  'id' : StakeId,
-  'stakedReward' : bigint,
-  'staker' : Principal,
-  'lockEndTime' : bigint,
-  'pendingRewards' : bigint,
-  'lastHarvestTime' : bigint,
-  'stakeTime' : bigint,
-  'amount' : bigint,
-}
 export type StakeId = bigint;
 export interface StakeMetrics {
   'apy' : bigint,

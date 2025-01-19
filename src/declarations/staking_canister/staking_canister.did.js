@@ -29,16 +29,17 @@ export const idlFactory = ({ IDL }) => {
     'stakingTokenName' : IDL.Text,
     'totalTokensStaked' : IDL.Nat,
   });
-  const Stake = IDL.Record({
+  const QueryStake = IDL.Record({
     'id' : StakeId,
     'stakedReward' : IDL.Nat,
-    'staker' : IDL.Principal,
-    'lockEndTime' : IDL.Int,
-    'pendingRewards' : IDL.Nat,
-    'lastHarvestTime' : IDL.Int,
-    'stakeTime' : IDL.Int,
+    'stakedAt' : IDL.Int,
+    'lastRewardsClaimedAt' : IDL.Int,
+    'unlockAt' : IDL.Int,
+    'unclaimedRewards' : IDL.Nat,
     'amount' : IDL.Nat,
+    'isRewardsAutoStaked' : IDL.Bool,
   });
+  const QueryStakes = IDL.Vec(QueryStake);
   const Transaction = IDL.Record({
     'to' : IDL.Principal,
     'method' : IDL.Text,
@@ -77,7 +78,7 @@ export const idlFactory = ({ IDL }) => {
       ),
     'getTotalFeeCollectedSofar' : IDL.Func([], [IDL.Nat], ['query']),
     'getTotalStakersWeight' : IDL.Func([], [IDL.Nat], []),
-    'getUserStakeDetails' : IDL.Func([], [IDL.Vec(Stake)], ['query']),
+    'getUserStakes' : IDL.Func([], [QueryStakes], ['query']),
     'getUserTransactions' : IDL.Func([], [IDL.Vec(Transaction)], []),
     'getWeightTable' : IDL.Func(
         [],

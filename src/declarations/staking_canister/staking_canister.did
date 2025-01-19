@@ -37,17 +37,6 @@ type StakeMetrics =
    userStakeWeight: nat;
  };
 type StakeId = nat;
-type Stake = 
- record {
-   amount: nat;
-   id: StakeId;
-   lastHarvestTime: int;
-   lockEndTime: int;
-   pendingRewards: nat;
-   stakeTime: int;
-   stakedReward: nat;
-   staker: principal;
- };
 type Result_2 = 
  variant {
    err: text;
@@ -63,6 +52,18 @@ type Result =
    err: text;
    ok;
  };
+type QueryStakes = vec QueryStake;
+type QueryStake = 
+ record {
+   amount: nat;
+   id: StakeId;
+   isRewardsAutoStaked: bool;
+   lastRewardsClaimedAt: int;
+   stakedAt: int;
+   stakedReward: nat;
+   unclaimedRewards: nat;
+   unlockAt: int;
+ };
 type DoxaStaking = 
  service {
    calculateUserStakeMatric: (StakeId, principal) -> (Result_2) query;
@@ -76,7 +77,7 @@ type DoxaStaking =
    getTotalFeeCollectedFromLastRewardDistribution: () -> (nat) query;
    getTotalFeeCollectedSofar: () -> (nat) query;
    getTotalStakersWeight: () -> (nat);
-   getUserStakeDetails: () -> (vec Stake) query;
+   getUserStakes: () -> (QueryStakes) query;
    getUserTransactions: () -> (vec Transaction);
    getWeightTable: () -> (vec record {
                                 nat;
