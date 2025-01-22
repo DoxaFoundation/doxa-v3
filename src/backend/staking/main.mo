@@ -545,6 +545,12 @@ actor class DoxaStaking() = this {
 	// Store calculated rewards for all stakes
 	private stable var lastCalculatedAllUserRewards : [(Types.StakeId, Nat)] = [];
 
+	// Add helper function to check lockup status
+	private func hasLockupEnded(stake : Types.Stake) : Bool {
+		let currentTime = Time.now();
+		return currentTime >= stake.lockEndTime;
+	};
+
 	// Helper function to calculate rewards
 	private func computeRewardsForAllUsers() : async [(Types.StakeId, Nat)] {
 		let rewardCalculations = Buffer.Buffer<(Types.StakeId, Nat)>(0);
@@ -553,17 +559,18 @@ actor class DoxaStaking() = this {
 			for (stakeId in stakeIds.vals()) {
 				switch (Map.get(stakes, nhash, stakeId)) {
 					case (?stake) {
-						let metrics = await calculateUserStakeMatric(stakeId, principal);
-						switch (metrics) {
-							case (#ok(m)) {
-								rewardCalculations.add((stakeId, m.userFinalReward));
-							};
-							case (#err(e)) {
-
-								Debug.print(
-									"[method: computeRewardsForAllUsers] [args: " #debug_show (stakeId, principal) # "] "
-									# "Error calculating metrics for stake " # debug_show (stakeId) # ": [error: " # e # "]"
-								);
+						if (not hasLockupEnded(stake)) {
+							let metrics = await calculateUserStakeMatric(stakeId, principal);
+							switch (metrics) {
+								case (#ok(m)) {
+									rewardCalculations.add((stakeId, m.userFinalReward));
+								};
+								case (#err(e)) {
+									Debug.print(
+										"[method: computeRewardsForAllUsers] [args: " #debug_show (stakeId, principal) # "] "
+										# "Error calculating metrics for stake " # debug_show (stakeId) # ": [error: " # e # "]"
+									);
+								};
 							};
 						};
 					};
@@ -572,7 +579,6 @@ actor class DoxaStaking() = this {
 			};
 		};
 
-		// Store calculated rewards in stable variable
 		lastCalculatedAllUserRewards := Buffer.toArray(rewardCalculations);
 		lastCalculatedAllUserRewards;
 	};
