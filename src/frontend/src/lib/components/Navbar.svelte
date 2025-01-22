@@ -45,12 +45,12 @@
 			<div class={activeUrl === '/redeem/' ? activeClass : nonActiveClass}>Redeem</div>
 			<Tooltip type="light">Coming soon...</Tooltip>
 		</NavLi> -->
-		<NavLi>
+		<!-- <NavLi>
 			<div class={activeUrl === '/stabilityPool/' ? activeClass : nonActiveClass}>
 				Stability Pool
 			</div>
 			<Tooltip type="light">Coming soon...</Tooltip>
-		</NavLi>
+		</NavLi> -->
 		<NavLi href="/transactions/">
 			<div class={activeUrl === '/transactions/' ? activeClass : nonActiveClass}>Transactions</div>
 			<Tooltip type="light">Coming soon...</Tooltip>

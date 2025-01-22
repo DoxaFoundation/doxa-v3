@@ -8,6 +8,7 @@ import { to6Decimals } from '@utils/decimals.utils';
 import { STAKING_ACCOUNT } from '@constants/staking.constants';
 import { daysToNanoseconds } from '@utils/date-time.utils';
 import { balanceStore } from '@stores/balance.store';
+import { myStakes } from '@states/my-stakes.svelte';
 
 export const fetchStakingPoolDetails = async () => {
 	try {
@@ -45,6 +46,7 @@ export const stakeUSDx = async ({ amount, days }: StakePrams) => {
 
 		if ('ok' in response) {
 			toastId = toast.success('Staked successfully', { id: toastId });
+			myStakes.fetch();
 		} else {
 			toastId = toast.error(response.err, { id: toastId });
 		}

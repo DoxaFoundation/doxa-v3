@@ -1,5 +1,4 @@
 <script lang="ts">
-	import SelectDropDown from '$lib/components/SelectDropDown.svelte';
 	import { Button } from 'flowbite-svelte';
 	import { Select, Input } from 'flowbite-svelte';
 	import { LockTimeSolid } from 'flowbite-svelte-icons';
@@ -11,8 +10,9 @@
 	import { feeCollected } from '@states/fee-collected.svelte';
 	import { balanceStore } from '@stores/balance.store';
 	import { displayBalanceInFormat } from '@utils/fromat.utils';
-	import { from6Decimals } from '@utils/decimals.utils';
+	import { from6Decimals, truncateDecimal } from '@utils/decimals.utils';
 	import { assertNonNullish, isNullish } from '@dfinity/utils';
+	import UserStakesPosition from '@components/Stake/UserStakePositions.svelte';
 	import {
 		MAXIMUM_STAKE_DURATION_IN_DAYS,
 		MINIMUM_STAKE_AMOUNT,
@@ -27,6 +27,7 @@
 		if (value) {
 			fetchStakingPoolDetails();
 			fetchFeecollecteds();
+			myStakes.fetch();
 		}
 	});
 	onDestroy(unsubscribe);
@@ -67,9 +68,17 @@
 		}
 	};
 
+	// $effect(() => {
+	// 	if (amount) return;
+
+	// 	if (typeof amount !== 'undefined') {
+	// 		amount = truncateDecimal(amount, DECIMALS);
+	// 	}
+	// });
+
 	const onclick = async () => {
 		assertNonNullish(amount);
-		await stakeUSDx({ amount, days });
+		await stakeUSDx({ amount: Number(amount?.toFixed(DECIMALS)), days });
 		balance = from6Decimals($balanceStore.usdx);
 		amount = 0;
 	};
@@ -84,11 +93,32 @@
 
 	///
 	import { Tabs, TabItem } from 'flowbite-svelte';
+	import { myStakes } from '@states/my-stakes.svelte';
+	import { DECIMALS } from '@constants/app.constants';
+
+	$inspect(myStakes);
+
+	function validateInput(event: any) {
+		const input = event.target;
+		const value = input.value;
+
+		// Allow empty input
+		if (!value) return;
+
+		// Regular expression to match numbers with up to 6 decimal places
+		// const regex = /^\d*\.?\d{0,6}$/;
+		const regex = new RegExp(`^\\d*\\.?\\d{0,${DECIMALS}}$`);
+
+		if (!regex.test(value)) {
+			// If invalid, remove the last entered character
+			input.value = value.slice(0, -1);
+		}
+	}
 </script>
 
 <DarkMode />
 
-<div class="flex flex-col items-center justify-center mt-2 dark:text-white">
+<div class="flex flex-col items-center justify-center mt-2 dark:text-white mb-4">
 	<div class="bg-gray-100 dark:bg-gray-900 box-border max-w-[548px] w-full rounded-xl p-4 md:p-6">
 		<div
 			class="box-border w-full p-4 border-2 border-gray-300 dark:border-gray-700 rounded-xl bg-gray-200 dark:bg-gray-800 grid grid-cols-1 md:grid-cols-2 gap-6"
@@ -96,7 +126,7 @@
 			<div>
 				<p class="text-sm text-gray-500 dark:text-gray-400">Total Staked</p>
 				<p class="text-xl font-semibold mt-3">
-					{stakingPoolDetails.totalTokensStaked}
+					{stakingPoolDetails.totalTokensStaked.toFixed(2)}
 					{stakingPoolDetails.stakingTokenSymbol}
 				</p>
 			</div>
@@ -153,6 +183,7 @@
 								placeholder="0.00"
 								size="md"
 								bind:value={amount}
+								oninput={validateInput}
 							></Input>
 						</div>
 						<div class="flex justify-between items-center mt-3 w-full">
@@ -191,7 +222,7 @@
 
 			<TabItem class="w-full">
 				<span slot="title">Your stakes</span>
-				<div></div>
+				<UserStakesPosition />
 			</TabItem>
 		</Tabs>
 	</div>
