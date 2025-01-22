@@ -3,7 +3,9 @@
 		"ckusdc_pool": {
 			"main": "src/backend/ckusdc-pool/main.mo",
 			"type": "motoko",
-			"dependencies": ["exchange_rate_canister"]
+			"dependencies": [
+				"exchange_rate_canister"
+			]
 		},
 		"usdx_ledger": {
 			"type": "custom",
@@ -18,7 +20,10 @@
 		"stablecoin_minter": {
 			"main": "src/backend/stablecoin-minter/main.mo",
 			"type": "motoko",
-			"dependencies": ["icp_ledger", "exchange_rate_canister"]
+			"dependencies": [
+				"icp_ledger",
+				"exchange_rate_canister"
+			]
 		},
 		"root_canister": {
 			"main": "src/backend/root-canister/main.mo",
@@ -28,17 +33,30 @@
 			"main": "src/backend/staking/main.mo",
 			"type": "motoko"
 		},
+		"swap": {
+			"main": "src/backend/swap/main.mo",
+			"type": "motoko",
+			"dependencies": [
+				"exchange_rate_canister"
+			]
+		},
 		"test": {
 			"main": "src/test/main.mo",
 			"type": "motoko",
-			"dependencies": ["staking_canister"]
+			"dependencies": [
+				"staking_canister"
+			]
 		},
 		"frontend": {
-			"dependencies": ["internet_identity"],
+			"dependencies": [
+				"internet_identity"
+			],
 			"frontend": {
 				"entrypoint": "build/index.html"
 			},
-			"source": ["build/"],
+			"source": [
+				"build/"
+			],
 			"type": "assets"
 		},
 		"internet_identity": {
