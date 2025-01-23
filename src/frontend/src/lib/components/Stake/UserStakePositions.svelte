@@ -5,8 +5,9 @@
 	import { myStakes } from '@states/my-stakes.svelte';
 	import { stakingPoolDetails } from '@states/staking.svelte';
 	import { AccordionItem, Accordion, Button, Label } from 'flowbite-svelte';
-	import { LockOpenOutline, LockTimeOutline } from 'flowbite-svelte-icons';
+	import { LockOpenOutline, LockTimeOutline, RefreshOutline } from 'flowbite-svelte-icons';
 	import { Checkbox } from 'flowbite-svelte';
+	import { toggleAutoStakeRewads } from '@services/staking.service';
 
 	let unclaimedRewards = $derived(
 		myStakes.value.reduce((sum, stake) => sum + stake.unclaimedRewards, 0)
@@ -20,20 +21,7 @@
 
 	let btnDisable = $derived(unclaimedRewards <= 0);
 
-	// export interface Stake {
-	// 	id: bigint;
-	// 	stakedReward: number;
-	// 	stakedAt: string;
-	// 	lastRewardsClaimedAt: string;
-
-	// 	unclaimedRewards: number;
-
-	// 	isRewardsAutoStaked: boolean;
-	// }
-
-	// 16px 400
-	// 18px 450
-	// 20px 450
+	let loader = $state(false);
 </script>
 
 <div
@@ -71,7 +59,7 @@
 </div>
 
 <Accordion class="mt-4">
-	{#each myStakes.value as stake}
+	{#each myStakes.value as stake, index}
 		<AccordionItem
 			activeClass="border-gray-300 dark:border-gray-700"
 			borderClass="'border-s border-e group-first:border-t-2"
@@ -121,20 +109,6 @@
 					</div>
 				{/if}
 
-				<!-- <div
-					class="col-span-full border-b-2 border-gray-300 dark:border-gray-700 pb-3 flex w-full justify-between"
-				>
-					<div>
-						<p class="text-sm text-gray-500 dark:text-gray-400">Unclaimed Rewards</p>
-						<p class="text-xl font-semibold mt-3">
-							{unclaimedRewards.toFixed(2)}
-							{stakingPoolDetails.stakingTokenSymbol}
-						</p>
-					</div>
-
-					<Button disabled={btnDisable} class="py-0" onclick={claimAllRewards}>Claim all</Button>
-				</div> -->
-
 				<div class=" border-y-2 py-3 col-span-full border-gray-300 dark:border-gray-700">
 					<p class="text-xl font-medium">Rewards</p>
 					<div class="mt-3 flex justify-between">
@@ -168,6 +142,26 @@
 						</div>
 
 						<Button class="dark:bg-gray-950" disabled={stake.unclaimedRewards === 0}>Stake</Button>
+					</div>
+
+					<div class="mt-6">
+						<Label class="flex items-center gap-2">
+							{#if loader}
+								<RefreshOutline class="animate-spin size-4" />
+							{:else}
+								<Checkbox
+									inline
+									class=""
+									checked={stake.isRewardsAutoStaked}
+									onchange={async () => {
+										// loader = true;
+										await toggleAutoStakeRewads(index);
+										// loader = false;
+									}}
+								/>
+							{/if}
+							Automatically stake new rewards
+						</Label>
 					</div>
 				</div>
 
