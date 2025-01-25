@@ -93,3 +93,59 @@ export const toggleAutoStakeRewads = async (index: number) => {
 		});
 	}
 };
+
+export const stakeUnclaimedRewards = async (index: number) => {
+	try {
+		const stake = myStakes.value[index];
+
+		if (stake.unclaimedRewards <= 0.01) {
+			toast.info('Can not stake rewards less than 0.01 USDx');
+			return;
+		}
+
+		toastId = toast.loading('Staking rewards..', { id: toastId });
+
+		const { manuallyCompoundRewards } = get(authStore).staking;
+
+		const response = await manuallyCompoundRewards(stake.id);
+
+		if ('ok' in response) {
+			myStakes.value[index].stakedReward += myStakes.value[index].unclaimedRewards;
+			myStakes.value[index].unclaimedRewards = 0;
+
+			toast.success('Staked rewards successfully', { id: toastId });
+		} else {
+			toast.error(response.err, { id: toastId });
+		}
+	} catch (error) {
+		console.error(error);
+		toastId = toast.error('Something went wrong while staking unclaimed rewards.', {
+			id: toastId
+		});
+	}
+};
+
+export const unstake = async (index: number) => {
+	try {
+		const stake = myStakes.value[index];
+
+		if (stake.unlockAt.remainingDays > 0) {
+			toast.info(`${stake.unlockAt.remainingDays} days left to unstake`);
+			return;
+		}
+		toastId = toast.loading(`Unstaking ${stake.amount} USDx..`, { id: toastId });
+		const { unstake } = get(authStore).staking;
+		const response = await unstake(stake.id);
+
+		if ('ok' in response) {
+			myStakes.value.splice(index, 1);
+			toastId = toast.success('Unstaked successfully', { id: toastId });
+			balanceStore.updateUsdxBalance();
+		} else {
+			toastId = toast.error(response.err, { id: toastId });
+		}
+	} catch (error) {
+		console.error(error);
+		toastId = toast.error('Something went wrong while unstaking.', { id: toastId });
+	}
+};

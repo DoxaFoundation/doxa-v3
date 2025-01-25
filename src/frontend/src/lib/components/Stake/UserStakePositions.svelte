@@ -7,7 +7,12 @@
 	import { AccordionItem, Accordion, Button, Label } from 'flowbite-svelte';
 	import { LockOpenOutline, LockTimeOutline, RefreshOutline } from 'flowbite-svelte-icons';
 	import { Checkbox } from 'flowbite-svelte';
-	import { toggleAutoStakeRewads } from '@services/staking.service';
+	import {
+		stakeUnclaimedRewards,
+		stakeUSDx,
+		toggleAutoStakeRewads,
+		unstake
+	} from '@services/staking.service';
 
 	let unclaimedRewards = $derived(
 		myStakes.value.reduce((sum, stake) => sum + stake.unclaimedRewards, 0)
@@ -28,17 +33,21 @@
 	class="box-border w-full p-4 border-2 border-gray-300 dark:border-gray-700 rounded-xl bg-gray-200 dark:bg-gray-800 grid grid-cols-1 md:grid-cols-2 gap-6"
 >
 	<div
-		class="col-span-full border-b-2 border-gray-300 dark:border-gray-700 pb-3 flex w-full justify-between"
+		class="col-span-full border-b-2 border-gray-300 dark:border-gray-700 pb-3 flex w-full justify-between items-center"
 	>
 		<div>
 			<p class="text-sm text-gray-500 dark:text-gray-400">Unclaimed Rewards</p>
 			<p class="text-xl font-semibold mt-3">
-				{unclaimedRewards.toFixed(2)}
+				{unclaimedRewards.toFixed(DECIMALS)}
 				{stakingPoolDetails.stakingTokenSymbol}
 			</p>
 		</div>
 
-		<Button class="dark:bg-gray-950" onclick={claimAllRewards}>Claim all</Button>
+		<Button
+			class="dark:bg-gray-950 h-12"
+			onclick={claimAllRewards}
+			disabled={unclaimedRewards === 0}>Claim all</Button
+		>
 	</div>
 
 	<div>
@@ -85,10 +94,6 @@
 
 			<div class="grid md:grid-cols-2 grid-cols-1 gap-4 w-full text-black dark:text-white">
 				<div class="">
-					<!-- 48 -->
-					<!-- 52 -->
-					<!-- <LogoDarkWhite /> -->
-					<!-- <div></div> -->
 					<p class="text-base font-normal text-gray-500 dark:text-gray-400">Staked Amount</p>
 					<p class="text-lg font-medium mt-1">
 						{stake.amount}
@@ -103,9 +108,20 @@
 						</p>
 					</div>
 				{:else}
-					<div class="">
-						<p class="text-base font-normal text-gray-500 dark:text-gray-400">Unlocked on</p>
-						<p class="text-lg font-medium mt-1">{stake.unlockAt.date}</p>
+					<div class=" flex justify-between items-center">
+						<div>
+							<p class="text-base font-normal text-gray-500 dark:text-gray-400">Unlocked on</p>
+							<p class="text-lg font-medium mt-1">{stake.unlockAt.date}</p>
+						</div>
+
+						<Button
+							class="h-12"
+							color="primary"
+							outline
+							onclick={async () => {
+								await unstake(index);
+							}}>Unstake</Button
+						>
 					</div>
 				{/if}
 
@@ -129,7 +145,7 @@
 							}}
 							disabled={stake.unclaimedRewards === 0}
 							outline
-							class="">Claim</Button
+							class="h-12">Claim</Button
 						>
 					</div>
 					<div class="mt-3 flex justify-between">
@@ -141,10 +157,17 @@
 							</p>
 						</div>
 
-						<Button class="dark:bg-gray-950" disabled={stake.unclaimedRewards === 0}>Stake</Button>
+						<Button
+							class="dark:bg-gray-950 h-12"
+							onclick={async () => {
+								await stakeUnclaimedRewards(index);
+							}}
+							disabled={stake.unclaimedRewards <= 0.01 || stake.unlockAt.remainingDays === 0}
+							>Stake</Button
+						>
 					</div>
 
-					<div class="mt-6">
+					<div class="mt-6 mb-3">
 						<Label class="flex items-center gap-2">
 							{#if loader}
 								<RefreshOutline class="animate-spin size-4" />
@@ -165,9 +188,29 @@
 					</div>
 				</div>
 
-				<div class=""></div>
-				<div class=""></div>
-				<div class=""></div>
+				<div class="text-base font-normal col-span-full">
+					<p class="text-xl font-medium">Other Details</p>
+
+					<div class="flex justify-between mt-3">
+						<p>Staked on</p>
+						<p>{stake.stakedAt}</p>
+					</div>
+					<div class="flex justify-between">
+						<p>Unlock on</p>
+						<p>{stake.unlockAt.date}</p>
+					</div>
+
+					{#if stake.lastRewardsClaimedAt !== '1 Jan 1970'}
+						<div class="flex justify-between">
+							<p>Previous Reward Claimed on</p>
+							<p>{stake.lastRewardsClaimedAt}</p>
+						</div>
+					{/if}
+					<div class="flex justify-between">
+						<p>Stake ID</p>
+						<p>{Number(stake.id)}</p>
+					</div>
+				</div>
 			</div>
 		</AccordionItem>
 	{/each}
