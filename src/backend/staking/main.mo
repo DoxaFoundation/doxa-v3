@@ -758,7 +758,7 @@ actor class DoxaStaking() = this {
 			memo = null;
 			created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
 		};
-
+		// issue: who pay fees?
 		let remainingTransferResult = await USDx.icrc1_transfer(transferArgs);
 
 		switch (remainingTransferResult) {
@@ -845,19 +845,22 @@ actor class DoxaStaking() = this {
 				if (stake.staker != caller) return #err("Not authorized");
 				if (stake.pendingRewards == 0) return #err("No rewards to harvest");
 
+				let lastHarvestTime = Time.now();
+
+				// issue: who pay fees?
 				let transferResult = await USDx.icrc1_transfer({
 					from_subaccount = REWARD_SUBACCOUNT;
 					to = { owner = caller; subaccount = null };
 					amount = stake.pendingRewards;
 					fee = null;
 					memo = null;
-					created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
+					created_at_time = ?Nat64.fromNat(Int.abs(lastHarvestTime));
 				});
 
 				switch (transferResult) {
 					case (#Ok(blockIndex)) {
 						// Reset reward in stake
-						let updatedStake = { stake with pendingRewards = 0 };
+						let updatedStake = { stake with pendingRewards = 0; lastHarvestTime };
 						Map.set(stakes, nhash, stakeId, updatedStake);
 
 						// Record harvest transaction
@@ -881,7 +884,7 @@ actor class DoxaStaking() = this {
 			case (?stake) {
 				if (stake.staker != caller) return #err("Not authorized");
 				if (stake.pendingRewards == 0) return #err("No rewards to compound");
-
+				// issue: who pay fees?
 				let transferResult = await USDx.icrc1_transfer({
 					from_subaccount = REWARD_SUBACCOUNT;
 					to = {
@@ -1149,6 +1152,7 @@ actor class DoxaStaking() = this {
 			Set.delete<Nat>(autoCompoundPreferences, nhash, stakeId);
 		};
 
+		// issue: who pay fees?
 		// If there are pending rewards, transfer from pendingRewards account first
 		if (stake.pendingRewards > 0) {
 			let rewardTransferResult = await USDx.icrc1_transfer({
@@ -1166,6 +1170,7 @@ actor class DoxaStaking() = this {
 			};
 		};
 
+		// issue: who pay fees?
 		// Transfer stake amount
 		let stakeTransferResult = await USDx.icrc1_transfer({
 			from_subaccount = null; // Default account for stake amount
