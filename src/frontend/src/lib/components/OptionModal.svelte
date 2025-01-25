@@ -5,9 +5,10 @@
 	import { authStore } from '$lib/stores/auth.store';
 	import TransferModal from './TransferModal.svelte';
 	import { RefreshOutline } from 'flowbite-svelte-icons';
-	import { balanceStore, from6Decimals } from '$lib/stores/balance.store';
+	import { balanceStore } from '$lib/stores/balance.store';
 	import { Tooltip } from 'flowbite-svelte';
 	import { ckUsdcBase64 } from '../../assets/base64-svg';
+	import { displayBalanceInFormat } from '@utils/fromat.utils';
 
 	interface Props {
 		open?: boolean;
@@ -17,16 +18,6 @@
 
 	let isRefreshing = $state(false);
 	let isRefreshingUsdx = $state(false);
-
-	function formatNumber(number: number): string {
-		let [intPart, decimalPart] = number.toString().split('.');
-		intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, "'");
-		return decimalPart ? `${intPart}.${decimalPart}` : intPart;
-	}
-
-	function displayBalanceInFormal(balance: bigint): string {
-		return formatNumber(from6Decimals(balance));
-	}
 
 	let openTransferModal = $state(false);
 </script>
@@ -71,7 +62,7 @@
 			<p
 				class="mb-3 text-3xl max-sm:text-2xl font-normal text-gray-700 leading-tight block break-words overflow-hidden"
 			>
-				{displayBalanceInFormal($balanceStore.usdx)} <span class="text-base">USDx</span>
+				{displayBalanceInFormat($balanceStore.usdx)} <span class="text-base">USDx</span>
 			</p>
 		</div>
 
@@ -101,7 +92,7 @@
 			<p
 				class="mb-3 text-3xl max-sm:text-2xl font-normal text-gray-700 leading-tight block break-words"
 			>
-				{displayBalanceInFormal($balanceStore.ckUsdc)} <span class="text-base">ckUSDC</span>
+				{displayBalanceInFormat($balanceStore.ckUsdc)} <span class="text-base">ckUSDC</span>
 			</p>
 		</div>
 	</div>

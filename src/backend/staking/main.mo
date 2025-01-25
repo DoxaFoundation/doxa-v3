@@ -38,7 +38,7 @@ actor class DoxaStaking() = this {
 	private let MAX_STAKE_PER_ADDRESS : Nat = MIN_TOTAL_STAKE / 5; // 20% of minimum total stake
 
 	// Pool configuration
-	private stable var pool : Types.StakingPoolDetails = {
+	private stable var pool = {
 		poolName = "Doxa Dynamic Staking";
 		poolStartTime = Time.now();
 		poolEndTime = Time.now() + ONE_YEAR_IN_NANOS;
@@ -245,6 +245,10 @@ actor class DoxaStaking() = this {
 		let compositeKey = Principal.toText(caller) # "_" # Nat.toText(stakeId);
 
 		return #ok(stakeMetric);
+	};
+
+	public func getTotalStakersWeight() : async Nat {
+		getTotalWeight();
 	};
 
 	func getTotalWeight() : Nat {
@@ -541,6 +545,12 @@ actor class DoxaStaking() = this {
 	// Store calculated rewards for all stakes
 	private stable var lastCalculatedAllUserRewards : [(Types.StakeId, Nat)] = [];
 
+	// Add helper function to check lockup status
+	private func hasLockupEnded(stake : Types.Stake) : Bool {
+		let currentTime = Time.now();
+		return currentTime >= stake.lockEndTime;
+	};
+
 	// Helper function to calculate rewards
 	private func computeRewardsForAllUsers() : async [(Types.StakeId, Nat)] {
 		let rewardCalculations = Buffer.Buffer<(Types.StakeId, Nat)>(0);
@@ -549,17 +559,18 @@ actor class DoxaStaking() = this {
 			for (stakeId in stakeIds.vals()) {
 				switch (Map.get(stakes, nhash, stakeId)) {
 					case (?stake) {
-						let metrics = await calculateUserStakeMatric(stakeId, principal);
-						switch (metrics) {
-							case (#ok(m)) {
-								rewardCalculations.add((stakeId, m.userFinalReward));
-							};
-							case (#err(e)) {
-
-								Debug.print(
-									"[method: computeRewardsForAllUsers] [args: " #debug_show (stakeId, principal) # "] "
-									# "Error calculating metrics for stake " # debug_show (stakeId) # ": [error: " # e # "]"
-								);
+						if (not hasLockupEnded(stake)) {
+							let metrics = await calculateUserStakeMatric(stakeId, principal);
+							switch (metrics) {
+								case (#ok(m)) {
+									rewardCalculations.add((stakeId, m.userFinalReward));
+								};
+								case (#err(e)) {
+									Debug.print(
+										"[method: computeRewardsForAllUsers] [args: " #debug_show (stakeId, principal) # "] "
+										# "Error calculating metrics for stake " # debug_show (stakeId) # ": [error: " # e # "]"
+									);
+								};
 							};
 						};
 					};
@@ -568,7 +579,6 @@ actor class DoxaStaking() = this {
 			};
 		};
 
-		// Store calculated rewards in stable variable
 		lastCalculatedAllUserRewards := Buffer.toArray(rewardCalculations);
 		lastCalculatedAllUserRewards;
 	};
@@ -748,7 +758,7 @@ actor class DoxaStaking() = this {
 			memo = null;
 			created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
 		};
-
+		// issue: who pay fees?
 		let remainingTransferResult = await USDx.icrc1_transfer(transferArgs);
 
 		switch (remainingTransferResult) {
@@ -835,19 +845,22 @@ actor class DoxaStaking() = this {
 				if (stake.staker != caller) return #err("Not authorized");
 				if (stake.pendingRewards == 0) return #err("No rewards to harvest");
 
+				let lastHarvestTime = Time.now();
+
+				// issue: who pay fees?
 				let transferResult = await USDx.icrc1_transfer({
 					from_subaccount = REWARD_SUBACCOUNT;
 					to = { owner = caller; subaccount = null };
 					amount = stake.pendingRewards;
 					fee = null;
 					memo = null;
-					created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
+					created_at_time = ?Nat64.fromNat(Int.abs(lastHarvestTime));
 				});
 
 				switch (transferResult) {
 					case (#Ok(blockIndex)) {
 						// Reset reward in stake
-						let updatedStake = { stake with pendingRewards = 0 };
+						let updatedStake = { stake with pendingRewards = 0; lastHarvestTime };
 						Map.set(stakes, nhash, stakeId, updatedStake);
 
 						// Record harvest transaction
@@ -871,7 +884,7 @@ actor class DoxaStaking() = this {
 			case (?stake) {
 				if (stake.staker != caller) return #err("Not authorized");
 				if (stake.pendingRewards == 0) return #err("No rewards to compound");
-
+				// issue: who pay fees?
 				let transferResult = await USDx.icrc1_transfer({
 					from_subaccount = REWARD_SUBACCOUNT;
 					to = {
@@ -955,28 +968,19 @@ actor class DoxaStaking() = this {
 				};
 
 				// Check if stake is auto-compounding
-				let isAutoCompound = Set.has<Nat>(
-					autoCompoundPreferences,
-					nhash,
-					stakeId
-				);
-
-				#ok(isAutoCompound);
+				#ok(isRewardsAutoStaked(stakeId));
 			};
 		};
 	};
-	// Get user's USDx balance
-	// public shared ({ caller }) func getUserUSDxBalance() : async Result.Result<Nat, Text> {
-	//     try {
-	//         let balance = await USDx.icrc1_balance_of({
-	//             owner = caller;
-	//             subaccount = null;
-	//         });
-	//         #ok(balance);
-	//     } catch (e) {
-	//         #err("Error fetching USDx balance: " # Error.message(e));
-	//     };
-	// };
+
+	// Check if stake is auto-compounding
+	func isRewardsAutoStaked(stakeId : Types.StakeId) : Bool {
+		Set.has<Nat>(
+			autoCompoundPreferences,
+			nhash,
+			stakeId
+		);
+	};
 
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	////////////////////////////////////// api  //////////////////////////////////////////////////
@@ -1024,18 +1028,14 @@ actor class DoxaStaking() = this {
 		// Check if bootstrap period is active
 		let currentTime = Time.now();
 		if (isBootstrapPhase) {
-			// Check if max stakers limit reached
-			if (Map.size(userStakes) >= MIN_STAKERS) {
-				return #err("Bootstrap period max stakers limit reached");
-			};
 
 			// During bootstrap, strictly check if user has already staked
-			switch (Map.get(userStakes, phash, caller)) {
-				case (?existingStakes) {
-					return #err("During bootstrap period you can only have 1 active stake. Please wait for bootstrap period to end for additional stakes");
-				};
-				case (null) {};
-			};
+			// switch (Map.get(userStakes, phash, caller)) {
+			//     case (?existingStakes) {
+			//         return #err("During bootstrap period you can only have 1 active stake. Please wait for bootstrap period to end for additional stakes");
+			//     };
+			//     case (null) {};
+			// };
 
 			// Check max stake per address during bootstrap
 			if (transfer.amount > MAX_STAKE_PER_ADDRESS) {
@@ -1152,6 +1152,7 @@ actor class DoxaStaking() = this {
 			Set.delete<Nat>(autoCompoundPreferences, nhash, stakeId);
 		};
 
+		// issue: who pay fees?
 		// If there are pending rewards, transfer from pendingRewards account first
 		if (stake.pendingRewards > 0) {
 			let rewardTransferResult = await USDx.icrc1_transfer({
@@ -1169,6 +1170,7 @@ actor class DoxaStaking() = this {
 			};
 		};
 
+		// issue: who pay fees?
 		// Transfer stake amount
 		let stakeTransferResult = await USDx.icrc1_transfer({
 			from_subaccount = null; // Default account for stake amount
@@ -1220,36 +1222,39 @@ actor class DoxaStaking() = this {
 	///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	// Public getter function for all pool data
-	public func getPoolData() : async Types.StakingPoolDetails {
+	public query func getPoolData() : async Types.StakingPoolDetails {
 		{
 			pool with
-			totalFeeCollected = totalFeeCollectedFromLastRewardDistribution
+			totalFeeCollected = totalFeeCollectedFromLastRewardDistribution;
+			noOfStakers = Map.size(userStakes);
 		};
 	};
 
-	// Get user stake details
-	public shared query ({ caller }) func getUserStakeDetails() : async [Types.Stake] {
-		// Fetch all stakes for the caller
+	// Get user stakes details
+	public shared query ({ caller }) func getUserStakes() : async Types.QueryStakes {
 		let userStakeIds = switch (Map.get(userStakes, phash, caller)) {
 			case (?ids) { ids };
-			case (null) { [] }; // Return empty array if no stakes found
+			case (null) { [] };
 		};
+		let buffer = Buffer.Buffer<Types.QueryStake>(Array.size(userStakeIds));
 
-		// Get stake details for each stake ID
-		let buffer = Buffer.Buffer<Types.Stake>(Array.size(userStakeIds));
 		for (stakeId in userStakeIds.vals()) {
 			switch (Map.get(stakes, nhash, stakeId)) {
-				case (?stake) {
-					// Add valid stake to buffer
-					buffer.add(stake);
+				case (?st) {
+					buffer.add({
+						id = st.id;
+						amount = st.amount;
+						stakedAt = st.stakeTime;
+						unlockAt = st.lockEndTime;
+						lastRewardsClaimedAt = st.lastHarvestTime;
+						unclaimedRewards = st.pendingRewards;
+						stakedReward = st.stakedReward;
+						isRewardsAutoStaked = isRewardsAutoStaked(st.id);
+					});
 				};
-				case (null) {
-					// Ignore invalid stake ID
-				};
+				case (null) {};
 			};
 		};
-
-		// Convert buffer to array and return
 		Buffer.toArray(buffer);
 	};
 

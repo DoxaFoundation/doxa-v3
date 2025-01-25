@@ -4,7 +4,7 @@
 	let isAuthenticated = $derived($authStore.isAuthenticated);
 
 	const login = async () => {
-		await authStore.signInWithII();
+		await authStore.signIn({ identityProvider: 'ii' });
 	};
 </script>
 
