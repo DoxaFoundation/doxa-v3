@@ -1,136 +1,197 @@
-import Principal "mo:base/Principal";
-import Result "mo:base/Result";
-import Error "mo:base/Error";
-import Debug "mo:base/Debug";
+// Import necessary modules
 import Array "mo:base/Array";
+import Principal "mo:base/Principal";
+import Float "mo:base/Float";
+import Int "mo:base/Int";
+import Result "mo:base/Result";
+import Text "mo:base/Text";
 import Nat "mo:base/Nat";
+import Nat64 "mo:base/Nat64";
+import Time "mo:base/Time";
+import Debug "mo:base/Debug";
 
-actor Pool {
-	// Test environment canister IDs
-	private let NETWORK_ID = "ic";
-	private let CANISTERS = {
-		DOXA = "irorr-5aaaa-aaaak-qddsq-cai";
-		ICP = "ryjl3-tyaaa-aaaaa-aaaba-cai";
-		// CKBTC = "mxzaz-hqaaa-aaaar-qaada-cai";
-		// CKETH = "ss2fx-dyaaa-aaaar-qacoq-cai";
-		// CKUSDC = "ss2fx-dyaaa-aaaar-qacoq-cai";
-		SWAP_FACTORY = "be2us-64aaa-aaaaa-qaabq-cai"; // From local deployment
-		PASSCODE_MANAGER = "bkyz2-fmaaa-aaaaa-qaaaq-cai"; // From local deployment
-		SWAP_CALCULATOR = "br5f7-7uaaa-aaaaa-qaaca-cai"; // SwapFeeReceiver from deployment
+// passcodeManager local - by6od-j4aaa-aaaaa-qaadq-cai
+// passcodeManager mainnet - 7eikv-2iaaa-aaaag-qdgwa-cai
 
+// swapCalculator local - bkyz2-fmaaa-aaaaa-qaaaq-cai
+// swapCalculator mainnet - phr2m-oyaaa-aaaag-qjuoq-cai
+
+// swapFactory local - a3shf-5eaaa-aaaaa-qaafa-cai
+// swapFactory mainnet - 4mmnk-kiaaa-aaaag-qbllq-cai
+actor CreatePool {
+
+	private let pool_creation_fee : Nat = 100_000_000; // 1 ICP in e8s
+	private let approval_fee : Nat = 10_000; // 0.0001 ICP in e8s
+
+	module ICPLedger {
+		public type Account = { owner : Principal; subaccount : ?[Nat8] };
+		public type ApproveArgs = {
+			fee : ?Nat;
+			memo : ?[Nat8];
+			from_subaccount : ?[Nat8];
+			created_at_time : ?Nat64;
+			amount : Nat;
+			expected_allowance : ?Nat;
+			expires_at : ?Nat64;
+			spender : Account;
+		};
+		public type ApproveError = {
+			#GenericError : { message : Text; error_code : Nat };
+			#TemporarilyUnavailable;
+			#Duplicate : { duplicate_of : Nat };
+			#BadFee : { expected_fee : Nat };
+			#AllowanceChanged : { current_allowance : Nat };
+			#CreatedInFuture : { ledger_time : Nat64 };
+			#TooOld;
+			#Expired : { ledger_time : Nat64 };
+			#InsufficientFunds : { balance : Nat };
+		};
+		public type ApproveResult = { #Ok : Nat; #Err : ApproveError };
+		public type Service = actor {
+			icrc2_approve : ApproveArgs -> async ApproveResult;
+		};
 	};
 
-	// Types
-	type Token = {
-		address : Text;
-		standard : Text;
+	module PasscodeManager {
+		public type DepositArgs = { fee : Nat; amount : Nat };
+		public type Error = {
+			#CommonError;
+			#InternalError : Text;
+			#UnsupportedToken : Text;
+			#InsufficientFunds;
+		};
+		public type Result = { #ok : Nat; #err : Error };
+		public type Result_1 = { #ok : Text; #err : Error };
+		public type Service = actor {
+			depositFrom : DepositArgs -> async Result;
+			requestPasscode : (Principal, Principal, Nat) -> async Result_1;
+		};
 	};
 
-	type PoolData = {
-		fee : Nat;
-		key : Text;
-		tickSpacing : Int;
-		token0 : Token;
-		token1 : Token;
-		canisterId : Principal;
+	module SwapCalculator {
+		public type Service = actor {
+			getSqrtPriceX96 : (Float, Float, Float) -> async Int;
+			sortToken : (Text, Text) -> async (Text, Text);
+		};
 	};
 
-	// Interface to existing SwapFactory
-	public type SwapFactory = actor {
-		createPool : (CreatePoolArgs) -> async Result.Result<PoolData, Text>;
+	module SwapFactory {
+		public type Token = { address : Text; standard : Text };
+		public type CreatePoolArgs = {
+			fee : Nat;
+			sqrtPriceX96 : Text;
+			subnet : ?Text;
+			token0 : Token;
+			token1 : Token;
+		};
+		public type PoolData = {
+			fee : Nat;
+			key : Text;
+			tickSpacing : Int;
+			token0 : Token;
+			token1 : Token;
+			canisterId : Principal;
+		};
+		public type Error = {
+			#CommonError;
+			#InternalError : Text;
+			#UnsupportedToken : Text;
+			#InsufficientFunds;
+		};
+		public type Result = { #ok : PoolData; #err : Error };
+		public type Service = actor {
+			createPool : CreatePoolArgs -> async Result;
+		};
 	};
 
-	type CreatePoolArgs = {
-		fee : Nat;
-		sqrtPriceX96 : Text;
-		subnet : ?Text;
-		token0 : Token;
-		token1 : Token;
-	};
+	// Canister IDs for ICPSwap services (production environment)
+	let icpLedger : ICPLedger.Service = actor ("ryjl3-tyaaa-aaaaa-aaaba-cai");
+	let passcodeManager : PasscodeManager.Service = actor ("by6od-j4aaa-aaaaa-qaadq-cai");
+	let swapCalculator : SwapCalculator.Service = actor ("bkyz2-fmaaa-aaaaa-qaaaq-cai");
+	let swapFactory : SwapFactory.Service = actor ("a3shf-5eaaa-aaaaa-qaafa-cai");
 
-	// Interface to SwapCalculator
-	public type SwapCalculator = actor {
-		swap : ({ amount : Nat; poolData : PoolData }) -> async Result.Result<Nat, Text>;
-	};
+	// Updated create function with direct token parameters
+	public shared func create(
+		token0Id : Text,
+		token0Standard : Text,
+		token0Decimals : Nat,
+		token1Id : Text,
+		token1Standard : Text,
+		token1Decimals : Nat,
+		initialPrice : Float
+	) : async SwapFactory.Result {
+		// Remove TokenList validation steps
 
-	// Interface to PasscodeManager
-	public type PasscodeManager = actor {
-		depositFrom : (DepositArgs) -> async Result.Result<Nat, Text>;
-		requestPasscode : (Principal, Principal, Nat) -> async Result.Result<Text, Text>;
-	};
-
-	type DepositArgs = {
-		fee : Nat;
-		amount : Nat;
-	};
-
-	// Create new pool
-	public shared (msg) func createPool(token0Address : Text, token1Address : Text) : async Result.Result<Text, Text> {
-		try {
-			// 1. Deposit fee
-			let passcodeManager = actor (CANISTERS.PASSCODE_MANAGER) : PasscodeManager;
-			let depositResult = await passcodeManager.depositFrom({
-				amount = 100_000_000; // 1 ICP in test env
-				fee = 10000;
-			});
-
-			// 2. Request passcode
-			let token0Principal = Principal.fromText(token0Address);
-			let token1Principal = Principal.fromText(token1Address);
-			let passcodeResult = await passcodeManager.requestPasscode(
-				token0Principal,
-				token1Principal,
-				3000 // 0.3% fee tier
-			);
-
-			// 3. Create pool
-			let swapFactory = actor (CANISTERS.SWAP_FACTORY) : SwapFactory;
-			let createPoolResult = await swapFactory.createPool({
-				fee = 3000;
-				sqrtPriceX96 = "79228162514264337593543950336"; // Default 1:1 price
-				subnet = null;
-				token0 = {
-					address = token0Address;
-					standard = "ICRC1";
-				};
-				token1 = {
-					address = token1Address;
-					standard = "ICRC1";
-				};
-			});
-
-			switch (createPoolResult) {
-				case (#ok(poolData)) {
-					#ok("Pool created with ID: " # Principal.toText(poolData.canisterId));
-				};
-				case (#err(e)) {
-					#err("Failed to create pool: " # e);
-				};
+		// Step 3: Improved approval with error handling
+		let approveArgs : ICPLedger.ApproveArgs = {
+			amount = pool_creation_fee + approval_fee;
+			spender = {
+				owner = Principal.fromText("by6od-j4aaa-aaaaa-qaadq-cai");
+				subaccount = null;
 			};
-		} catch (e) {
-			#err("Error: " # Error.message(e));
+			fee = ?approval_fee; // Explicit fee setting
+			memo = null;
+			from_subaccount = null;
+			created_at_time = null; // Remove timestamp for local testing
+			expected_allowance = null; // Critical fix for AllowanceChanged
+			expires_at = null;
 		};
-	};
 
-	// Create DOXA pairs
-	public shared (msg) func createDOXAPairs() : async [Result.Result<Text, Text>] {
-		let pairs = [
-			(CANISTERS.DOXA, CANISTERS.ICP),
-			// (CANISTERS.DOXA, CANISTERS.CKUSDC),
-			// (CANISTERS.DOXA, CANISTERS.CKETH)
-		];
-
-		var results : [Result.Result<Text, Text>] = [];
-		for ((token0, token1) in pairs.vals()) {
-			let result = await createPool(token0, token1);
-			results := Array.append(results, [result]);
+		let approveResult = await icpLedger.icrc2_approve(approveArgs);
+		switch approveResult {
+			case (#Ok(blockIndex)) {
+				Debug.print("Approval successful in block: " # Nat.toText(blockIndex));
+			};
+			case (#Err(#AllowanceChanged { current_allowance })) {
+				return #err(#InternalError("Existing allowance: " # Nat.toText(current_allowance)));
+			};
+			case (#Err(e)) {
+				return #err(#InternalError("Approval failed: " # debug_show (e)));
+			};
 		};
-		results;
+
+		// Step 4: Deposit creation fee (unchanged)
+		let depositResult = await passcodeManager.depositFrom({
+			fee = 10_000; // 0.0001 ICP fee
+			amount = 100_000_000; // 1 ICP
+		});
+		switch depositResult {
+			case (#err(e)) return #err(#InternalError("Deposit failed"));
+			case _ {};
+		};
+
+		// Step 5: Request passcode (unchanged)
+		let passcodeResult = await passcodeManager.requestPasscode(
+			Principal.fromText(token0Id),
+			Principal.fromText(token1Id),
+			pool_creation_fee
+		);
+		let passcode = switch passcodeResult {
+			case (#ok(code)) code;
+			case (#err(e)) return #err(#InternalError("Passcode request failed"));
+		};
+
+		// Step 6: Prepare pool creation parameters with direct inputs
+		let (sorted0, sorted1) = await swapCalculator.sortToken(token0Id, token1Id);
+
+		// Calculate initial sqrt price using provided decimals
+		let sqrtPrice = await swapCalculator.getSqrtPriceX96(
+			initialPrice,
+			Float.fromInt(token0Decimals),
+			Float.fromInt(token1Decimals)
+		);
+
+		// Create pool arguments with direct standards input
+		let poolArgs : SwapFactory.CreatePoolArgs = {
+			fee = 3_000; // 0.3% pool fee
+			sqrtPriceX96 = Int.toText(sqrtPrice);
+			subnet = null;
+			token0 = { address = sorted0; standard = token0Standard };
+			token1 = { address = sorted1; standard = token1Standard };
+		};
+
+		// Final step: Create the pool
+		await swapFactory.createPool(poolArgs);
 	};
 
-	// Query existing pool
-	public shared func getPoolId(token0 : Text, token1 : Text) : async Text {
-		// Format: token0 + "_" + token1 + "_" + fee
-		token0 # "_" # token1 # "_3000";
-	};
 };

@@ -1013,7 +1013,6 @@ actor class DoxaStaking() = this {
 			};
 			case (null) {};
 		};
-
 		// Validate staking block
 		let validationResult = await isValidStakingBlock(blockIndex, caller);
 		let transfer = switch (validationResult) {
