@@ -150,11 +150,18 @@ actor CreatePool {
 			};
 		};
 
+		// Before deposit call
+		Debug.print("Attempting deposit with: " # Nat.toText(100_000_000) # " amount and " # Nat.toText(10_000) # " fee");
+
 		// Step 4: Deposit creation fee (unchanged)
 		let depositResult = await passcodeManager.depositFrom({
 			fee = 10_000; // 0.0001 ICP fee
 			amount = 100_000_000; // 1 ICP
 		});
+
+		// After deposit call
+		Debug.print("Deposit result: " # debug_show (depositResult));
+		
 		switch depositResult {
 			case (#err(e)) return #err(#InternalError("Deposit failed"));
 			case _ {};
