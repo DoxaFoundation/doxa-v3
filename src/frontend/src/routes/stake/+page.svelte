@@ -116,7 +116,7 @@
 	}
 </script>
 
-<DarkMode />
+<!-- <DarkMode /> -->
 
 <div class="flex flex-col items-center justify-center mt-2 dark:text-white mb-4">
 	<div class="bg-gray-100 dark:bg-gray-900 box-border max-w-[548px] w-full rounded-xl p-4 md:p-6">
