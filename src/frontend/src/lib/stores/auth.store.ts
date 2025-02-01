@@ -8,6 +8,7 @@ import {
 } from '$lib/connection/authclient.connection';
 import { connectPlug, disconnectPlug, syncPlugConnection } from '$lib/connection/plug.connection';
 import { connectAnonymously } from '$lib/connection/anonymous.connection';
+import { nfidLogin, nfidLogout } from '$lib/connection/nfid.connection';
 
 export interface AuthStoreData {
 	isAuthenticated: boolean;
@@ -22,7 +23,7 @@ export interface AuthStoreData {
 
 export interface AuthSignInParams {
 	// domain?: 'ic0.app' | 'internetcomputer.org';
-	identityProvider?: 'ii' | 'plug';
+	identityProvider?: 'ii' | 'plug' | 'nfid';
 }
 
 export interface AuthStore extends Readable<AuthStoreData> {
@@ -50,6 +51,9 @@ const init = (): AuthStore => {
 
 			if (provider === 'ii') {
 				await authClientLogin(set);
+			}
+			if (provider === 'nfid') {
+				await nfidLogin(set);
 			} else {
 				await connectPlug(set);
 			}
@@ -61,6 +65,8 @@ const init = (): AuthStore => {
 				await authClientLogout();
 			} else if (identityProvider === 'plug') {
 				await disconnectPlug();
+			} else if (identityProvider === 'nfid') {
+				nfidLogout();
 			}
 
 			await connectAnonymously(set);

@@ -55,9 +55,13 @@
 		"@dfinity/agent": "^2.0.0",
 		"@dfinity/auth-client": "^2.2.0",
 		"@dfinity/candid": "^2.2.0",
+		"@dfinity/identity": "^2.2.0",
 		"@dfinity/ledger-icrc": "^2.7.0",
 		"@dfinity/principal": "^2.2.0",
 		"@dfinity/utils": "^2.8.0",
+		"@slide-computer/signer": "^3.11.0",
+		"@slide-computer/signer-agent": "^3.11.0",
+		"@slide-computer/signer-web": "^3.11.0",
 		"svelte-sonner": "^0.3.28"
 	}
 }
