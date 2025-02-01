@@ -51,10 +51,9 @@ const init = (): AuthStore => {
 
 			if (provider === 'ii') {
 				await authClientLogin(set);
-			}
-			if (provider === 'nfid') {
+			} else if (provider === 'nfid') {
 				await nfidLogin(set);
-			} else {
+			} else if (provider === 'plug') {
 				await connectPlug(set);
 			}
 		},
