@@ -80,6 +80,11 @@
 					"ic": "xevnm-gaaaa-aaaar-qafnq-cai"
 				}
 			}
+		},
+		"swap": {
+			"main": "src/backend/swap/main.mo",
+			"type": "motoko",
+			"dependencies": ["exchange_rate_canister"]
 		}
 	},
 	"defaults": {

@@ -1,0 +1,60 @@
+{
+	"canisters": {
+		"ics_ledger": {
+			"type": "custom",
+			"candid": "https://raw.githubusercontent.com/dfinity/ic/5ba1412f9175d987661ae3c0d8dbd1ac3e092b7d/rs/rosetta-api/icrc1/ledger/ledger.did",
+			"wasm": "https://download.dfinity.systems/ic/5ba1412f9175d987661ae3c0d8dbd1ac3e092b7d/canisters/ic-icrc1-ledger.wasm.gz",
+			"specified_id": "ca6gz-lqaaa-aaaaq-aacwa-cai",
+			"remote": {
+				"id": {
+					"ic": "ca6gz-lqaaa-aaaaq-aacwa-cai"
+				}
+			}
+		},
+		"price": {
+			"wasm": "./data-collection/price/price.wasm",
+			"type": "custom",
+			"candid": "./data-collection/price/price.did"
+		},
+		"node_index": {
+			"wasm": "./data-collection/node_index/node_index.wasm",
+			"type": "custom",
+			"candid": "./data-collection/node_index/node_index.did"
+		},
+		"base_index": {
+			"wasm": "./data-collection/base_index/base_index.wasm",
+			"type": "custom",
+			"candid": "./data-collection/base_index/base_index.did"
+		},
+		"SwapFeeReceiver": {
+			"wasm": "./SwapFeeReceiver/SwapFeeReceiver.wasm",
+			"type": "custom",
+			"candid": "./SwapFeeReceiver/SwapFeeReceiver.did"
+		},
+		"SwapFactory": {
+			"wasm": "./SwapFactory/SwapFactory.wasm",
+			"type": "custom",
+			"candid": "./SwapFactory/SwapFactory.did"
+		},
+		"PasscodeManager": {
+			"wasm": "./PasscodeManager/PasscodeManager.wasm",
+			"type": "custom",
+			"candid": "./PasscodeManager/PasscodeManager.did"
+		},
+		"TrustedCanisterManager": {
+			"wasm": "./TrustedCanisterManager/TrustedCanisterManager.wasm",
+			"type": "custom",
+			"candid": "./TrustedCanisterManager/TrustedCanisterManager.did"
+		},
+		"SwapDataBackup": {
+			"wasm": "./SwapDataBackup/SwapDataBackup.wasm",
+			"type": "custom",
+			"candid": "./SwapDataBackup/SwapDataBackup.did"
+		},
+		"SwapCalculator": {
+			"wasm": "./SwapCalculator/SwapCalculator.wasm",
+			"type": "custom",
+			"candid": "./SwapCalculator/SwapCalculator.did"
+		}
+	}
+}

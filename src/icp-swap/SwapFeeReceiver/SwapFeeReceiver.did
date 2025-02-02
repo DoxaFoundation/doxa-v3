@@ -1,0 +1,185 @@
+type Token = 
+ record {
+   address: text;
+   standard: text;
+ };
+type SwapFeeReceiver = 
+ service {
+   burnICS: () -> (Result_2);
+   claim: (principal, Token, nat) -> (Result);
+   getBaseBalances: () -> (Result_14);
+   getCanisterId: () -> (Result_13) query;
+   getConfig: () -> (Result_12) query;
+   getCycleInfo: () -> (Result_11);
+   getFees: () -> (Result_10) query;
+   getInitArgs: () -> (Result_9) query;
+   getPools: () -> (Result_8) query;
+   getSyncingStatus: () -> (Result_7) query;
+   getTokenBurnLog: () -> (Result_6) query;
+   getTokenClaimLog: () -> (Result_5) query;
+   getTokenSwapLog: () -> (Result_4) query;
+   getTokens: () -> (Result_3) query;
+   getVersion: () -> (text) query;
+   setAutoBurnIcsEnabled: (bool) -> (Result_2);
+   setAutoSwapToIcsEnabled: (bool) -> (Result_2);
+   setCanisterId: () -> ();
+   setFees: () -> ();
+   setIcpPoolClaimInterval: (nat) -> (Result_2);
+   setNoIcpPoolClaimInterval: (nat) -> (Result_2);
+   startAutoSyncPools: () -> ();
+   swapICPToICS: () -> (Result_2);
+   swapToICP: (Token) -> (Result_1);
+   transfer: (Token, principal, nat) -> (Result);
+   transferAll: (Token, principal) -> (Result);
+ };
+type Result_9 = 
+ variant {
+   err: Error;
+   ok:
+    record {
+      ICP: Token;
+      ICS: Token;
+      factoryCid: principal;
+      governanceCid: principal;
+    };
+ };
+type Result_8 = 
+ variant {
+   err: Error;
+   ok: vec record {
+             principal;
+             ClaimedPoolData;
+           };
+ };
+type Result_7 = 
+ variant {
+   err: Error;
+   ok:
+    record {
+      claimProgress: text;
+      isSyncing: bool;
+      lastNoICPPoolClaimTime: nat;
+      lastSyncTime: nat;
+      swapProgress: text;
+    };
+ };
+type Result_6 = 
+ variant {
+   err: Error;
+   ok: vec ReceiverBurnLog;
+ };
+type Result_5 = 
+ variant {
+   err: Error;
+   ok: vec ReceiverClaimLog;
+ };
+type Result_4 = 
+ variant {
+   err: Error;
+   ok: vec ReceiverSwapLog;
+ };
+type Result_3 = 
+ variant {
+   err: Error;
+   ok: vec record {
+             Token;
+             bool;
+           };
+ };
+type Result_2 = 
+ variant {
+   err: Error;
+   ok;
+ };
+type Result_14 = 
+ variant {
+   err: Error;
+   ok: record {
+         ICP: nat;
+         ICS: nat;
+       };
+ };
+type Result_13 = 
+ variant {
+   err: Error;
+   ok: opt principal;
+ };
+type Result_12 = 
+ variant {
+   err: Error;
+   ok:
+    record {
+      autoBurnEnabled: bool;
+      autoSwapToIcsEnabled: bool;
+      deploymentTime: nat;
+      icpPoolClaimInterval: nat;
+      noIcpPoolClaimInterval: nat;
+    };
+ };
+type Result_11 = 
+ variant {
+   err: Error;
+   ok: CycleInfo;
+ };
+type Result_10 = 
+ variant {
+   err: Error;
+   ok: record {
+         ICPFee: nat;
+         ICSFee: nat;
+       };
+ };
+type Result_1 = 
+ variant {
+   err: Error;
+   ok: bool;
+ };
+type Result = 
+ variant {
+   err: Error;
+   ok: nat;
+ };
+type ReceiverSwapLog = 
+ record {
+   amountIn: nat;
+   amountOut: nat;
+   errMsg: text;
+   poolId: opt principal;
+   step: text;
+   timestamp: nat;
+   token: Token;
+ };
+type ReceiverClaimLog = 
+ record {
+   amount: nat;
+   errMsg: text;
+   poolId: principal;
+   timestamp: nat;
+   token: Token;
+ };
+type ReceiverBurnLog = 
+ record {
+   amount: nat;
+   errMsg: text;
+   timestamp: nat;
+ };
+type Error = 
+ variant {
+   CommonError;
+   InsufficientFunds;
+   InternalError: text;
+   UnsupportedToken: text;
+ };
+type CycleInfo = 
+ record {
+   available: nat;
+   balance: nat;
+ };
+type ClaimedPoolData = 
+ record {
+   claimed: bool;
+   fee: nat;
+   token0: Token;
+   token1: Token;
+ };
+service : (principal, Token, Token, principal) -> SwapFeeReceiver
