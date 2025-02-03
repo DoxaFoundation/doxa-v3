@@ -16,15 +16,15 @@ echo "🧪🧪🧪🧪🧪🧪🧪🧪 build all"
 dfx build
 echo
 
-export ICP="ryjl3-tyaaa-aaaaa-aaaba-cai"
+export ICP="$1"
 export ICS=$(dfx canister id ics_ledger)
 
 echo "➤➤➤➤ Install canisters"
 echo
 
 echo "➤➤➤➤ install ICS"
-chmod +x ./src/icp-swap/scripts/deploy-ics.sh
-./src/icp-swap/scripts/deploy-ics.sh
+chmod +x ./scripts/deploy-ics.sh
+./scripts/deploy-ics.sh
 
 echo "➤➤➤➤ install price"
 dfx deploy price
