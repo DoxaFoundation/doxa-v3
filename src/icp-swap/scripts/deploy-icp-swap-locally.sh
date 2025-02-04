@@ -55,3 +55,9 @@ dfx canister install PasscodeManager --argument="(principal \"$ICP\", 100_000_00
 
 echo "➤➤➤➤ install SwapCalculator"
 dfx deploy SwapCalculator
+
+
+echo "➤➤➤➤ Deploy all ledgers"
+chmod +x ./scripts/deploy-ledgers.sh
+./scripts/deploy-ledgers.sh
+
