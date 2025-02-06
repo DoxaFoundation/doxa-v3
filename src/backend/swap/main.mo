@@ -12,6 +12,8 @@ import Debug "mo:base/Debug";
 import Buffer "mo:base/Buffer";
 import HashMap "mo:base/HashMap";
 import Option "mo:base/Option";
+import Blob "mo:base/Blob";
+import Nat8 "mo:base/Nat8";
 
 // passcodeManager local - by6od-j4aaa-aaaaa-qaadq-cai
 // passcodeManager mainnet - 7eikv-2iaaa-aaaag-qdgwa-cai
@@ -339,6 +341,18 @@ actor class CreatePool(
 		liquidityAmountMap.put("ss2fx-dyaaa-aaaar-qacoq-cai", (1000 * (10 ** 18)) / price.ckETH);
 		liquidityAmountMap.put("cngnf-vqaaa-aaaar-qag4q-cai", (1000 * (10 ** 6)) / price.ckUSDT);
 		liquidityAmountMap;
+	};
+
+	public query func principalToBlob(p : Principal) : async Blob {
+		var arr : [Nat8] = Blob.toArray(Principal.toBlob(p));
+		var defaultArr : [var Nat8] = Array.init<Nat8>(32, 0);
+		defaultArr[0] := Nat8.fromNat(arr.size());
+		var ind : Nat = 0;
+		while (ind < arr.size() and ind < 32) {
+			defaultArr[ind + 1] := arr[ind];
+			ind := ind + 1;
+		};
+		return Blob.fromArray(Array.freeze(defaultArr));
 	};
 
 	system func preupgrade() {
