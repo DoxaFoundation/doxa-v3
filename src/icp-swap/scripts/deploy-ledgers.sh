@@ -7,7 +7,7 @@ TRANSFER_FEE=10
 METADATA="vec {}"
 CANISTER="ckbtc_ledger"
 
-./scripts/deploy-ledger-localy.sh "$Decimals" "$TOKEN_SYMBOL" "$TOKEN_NAME" "$TRANSFER_FEE" "$METADATA" "$CANISTER"
+./scripts/deploy-ledger-localy.sh $Decimals "$TOKEN_SYMBOL" "$TOKEN_NAME" "$TRANSFER_FEE" "$METADATA" "$CANISTER" 2
 
 echo "➤➤➤➤ Deploy ckETH"
 Decimals=18
@@ -17,7 +17,7 @@ TRANSFER_FEE=2_000_000_000_000
 METADATA="vec {}"
 CANISTER="cketh_ledger"
 
-./scripts/deploy-ledger-localy.sh "$Decimals" "$TOKEN_SYMBOL" "$TOKEN_NAME" "$TRANSFER_FEE" "$METADATA" "$CANISTER"
+./scripts/deploy-ledger-localy.sh $Decimals "$TOKEN_SYMBOL" "$TOKEN_NAME" "$TRANSFER_FEE" "$METADATA" "$CANISTER" 5
 
 
 echo "➤➤➤➤ Deploy ckUSDT"
@@ -28,4 +28,4 @@ TRANSFER_FEE=10_000
 METADATA="vec {}"
 CANISTER="ckusdt_ledger"
 
-./scripts/deploy-ledger-localy.sh "$Decimals" "$TOKEN_SYMBOL" "$TOKEN_NAME" "$TRANSFER_FEE" "$METADATA" "$CANISTER"
+./scripts/deploy-ledger-localy.sh $Decimals "$TOKEN_SYMBOL" "$TOKEN_NAME" "$TRANSFER_FEE" "$METADATA" "$CANISTER" 8000

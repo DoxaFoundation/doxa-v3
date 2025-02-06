@@ -10,6 +10,8 @@ import Nat64 "mo:base/Nat64";
 import Time "mo:base/Time";
 import Debug "mo:base/Debug";
 import Buffer "mo:base/Buffer";
+import HashMap "mo:base/HashMap";
+import Option "mo:base/Option";
 
 // passcodeManager local - by6od-j4aaa-aaaaa-qaadq-cai
 // passcodeManager mainnet - 7eikv-2iaaa-aaaag-qdgwa-cai
@@ -27,8 +29,8 @@ actor class CreatePool(
 	swapFactoryCid : Text
 ) {
 
-	var swapPoolsCreated = Buffer.Buffer<(Text, SwapFactory.PoolData)>(0);
-	stable var stSwapPoolsCreated : [(Text, SwapFactory.PoolData)] = [];
+	var swapPoolsCreated = Buffer.Buffer<SwapFactory.PoolData>(0);
+	stable var stSwapPoolsCreated : [SwapFactory.PoolData] = [];
 
 	private let poolCreationFee : Nat = 100_000_000; // 1 ICP in e8s
 	private let approvalFee : Nat = 10_000; // 0.0001 ICP in e8s
@@ -104,7 +106,7 @@ actor class CreatePool(
 			Principal.fromText(token1Id),
 			3_000
 		));
-		let passcode = switch passcodeResult {
+		let _passcode = switch passcodeResult {
 			case (#ok(code)) code;
 			case (#err(error)) return #err(("Passcode request failed " # debug_show (error)));
 		};
@@ -135,15 +137,208 @@ actor class CreatePool(
 		// Use SwapFactory.createPool to create a SwapPool.
 		switch (await swapFactory.createPool(poolArgs)) {
 			case (#ok(value)) {
-				swapPoolsCreated.add(passcode, value);
+				swapPoolsCreated.add(value);
 				#ok(value);
 			};
 			case (#err(error)) { #err("Create Pool failed " # debug_show (error)) };
 		};
 	};
 
-	public query func getCreatedPoolData() : async [(Text, SwapFactory.PoolData)] {
+	public query func getCreatedPoolData() : async [SwapFactory.PoolData] {
 		Buffer.toArray(swapPoolsCreated);
+	};
+
+	func getTokenFeeMap() : HashMap.HashMap<Text, Nat> {
+		let map = HashMap.HashMap<Text, Nat>(0, Text.equal, Text.hash);
+		map.put("ryjl3-tyaaa-aaaaa-aaaba-cai", 10_000);
+		map.put("xevnm-gaaaa-aaaar-qafnq-cai", 10_000);
+		map.put("irorr-5aaaa-aaaak-qddsq-cai", 10_000);
+		map.put("mxzaz-hqaaa-aaaar-qaada-cai", 10);
+		map.put("ss2fx-dyaaa-aaaar-qacoq-cai", 2_000_000_000_000);
+		map.put("cngnf-vqaaa-aaaar-qag4q-cai", 10_000);
+		map;
+	};
+	func getDecimalsMap() : HashMap.HashMap<Text, Nat> {
+		let map = HashMap.HashMap<Text, Nat>(0, Text.equal, Text.hash);
+		map.put("ryjl3-tyaaa-aaaaa-aaaba-cai", 8);
+		map.put("xevnm-gaaaa-aaaar-qafnq-cai", 6);
+		map.put("irorr-5aaaa-aaaak-qddsq-cai", 6);
+		map.put("mxzaz-hqaaa-aaaar-qaada-cai", 8);
+		map.put("ss2fx-dyaaa-aaaar-qacoq-cai", 18);
+		map.put("cngnf-vqaaa-aaaar-qag4q-cai", 6);
+		map;
+	};
+
+	type Price1000UsdArgs = {
+		ICP : Nat;
+		USDx : Nat;
+		ckBTC : Nat;
+		ckETH : Nat;
+		ckUSDC : Nat;
+		ckUSDT : Nat;
+	};
+
+	let failures = Buffer.Buffer<Text>(0);
+	var liquidityAmountMap = HashMap.HashMap<Text, Nat>(0, Text.equal, Text.hash);
+	let tokeFeeMap : HashMap.HashMap<Text, Nat> = getTokenFeeMap();
+	let decimalsMap : HashMap.HashMap<Text, Nat> = getDecimalsMap();
+
+	public func addInitialLiquidityLocal(price : Price1000UsdArgs) : async [Text] {
+		liquidityAmountMap := getLiquidtyAmountMap(price);
+
+		failures.clear();
+
+		for (poolData in swapPoolsCreated.vals()) {
+			let { canisterId; token0; token1; key } = poolData;
+			dPrint("\n\nstart -- " # Principal.toText(canisterId) # " \n");
+			let success0 = await depositeToken(token0.address, canisterId, key);
+			let success1 = await depositeToken(token1.address, canisterId, key);
+
+			if (success0 and success1) {
+				let _ = await mintAPosition(token0.address, token1.address, canisterId);
+			}
+
+		};
+		Buffer.toArray(failures);
+	};
+
+	func depositeToken(tokenId : Text, swapPoolId : Principal, key : Text) : async Bool {
+		// Giving approval for particular SwapPool to transfer your token0
+		let swapPool : SwapPool.Service = actor (Principal.toText(swapPoolId));
+
+		let ledger : Icrc2.Service = actor (tokenId);
+		let fee = Option.get(tokeFeeMap.get(tokenId), 0);
+		let amount = Option.get(liquidityAmountMap.get(tokenId), 0);
+		let approveArgs = getSwapPoolApproveArgs(amount + fee, swapPoolId);
+
+		dPrint("approve -- " # tokenId);
+		switch (await ledger.icrc2_approve(approveArgs)) {
+			case (#Ok(_value)) {
+				dPrint("approve Success-- " # tokenId);
+				switch (await swapPool.depositFrom({ token = tokenId; fee; amount })) {
+					case (#ok(_value)) {
+						dPrint("deposit Success-- " # tokenId);
+						true;
+					};
+					case (#err(error)) {
+						dPrint("deposit Failed-- " # tokenId);
+						failures.add(tokenId # " deposit failed: " # "[pool: " #Principal.toText(swapPoolId) # "] [method: depositFrom] [args: " # debug_show (approveArgs) # "] [response: " #debug_show (error) # "]\n\n");
+						false;
+					};
+				};
+			};
+			case (#Err(error)) {
+				dPrint("approve Failed-- " # tokenId);
+				failures.add(tokenId # " Approval failed: " # "[key: " #key # "] [method: icrc2_approve] [args: " #debug_show (approveArgs) # "] [response: " #debug_show (error) # "]\n\n");
+				false;
+			};
+		};
+	};
+
+	func mintAPosition(token0Id : Text, token1Id : Text, swapPoolId : Principal) : async ?Nat {
+		let swapPool : SwapPool.Service = actor (Principal.toText(swapPoolId));
+		let amount0Desired = Nat.toText(Option.get(liquidityAmountMap.get(token0Id), 0));
+		let amount1Desired = Nat.toText(Option.get(liquidityAmountMap.get(token1Id), 0));
+
+		let { sqrtPriceX96 } = switch (await swapPool.metadata()) {
+			case (#ok(metadata)) { metadata };
+			case (#err(error)) {
+				dPrint("metadata Failed-- " # Principal.toText(swapPoolId));
+				failures.add("failed to get metadata : " # "[pool: " #Principal.toText(swapPoolId) # "] [method: metadata] [response: " #debug_show (error) # "]\n\n");
+				return null;
+			};
+		};
+		let { tickLower; tickUpper } = await getTicks(token0Id, token1Id, sqrtPriceX96);
+		let mintArgs = {
+			fee = 3000;
+			amount0Desired;
+			amount1Desired;
+			token0 = token0Id;
+			token1 = token1Id;
+			tickUpper;
+			tickLower;
+		};
+		dPrint("mintArgs -- " # debug_show (mintArgs));
+		switch (await swapPool.mint(mintArgs)) {
+			case (#ok(value)) {
+				dPrint("mint success --" # debug_show (value));
+				?value;
+			};
+			case (#err(error)) {
+				dPrint("mint Failed --" # debug_show (error));
+				failures.add("Minting position failed: " # "[pool: " #Principal.toText(swapPoolId) # "] [method: mint] [args: " # debug_show (mintArgs) # "] [response: " #debug_show (error) # "]\n\n");
+				null;
+			};
+		};
+	};
+
+	func dPrint(text : Text) {
+		Debug.print(text);
+	};
+
+	func getTicks(token0Id : Text, token1Id : Text, sqrtPriceX96 : Nat) : async {
+		tickLower : Int;
+		tickUpper : Int;
+
+	} {
+		let decimals0 = Option.get(decimalsMap.get(token0Id), 1);
+		let decimals1 = Option.get(decimalsMap.get(token1Id), 1);
+		let price = await swapCalculator.getPrice(sqrtPriceX96, decimals0, decimals1);
+		let lowerPrice = getLowerPrice(price);
+		let upperPrice = getUpperPrice(price);
+		dPrint("price -- " # debug_show (price) # " lowerPrice -- " # debug_show (lowerPrice) # " upperPrice -- " # debug_show (upperPrice));
+		let tickLower = await swapCalculator.priceToTick(lowerPrice, 3000);
+		let tickUpper = await swapCalculator.priceToTick(upperPrice, 3000);
+		dPrint("tickLower -- " # debug_show (tickLower) # " tickUpper -- " # debug_show (tickUpper));
+		{ tickLower; tickUpper };
+	};
+
+	func getLowerPrice(price : Float) : Float {
+		calculatePriceChange(price, -50); // -50%
+	};
+	func getUpperPrice(price : Float) : Float {
+		calculatePriceChange(price, 100) // +100%
+	};
+
+	func calculatePriceChange(price : Float, percentage : Float) : Float {
+		// Convert percentage to a multiplier
+		let multiplier = 1 + (percentage / 100);
+		// Calculate the new price
+		let newPrice = price * multiplier;
+
+		if (newPrice < 0) {
+			Debug.trap("Price can not be negative, use correct percentage");
+		};
+		return newPrice;
+	};
+
+	func getSwapPoolApproveArgs(amount : Nat, canisterId : Principal) : Icrc2.ApproveArgs {
+		{
+			fee = null;
+			memo = null;
+			from_subaccount = null;
+			created_at_time = null;
+			expires_at = null;
+			expected_allowance = null;
+			amount;
+			spender = { owner = canisterId; subaccount = null };
+		};
+	};
+
+	func getLiquidtyAmountMap(price : Price1000UsdArgs) : HashMap.HashMap<Text, Nat> {
+		let liquidityAmountMap = HashMap.HashMap<Text, Nat>(0, Text.equal, Text.hash);
+
+		let usd1000 = 1000;
+		let decimals = (10 ** 8);
+
+		let icpAmount1000usd = (usd1000 * decimals) / price.ICP;
+		liquidityAmountMap.put("ryjl3-tyaaa-aaaaa-aaaba-cai", icpAmount1000usd);
+		liquidityAmountMap.put("xevnm-gaaaa-aaaar-qafnq-cai", (1000 * (10 ** 6)) / price.ckUSDC);
+		liquidityAmountMap.put("irorr-5aaaa-aaaak-qddsq-cai", (1000 * (10 ** 6)) / price.USDx);
+		liquidityAmountMap.put("mxzaz-hqaaa-aaaar-qaada-cai", (1000 * (10 ** 8)) / price.ckBTC);
+		liquidityAmountMap.put("ss2fx-dyaaa-aaaar-qacoq-cai", (1000 * (10 ** 18)) / price.ckETH);
+		liquidityAmountMap.put("cngnf-vqaaa-aaaar-qag4q-cai", (1000 * (10 ** 6)) / price.ckUSDT);
+		liquidityAmountMap;
 	};
 
 	system func preupgrade() {
@@ -202,8 +397,10 @@ actor class CreatePool(
 
 	module SwapCalculator {
 		public type Service = actor {
+			getPrice : shared query (Nat, Nat, Nat) -> async Float;
 			getSqrtPriceX96 : shared query (Float, Float, Float) -> async Int;
 			sortToken : shared query (Text, Text) -> async (Text, Text);
+			priceToTick : shared query (Float, Nat) -> async Int;
 		}
 
 	};
@@ -237,4 +434,85 @@ actor class CreatePool(
 		};
 	};
 
+	module SwapPool {
+		public type DepositArgs = { fee : Nat; token : Text; amount : Nat };
+		public type Error = {
+			#CommonError;
+			#InternalError : Text;
+			#UnsupportedToken : Text;
+			#InsufficientFunds;
+		};
+		public type IncreaseLiquidityArgs = {
+			positionId : Nat;
+			amount0Desired : Text;
+			amount1Desired : Text;
+		};
+		public type MintArgs = {
+			fee : Nat;
+			tickUpper : Int;
+			token0 : Text;
+			token1 : Text;
+			amount0Desired : Text;
+			amount1Desired : Text;
+			tickLower : Int;
+		};
+		public type Token = { address : Text; standard : Text };
+		public type PoolMetadata = {
+			fee : Nat;
+			key : Text;
+			sqrtPriceX96 : Nat;
+			tick : Int;
+			liquidity : Nat;
+			token0 : Token;
+			token1 : Token;
+			maxLiquidityPerTick : Nat;
+			nextPositionId : Nat;
+		};
+		public type WithdrawArgs = { fee : Nat; token : Text; amount : Nat };
+		public type Result = { #ok : Nat; #err : Error };
+		public type Result_6 = { #ok : PoolMetadata; #err : Error };
+		public type Result_7 = {
+			#ok : { balance0 : Nat; balance1 : Nat };
+			#err : Error;
+		};
+		public type Result_11 = { #ok : [Nat]; #err : Error };
+		public type Service = actor {
+			depositFrom : shared DepositArgs -> async Result;
+			getUserPositionIdsByPrincipal : shared query Principal -> async Result_11;
+			getUserUnusedBalance : shared query Principal -> async Result_7;
+			increaseLiquidity : shared IncreaseLiquidityArgs -> async Result;
+			mint : shared MintArgs -> async Result;
+			withdraw : shared WithdrawArgs -> async Result;
+			metadata : shared query () -> async Result_6;
+		};
+	};
+
+	module Icrc2 {
+		public type Account = { owner : Principal; subaccount : ?Blob };
+		public type ApproveArgs = {
+			fee : ?Nat;
+			memo : ?Blob;
+			from_subaccount : ?Blob;
+			created_at_time : ?Nat64;
+			amount : Nat;
+			expected_allowance : ?Nat;
+			expires_at : ?Nat64;
+			spender : Account;
+		};
+		public type ApproveError = {
+			#GenericError : { message : Text; error_code : Nat };
+			#TemporarilyUnavailable;
+			#Duplicate : { duplicate_of : Nat };
+			#BadFee : { expected_fee : Nat };
+			#AllowanceChanged : { current_allowance : Nat };
+			#CreatedInFuture : { ledger_time : Nat64 };
+			#TooOld;
+			#Expired : { ledger_time : Nat64 };
+			#InsufficientFunds : { balance : Nat };
+		};
+		public type Result_2 = { #Ok : Nat; #Err : ApproveError };
+		public type Service = actor {
+			icrc2_approve : shared ApproveArgs -> async Result_2;
+		};
+	};
 };

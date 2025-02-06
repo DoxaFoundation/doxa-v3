@@ -68,25 +68,9 @@ echo "Generated 20 random staking amount:"
 echo "${staking_amounts[@]}"
 echo "Total sum: $total"
 
-echo "Minting 110000 ckUSDC to default identity for Testing"
-export DEFAULT_ACCOUNT=$(dfx identity get-principal --identity default)
-
-dfx canister call ckusdc_ledger icrc1_transfer "(record{ to=record {owner = principal \"$DEFAULT_ACCOUNT\"} ; amount=110_000_000_000;})" --identity minter
-
-echo "Transfering 110_000 ckUSDC to Doxa Dollar Reserve Account"
-
-# store output to extract block index for notifying minter
-output=$(dfx canister call ckusdc_ledger icrc1_transfer '(record{ to=record {owner = principal "iyn2n-liaaa-aaaak-qddta-cai"; subaccount= opt blob "\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\01";} ; amount=110_000_000_000;})' --identity default)
-
-# Extract the number (block index) using awk for notifying minter
-number=$(echo "$output" | awk -F'Ok = ' '{print $2}' | awk -F' :' '{print $1}')
-
-
-echo "Notifying Doxa Dollar Minter"
-dfx canister call stablecoin_minter notify_mint_with_ckusdc "(record{ ckusdc_block_index=$number; minting_token=variant {USDx}})" --identity default
-
-echo "Minted 110_000 Doxa Dollar in default identity."
-echo
+echo "Minting 110000 USDx for Testing"
+chmod +x ./scripts/mint-usdx-local.sh
+./scripts/mint-usdx-local.sh 110000
 
 cd src/test
 

@@ -5,6 +5,7 @@ TOKEN_NAME="$3"
 TRANSFER_FEE="$4"
 METADATA="$5"
 CANISTER="$6"
+Amount=$7
 
 
 if ! dfx identity list | grep -q minter; then
@@ -17,7 +18,7 @@ export DEFAULT_ACCOUNT=$(dfx identity get-principal --identity default)
 export DOXA_ACCOUNT=$(dfx identity get-principal --identity doxa)
 
 # Mint 1000 tokens
-PRE_MINTED_TOKENS=$((1000 * 10 ** Decimals))
+PRE_MINTED_TOKENS=$((Amount * 10 ** Decimals))
 
 TRIGGER_THRESHOLD=2000
 NUM_OF_BLOCK_TO_ARCHIVE=1000

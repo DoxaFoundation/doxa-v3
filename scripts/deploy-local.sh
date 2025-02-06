@@ -26,7 +26,7 @@ dfx deploy icp_ledger --specified-id ryjl3-tyaaa-aaaaa-aaaba-cai --argument "
         record {
           \"$DEFAULT_ACCOUNT_ID\";
           record {
-            e8s = 10_000_000_000 : nat64;
+            e8s = 100_000_000_000 : nat64;
           };
         };
       };

@@ -22,8 +22,8 @@ export ckUSDT=$(dfx canister id ckusdt_ledger)
 cd ../../
 
 # Sending cycles to SwapFactory
-dfx wallet send $SwapFactory 50_000_000_000_000
-
+dfx wallet balance
+dfx wallet send $SwapFactory 32_000_000_000_000
 
 export USDx=$(dfx canister id usdx_ledger)
 export ckUSDC=$(dfx canister id ckusdc_ledger)
