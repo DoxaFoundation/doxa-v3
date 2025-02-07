@@ -14,6 +14,7 @@ import HashMap "mo:base/HashMap";
 import Option "mo:base/Option";
 import Blob "mo:base/Blob";
 import Nat8 "mo:base/Nat8";
+import Helper "./helper";
 
 // passcodeManager local - by6od-j4aaa-aaaaa-qaadq-cai
 // passcodeManager mainnet - 7eikv-2iaaa-aaaag-qdgwa-cai
@@ -42,16 +43,11 @@ actor class CreatePool(
 	let swapCalculator : SwapCalculator.Service = actor (swapCalculatorCid);
 	let swapFactory : SwapFactory.Service = actor (swapFactoryCid);
 
+	let decimalsMap : HashMap.HashMap<Text, Nat> = Helper.getDecimalsMap();
+	let priceMap = Helper.getTokenPriceMap();
+	let tokenNameMap = Helper.getTokenNameMap();
 	// Updated create function with direct token parameters
-	public shared func create({
-		token0Id : Text;
-		token0Standard : Text;
-		token0Decimals : Nat;
-		token1Id : Text;
-		token1Standard : Text;
-		token1Decimals : Nat;
-		initialPrice : Float;
-	}) : async Result.Result<SwapFactory.PoolData, Text> {
+	public shared func create(firstTokenId : Text, secondTokenId : Text) : async Result.Result<SwapFactory.PoolData, Text> {
 
 		// Todo checks needed allow only adims
 
@@ -100,6 +96,9 @@ actor class CreatePool(
 			case (#ok(_amount)) {};
 		};
 
+		// Step 6: Prepare pool creation parameters with direct inputs
+		let (token0Id, token1Id) = Helper.sortToken(firstTokenId, secondTokenId);
+
 		// Step 5: Request passcode (unchanged)
 		// Use PasscodeManager.requestPasscode to request a passcode for creating a SwapPool.
 
@@ -113,17 +112,17 @@ actor class CreatePool(
 			case (#err(error)) return #err(("Passcode request failed " # debug_show (error)));
 		};
 
-		// Step 6: Prepare pool creation parameters with direct inputs
-		let (sorted0, sorted1) = await swapCalculator.sortToken(token0Id, token1Id);
-
 		// Note
-		// initialPrice = sorted1 price / sorted0 price
+		let initialPrice = getInitialPrice(token0Id, token1Id);
+
+		let decimals0 = getDecimals(token0Id);
+		let decimals1 = getDecimals(token1Id);
 
 		// Calculate initial sqrt price using provided decimals
 		let sqrtPrice = await swapCalculator.getSqrtPriceX96(
 			initialPrice,
-			Float.fromInt(token0Decimals),
-			Float.fromInt(token1Decimals)
+			Float.fromInt(decimals0),
+			Float.fromInt(decimals1)
 		);
 
 		// Create pool arguments with direct standards input
@@ -131,8 +130,8 @@ actor class CreatePool(
 			fee = 3_000; // 0.3% pool fee
 			sqrtPriceX96 = Int.toText(sqrtPrice);
 			subnet = null;
-			token0 = { address = sorted0; standard = token0Standard };
-			token1 = { address = sorted1; standard = token1Standard };
+			token0 = { address = token0Id; standard = "ICRC2" };
+			token1 = { address = token1Id; standard = "ICRC2" };
 		};
 
 		// Final step: Create the pool
@@ -146,29 +145,22 @@ actor class CreatePool(
 		};
 	};
 
-	public query func getCreatedPoolData() : async [SwapFactory.PoolData] {
-		Buffer.toArray(swapPoolsCreated);
+	func getInitialPrice(token0Id : Text, token1Id : Text) : Float {
+		let token0Price = Option.get(priceMap.get(token0Id), 0.0);
+		let token1Price = Option.get(priceMap.get(token1Id), 0.0);
+		let initialPrice = token1Price / token0Price;
+
+		if (initialPrice == 0) Debug.trap("Initial price is 0");
+
+		initialPrice;
 	};
 
-	func getTokenFeeMap() : HashMap.HashMap<Text, Nat> {
-		let map = HashMap.HashMap<Text, Nat>(0, Text.equal, Text.hash);
-		map.put("ryjl3-tyaaa-aaaaa-aaaba-cai", 10_000);
-		map.put("xevnm-gaaaa-aaaar-qafnq-cai", 10_000);
-		map.put("irorr-5aaaa-aaaak-qddsq-cai", 10_000);
-		map.put("mxzaz-hqaaa-aaaar-qaada-cai", 10);
-		map.put("ss2fx-dyaaa-aaaar-qacoq-cai", 2_000_000_000_000);
-		map.put("cngnf-vqaaa-aaaar-qag4q-cai", 10_000);
-		map;
+	func getDecimals(tokenId : Text) : Nat {
+		Option.get(decimalsMap.get(tokenId), 1);
 	};
-	func getDecimalsMap() : HashMap.HashMap<Text, Nat> {
-		let map = HashMap.HashMap<Text, Nat>(0, Text.equal, Text.hash);
-		map.put("ryjl3-tyaaa-aaaaa-aaaba-cai", 8);
-		map.put("xevnm-gaaaa-aaaar-qafnq-cai", 6);
-		map.put("irorr-5aaaa-aaaak-qddsq-cai", 6);
-		map.put("mxzaz-hqaaa-aaaar-qaada-cai", 8);
-		map.put("ss2fx-dyaaa-aaaar-qacoq-cai", 18);
-		map.put("cngnf-vqaaa-aaaar-qag4q-cai", 6);
-		map;
+
+	public query func getCreatedPoolData() : async [SwapFactory.PoolData] {
+		Buffer.toArray(swapPoolsCreated);
 	};
 
 	type Price1000UsdArgs = {
@@ -182,8 +174,7 @@ actor class CreatePool(
 
 	let failures = Buffer.Buffer<Text>(0);
 	var liquidityAmountMap = HashMap.HashMap<Text, Nat>(0, Text.equal, Text.hash);
-	let tokeFeeMap : HashMap.HashMap<Text, Nat> = getTokenFeeMap();
-	let decimalsMap : HashMap.HashMap<Text, Nat> = getDecimalsMap();
+	let tokeFeeMap : HashMap.HashMap<Text, Nat> = Helper.getTokenFeeMap();
 
 	public func addInitialLiquidityLocal(price : Price1000UsdArgs) : async [Text] {
 		liquidityAmountMap := getLiquidtyAmountMap(price);
@@ -283,8 +274,8 @@ actor class CreatePool(
 		tickUpper : Int;
 
 	} {
-		let decimals0 = Option.get(decimalsMap.get(token0Id), 1);
-		let decimals1 = Option.get(decimalsMap.get(token1Id), 1);
+		let decimals0 = getDecimals(token0Id);
+		let decimals1 = getDecimals(token1Id);
 		let price = await swapCalculator.getPrice(sqrtPriceX96, decimals0, decimals1);
 		let lowerPrice = getLowerPrice(price);
 		let upperPrice = getUpperPrice(price);
@@ -353,6 +344,33 @@ actor class CreatePool(
 			ind := ind + 1;
 		};
 		return Blob.fromArray(Array.freeze(defaultArr));
+	};
+
+	public composite query func getPoolPrices() : async [{ name : Text; price : Float }] {
+
+		let prices = Buffer.Buffer<{ name : Text; price : Float }>(0);
+		for ({ canisterId; token0; token1 } in swapPoolsCreated.vals()) {
+
+			let swapPool : SwapPool.Service = actor (Principal.toText(canisterId));
+
+			switch (await swapPool.metadata()) {
+				case (#ok(metadata)) {
+					let { sqrtPriceX96; token0; token1 } = metadata;
+					let decimals0 = getDecimals(token0.address);
+					let decimals1 = getDecimals(token1.address);
+					let price = await swapCalculator.getPrice(sqrtPriceX96, decimals0, decimals1);
+
+					let name = getTokenName(token1.address) # "/" # getTokenName(token0.address);
+					prices.add({ name; price });
+				};
+				case (_) {};
+			};
+		};
+		Buffer.toArray(prices);
+	};
+
+	func getTokenName(tokenId : Text) : Text {
+		Option.get(tokenNameMap.get(tokenId), tokenId);
 	};
 
 	system func preupgrade() {
