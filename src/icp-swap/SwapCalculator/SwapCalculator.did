@@ -1,36 +1,22 @@
-type SwapCalculator = 
- service {
-   getCycleInfo: () -> (Result);
-   getPositionTokenAmount: (nat, int, int, int, nat, nat) ->
-    (record {
-       amount0: int;
-       amount1: int;
-     }) query;
-   getPrice: (nat, nat, nat) -> (float64) query;
-   getSqrtPriceX96: (float64, float64, float64) -> (int) query;
-   getTokenAmountByLiquidity: (nat, int, int, nat) ->
-    (record {
-       amount0: int;
-       amount1: int;
-     }) query;
-   priceToTick: (float64, nat) -> (int) query;
-   sortToken: (text, text) -> (text, text) query;
- };
-type Result = 
- variant {
-   err: Error;
-   ok: CycleInfo;
- };
-type Error = 
- variant {
-   CommonError;
-   InsufficientFunds;
-   InternalError: text;
-   UnsupportedToken: text;
- };
-type CycleInfo = 
- record {
-   available: nat;
-   balance: nat;
- };
+type CycleInfo = record { balance : nat; available : nat };
+type Error = variant {
+  CommonError;
+  InternalError : text;
+  UnsupportedToken : text;
+  InsufficientFunds;
+};
+type Result = variant { ok : CycleInfo; err : Error };
+type SwapCalculator = service {
+  getCycleInfo : () -> (Result);
+  getPositionTokenAmount : (nat, int, int, int, nat, nat) -> (
+      record { amount0 : int; amount1 : int },
+    ) query;
+  getPrice : (nat, nat, nat) -> (float64) query;
+  getSqrtPriceX96 : (float64, float64, float64) -> (int) query;
+  getTokenAmountByLiquidity : (nat, int, int, nat) -> (
+      record { amount0 : int; amount1 : int },
+    ) query;
+  priceToTick : (float64, float64, float64, nat) -> (int) query;
+  sortToken : (text, text) -> (text, text) query;
+};
 service : () -> SwapCalculator
