@@ -51,4 +51,43 @@ module {
 		map.put("cngnf-vqaaa-aaaar-qag4q-cai", "ckUSDT");
 		map;
 	};
+
+	type Price1000UsdArgs = {
+		ICP : Nat;
+		USDx : Nat;
+		ckBTC : Nat;
+		ckETH : Nat;
+		ckUSDC : Nat;
+		ckUSDT : Nat;
+	};
+
+	public func getLiquidtyAmountMap(price_ : ?Price1000UsdArgs) : HashMap.HashMap<Text, Nat> {
+		let price : Price1000UsdArgs = switch price_ {
+			case (?price) price;
+			case (null) {
+				{
+					ICP = 7;
+					USDx = 1;
+					ckUSDC = 1;
+					ckBTC = 100_000;
+					ckETH = 3000;
+					ckUSDT = 1;
+				};
+			};
+		};
+		let liquidityAmountMap = HashMap.HashMap<Text, Nat>(0, Text.equal, Text.hash);
+
+		let usd1000 = 1000;
+		let decimals = (10 ** 8);
+
+		let icpAmount1000usd = (usd1000 * decimals) / price.ICP;
+		liquidityAmountMap.put("ryjl3-tyaaa-aaaaa-aaaba-cai", icpAmount1000usd);
+		liquidityAmountMap.put("xevnm-gaaaa-aaaar-qafnq-cai", (usd1000 * (10 ** 6)) / price.ckUSDC);
+		liquidityAmountMap.put("irorr-5aaaa-aaaak-qddsq-cai", (usd1000 * (10 ** 6)) / price.USDx);
+		liquidityAmountMap.put("mxzaz-hqaaa-aaaar-qaada-cai", (usd1000 * (10 ** 8)) / price.ckBTC);
+		liquidityAmountMap.put("ss2fx-dyaaa-aaaar-qacoq-cai", (usd1000 * (10 ** 18)) / price.ckETH);
+		liquidityAmountMap.put("cngnf-vqaaa-aaaar-qag4q-cai", (usd1000 * (10 ** 6)) / price.ckUSDT);
+		liquidityAmountMap;
+	};
+
 };

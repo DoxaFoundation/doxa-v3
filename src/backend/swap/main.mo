@@ -57,15 +57,11 @@ actor class CreatePool(
 	let decimalsMap : HashMap.HashMap<Text, Nat> = Helper.getDecimalsMap();
 	let priceMap = Helper.getTokenPriceMap();
 	let tokenNameMap = Helper.getTokenNameMap();
+	let failures = Buffer.Buffer<Text>(0);
+	var liquidityAmountMap = Helper.getLiquidtyAmountMap(null);
+	let tokeFeeMap : HashMap.HashMap<Text, Nat> = Helper.getTokenFeeMap();
 
-	// Function: create
-	// Yeh function pool creation ka main process manage karta hai.
-	// Input Example:
-	//    firstTokenId: "ryjl3-tyaaa-aaaaa-aaaba-cai"
-	//    secondTokenId: "xevnm-gaaaa-aaaar-qafnq-cai"
-	// Return Example:
-	//    On success: { #ok: { canisterId: Principal("..."), token0: {...}, token1: {...}, key: "..." } }
-	//    On failure: { #err: "Error message..." }
+	// Updated create function with direct token parameters
 	public shared func create(firstTokenId : Text, secondTokenId : Text) : async Result.Result<SwapFactory.PoolData, Text> {
 
 		// NOTE: Abhi validations add nahi ki gayi, check karna hai ki sirf admin ya valid tokens use ho rahe hain.
@@ -90,11 +86,11 @@ actor class CreatePool(
 		// ICP Ledger ka icrc2_approve function call karte hain.
 		switch (await icpLedger.icrc2_approve(approveArgs)) {
 			case (#Ok(blockIndex)) {
-				// Example: blockIndex = 12345. Matlab approval transaction block number 12345 par successful.
+
 				Debug.print("Approval successful in block: " # Nat.toText(blockIndex));
 			};
 			case (#Err(e)) {
-				// Agar approval fail ho jaata hai, error return kar dete hain.
+
 				return #err(("Approval failed: " # debug_show (e)));
 			};
 		};
@@ -164,7 +160,6 @@ actor class CreatePool(
 			token1 = { address = token1Id; standard = "ICRC2" };
 		};
 
-		// Final step: Call swapFactory ka createPool function.
 		// Data flow: poolArgs -> SwapFactory -> Pool creation -> Returns PoolData.
 		switch (await swapFactory.createPool(poolArgs)) {
 			case (#ok(value)) {
@@ -218,17 +213,8 @@ actor class CreatePool(
 		ckUSDT : Nat;
 	};
 
-	// Buffer for logging failures during liquidity addition.
-	let failures = Buffer.Buffer<Text>(0);
-	var liquidityAmountMap = HashMap.HashMap<Text, Nat>(0, Text.equal, Text.hash);
-	let tokeFeeMap : HashMap.HashMap<Text, Nat> = Helper.getTokenFeeMap();
-
-	// Function: addInitialLiquidityLocal
-	// Purpose: Har created pool ke liye initial liquidity add karta hai.
-	// Input Example: price = { ICP: 30000, USDx: 1, ckBTC: 40000, ckETH: 2000, ckUSDC: 1, ckUSDT: 1 }
-	// Return: Array of failure messages [Text].
 	public func addInitialLiquidityLocal(price : Price1000UsdArgs) : async [Text] {
-		liquidityAmountMap := getLiquidtyAmountMap(price);
+		liquidityAmountMap := Helper.getLiquidtyAmountMap(?price);
 
 		// Pehle se stored failures clear kar do.
 		failures.clear();
@@ -248,10 +234,6 @@ actor class CreatePool(
 		Buffer.toArray(failures);
 	};
 
-	// Function: depositeToken
-	// Purpose: Specific token ke liye approval dekar deposit process handle karta hai.
-	// Input Example: tokenId = "ryjl3-tyaaa-aaaaa-aaaba-cai", swapPoolId = Principal("abcd..."), key = "uniqueKey"
-	// Return: true agar process successful, false otherwise.
 	func depositeToken(tokenId : Text, swapPoolId : Principal, key : Text) : async Bool {
 		// SwapPool ka service access karna.
 		let swapPool : SwapPool.Service = actor (Principal.toText(swapPoolId));
@@ -259,7 +241,9 @@ actor class CreatePool(
 		// Ledger service jo token transfers handle karta hai.
 		let ledger : Icrc2.Service = actor (tokenId);
 		let fee = Option.get(tokeFeeMap.get(tokenId), 0);
-		let amount = Option.get(liquidityAmountMap.get(tokenId), 0);
+		// let amount = Option.get(liquidityAmountMap.get(tokenId), 0);
+		let amount = getliquidityAmount(tokenId, swapPoolId);
+
 		let approveArgs = getSwapPoolApproveArgs(amount + fee, swapPoolId);
 
 		dPrint("approve -- " # tokenId);
@@ -286,14 +270,23 @@ actor class CreatePool(
 		};
 	};
 
-	// Function: mintAPosition
-	// Purpose: Deposit ke baad liquidity position mint karta hai.
-	// Input Example: token0Id = "ryjl3-tyaaa-aaaaa-aaaba-cai", token1Id = "xevnm-gaaaa-aaaar-qafnq-cai", swapPoolId = Principal("abcd...")
-	// Return: Optional Nat (position id) on success, null on failure.
+	func getliquidityAmount(tokenId : Text, swapPoolId : Principal) : Nat {
+		let ckUsdC_usdx = Principal.fromText("ahw5u-keaaa-aaaaa-qaaha-cai");
+		let usdx_ckUsdT = Principal.fromText("c2lt4-zmaaa-aaaaa-qaaiq-cai");
+		let ckUsdC_ckUsdT = Principal.fromText("dfdal-2uaaa-aaaaa-qaama-cai");
+
+		if (swapPoolId == ckUsdC_usdx or swapPoolId == usdx_ckUsdT or swapPoolId == ckUsdC_ckUsdT) {
+			10_000_000000;
+		} else { Option.get(liquidityAmountMap.get(tokenId), 0) };
+
+	};
+
 	func mintAPosition(token0Id : Text, token1Id : Text, swapPoolId : Principal) : async ?Nat {
 		let swapPool : SwapPool.Service = actor (Principal.toText(swapPoolId));
-		let amount0Desired = Nat.toText(Option.get(liquidityAmountMap.get(token0Id), 0));
-		let amount1Desired = Nat.toText(Option.get(liquidityAmountMap.get(token1Id), 0));
+		// let amount0Desired = Nat.toText(Option.get(liquidityAmountMap.get(token0Id), 0));
+		// let amount1Desired = Nat.toText(Option.get(liquidityAmountMap.get(token1Id), 0));
+		let amount0Desired = Nat.toText(getliquidityAmount(token0Id, swapPoolId));
+		let amount1Desired = Nat.toText(getliquidityAmount(token1Id, swapPoolId));
 
 		// Pool se current metadata (including sqrtPriceX96) lete hain.
 		let { sqrtPriceX96 } = switch (await swapPool.metadata()) {
@@ -329,20 +322,10 @@ actor class CreatePool(
 		};
 	};
 
-	// Helper function: dPrint
-	// Purpose: Debug messages print karne ke liye.
 	func dPrint(text : Text) {
 		Debug.print(text);
 	};
 
-	// Function: getTicks
-	// Purpose: Current sqrtPrice ke basis par lower aur upper tick values calculate karta hai.
-	// Input Example:
-	//    token0Id: "ryjl3-tyaaa-aaaaa-aaaba-cai"
-	//    token1Id: "xevnm-gaaaa-aaaar-qafnq-cai"
-	//    sqrtPriceX96: Nat value from swapCalculator.
-	// Return Example:
-	//    { tickLower: -100, tickUpper: 100 }
 	func getTicks(token0Id : Text, token1Id : Text, sqrtPriceX96 : Nat) : async {
 		tickLower : Int;
 		tickUpper : Int;
@@ -363,21 +346,14 @@ actor class CreatePool(
 		{ tickLower; tickUpper };
 	};
 
-	// Function: getLowerPrice
-	// Purpose: Current price se -50% adjustment lagake lower price calculate karta hai.
 	func getLowerPrice(price : Float) : Float {
 		calculatePriceChange(price, -50); // -50% change.
 	};
-	// Function: getUpperPrice
-	// Purpose: Current price se +100% adjustment lagake upper price calculate karta hai.
+
 	func getUpperPrice(price : Float) : Float {
 		calculatePriceChange(price, 100); // +100% change.
 	};
 
-	// Function: calculatePriceChange
-	// Purpose: Given percentage ke hisaab se price adjust karta hai.
-	// Input Example:
-	//    price = 1.5, percentage = -50, multiplier = 0.5 then newPrice = 0.75.
 	func calculatePriceChange(price : Float, percentage : Float) : Float {
 		// Percentage ko multiplier mein convert karte hain.
 		let multiplier = 1 + (percentage / 100);
@@ -390,10 +366,6 @@ actor class CreatePool(
 		return newPrice;
 	};
 
-	// Function: getSwapPoolApproveArgs
-	// Purpose: Specific token approval arguments prepare karta hai for a given SwapPool.
-	// Input: amount (Nat) and canisterId (Principal).
-	// Return: Icrc2.ApproveArgs object.
 	func getSwapPoolApproveArgs(amount : Nat, canisterId : Principal) : Icrc2.ApproveArgs {
 		{
 			fee = null;
@@ -407,30 +379,6 @@ actor class CreatePool(
 		};
 	};
 
-	// Function: getLiquidtyAmountMap
-	// Purpose: Fixed $1000 ke hisaab se har token ka liquidity amount calculate karta hai.
-	// Input: Price1000UsdArgs jisme token conversion details hote hain.
-	// Return: HashMap<Text, Nat> jisme token addresses mapped hote hain unke calculated amounts.
-	func getLiquidtyAmountMap(price : Price1000UsdArgs) : HashMap.HashMap<Text, Nat> {
-		let liquidityAmountMap = HashMap.HashMap<Text, Nat>(0, Text.equal, Text.hash);
-
-		let usd1000 = 1000;
-		let decimals = (10 ** 8);
-
-		let icpAmount1000usd = (usd1000 * decimals) / price.ICP;
-		liquidityAmountMap.put("ryjl3-tyaaa-aaaaa-aaaba-cai", icpAmount1000usd);
-		liquidityAmountMap.put("xevnm-gaaaa-aaaar-qafnq-cai", (1000 * (10 ** 6)) / price.ckUSDC);
-		liquidityAmountMap.put("irorr-5aaaa-aaaak-qddsq-cai", (1000 * (10 ** 6)) / price.USDx);
-		liquidityAmountMap.put("mxzaz-hqaaa-aaaar-qaada-cai", (1000 * (10 ** 8)) / price.ckBTC);
-		liquidityAmountMap.put("ss2fx-dyaaa-aaaar-qacoq-cai", (1000 * (10 ** 18)) / price.ckETH);
-		liquidityAmountMap.put("cngnf-vqaaa-aaaar-qag4q-cai", (1000 * (10 ** 6)) / price.ckUSDT);
-		liquidityAmountMap;
-	};
-
-	// Function: principalToBlob
-	// Purpose: Principal ko Blob format mein convert karta hai.
-	// Input: Principal p.
-	// Return: Blob (asynchronous).
 	public query func principalToBlob(p : Principal) : async Blob {
 		var arr : [Nat8] = Blob.toArray(Principal.toBlob(p));
 		var defaultArr : [var Nat8] = Array.init<Nat8>(32, 0);
@@ -443,10 +391,6 @@ actor class CreatePool(
 		return Blob.fromArray(Array.freeze(defaultArr));
 	};
 
-	// Function: getPoolPrices
-	// Purpose: Sabhi created pools se unka current price retrieve karta hai.
-	// Data flow: For each pool, metadata fetch karo -> getPrice from swapCalculator -> format token names.
-	// Return: Array of records { name: Text; price: Float }.
 	public composite query func getPoolPrices() : async [{ name : Text; price : Float }] {
 
 		let prices = Buffer.Buffer<{ name : Text; price : Float }>(0);
@@ -470,12 +414,73 @@ actor class CreatePool(
 		Buffer.toArray(prices);
 	};
 
-	// Function: getTokenName
-	// Purpose: Token address se uska naam retrieve karta hai.
-	// Input: tokenId as Text.
-	// Return: Token name (agar map mein na mile, toh tokenId return karta hai).
+	public func getPositionAmount() : async [{
+		name : Text;
+		amount0 : Int;
+		amount1 : Int;
+	}] {
+
+		let amounts = Buffer.Buffer<{ name : Text; amount0 : Int; amount1 : Int }>(0);
+		for ({ canisterId; token0; token1 } in swapPoolsCreated.vals()) {
+
+			let swapPool : SwapPool.Service = actor (Principal.toText(canisterId));
+
+			switch (await swapPool.metadata()) {
+				case (#ok(metadata)) {
+					let { sqrtPriceX96; token0; token1 } = metadata;
+					let decimals0 = getDecimals(token0.address);
+					let decimals1 = getDecimals(token1.address);
+
+					let price = await swapCalculator.getPrice(sqrtPriceX96, decimals0, decimals1);
+					let lowerPrice = getLowerPrice(price);
+					let upperPrice = getUpperPrice(price);
+
+					let tickCurrent = await swapCalculator.priceToTick(price, Float.fromInt(decimals0), Float.fromInt(decimals1), 3000);
+					let tickLower = await swapCalculator.priceToTick(lowerPrice, Float.fromInt(decimals0), Float.fromInt(decimals1), 3000);
+					let tickUpper = await swapCalculator.priceToTick(upperPrice, Float.fromInt(decimals0), Float.fromInt(decimals1), 3000);
+
+					let amount0Desired = Option.get(liquidityAmountMap.get(token0.address), 0);
+					let amount1Desired = Option.get(liquidityAmountMap.get(token1.address), 0);
+
+					let { amount0; amount1 } = await swapCalculator.getPositionTokenAmount(sqrtPriceX96, tickCurrent, tickLower, tickUpper, amount0Desired, amount1Desired);
+
+					let name = getTokenName(token1.address) # "/" # getTokenName(token0.address);
+
+					amounts.add({ name; amount0; amount1 });
+
+					dPrint(
+						"\n\n" # name # "\n" # "sqrtPriceX96 =" # debug_show (sqrtPriceX96) # "\n" #
+						"decimals0 =" # debug_show (decimals0) # "\n" # "decimals1 =" # debug_show (decimals1) # "\n"
+						# "price =" # debug_show (price) # "\n" # "lowerPrice =" # debug_show (lowerPrice) # "\n" #
+						"upperPrice =" # debug_show (upperPrice) # "\n" # "tickCurrent =" # debug_show (tickCurrent) # "\n"
+						# "tickLower =" # debug_show (tickLower) # "\n" # "tickUpper =" # debug_show (tickUpper) # "\n"
+						# "amount0Desired =" # debug_show (amount0Desired) # "\n" # "amount1Desired =" # debug_show (amount1Desired) # "\n"
+						# "amount0 =" # debug_show (amount0) # "\n" # "amount1 =" # debug_show (amount1) # "\n\n"
+					);
+				};
+				case (_) {};
+			};
+		};
+		Buffer.toArray(amounts);
+	};
+
 	func getTokenName(tokenId : Text) : Text {
 		Option.get(tokenNameMap.get(tokenId), tokenId);
+	};
+
+	public query func getPoolCanisterIds() : async [{
+		name : Text;
+		canisterId : Principal;
+	}] {
+		Buffer.toArray(
+			Buffer.map<SwapFactory.PoolData, { name : Text; canisterId : Principal }>(
+				swapPoolsCreated,
+				func({ canisterId; token0; token1 }) {
+					let name = getTokenName(token1.address) # "/" # getTokenName(token0.address);
+					{ name; canisterId };
+				}
+			)
+		);
 	};
 
 	public func calculatePositionAmount(poolId : Principal, amount0Desired : Nat, amount1Desired : Nat) : async ?{
@@ -583,14 +588,13 @@ actor class CreatePool(
 			getPrice : shared query (Nat, Nat, Nat) -> async Float;
 			getSqrtPriceX96 : shared query (Float, Float, Float) -> async Int;
 			sortToken : shared query (Text, Text) -> async (Text, Text);
-			getPositionTokenAmount : shared query (Nat, Int, Int, Int, Nat, Nat) -> async ({
+			priceToTick : shared query (Float, Float, Float, Nat) -> async Int;
+			getPositionTokenAmount : shared query (Nat, Int, Int, Int, Nat, Nat) -> async {
 				amount0 : Int;
 				amount1 : Int;
-			});
+			};
+		}
 
-			// Updated signature as per new candid: now accepts three Float parameters and a Nat.
-			priceToTick : shared query (Float, Float, Float, Nat) -> async Int;
-		};
 	};
 
 	module SwapFactory {
@@ -704,3 +708,28 @@ actor class CreatePool(
 		};
 	};
 };
+
+/*
+vec {
+    record { name = "ICP/USDx"; canisterId = principal "aovwi-4maaa-aaaaa-qaagq-cai" };
+    record { name = "ckUSDC/USDx"; canisterId = principal "ahw5u-keaaa-aaaaa-qaaha-cai" }; usdc1 = 9927815975 , usdx0 = 10000000000
+    record { name = "ckBTC/USDx"; canisterId = principal "aax3a-h4aaa-aaaaa-qaahq-cai" };
+    record { name = "ckETH/USDx"; canisterId = principal "c5kvi-uuaaa-aaaaa-qaaia-cai" };
+    record { name = "USDx/ckUSDT"; canisterId = principal "c2lt4-zmaaa-aaaaa-qaaiq-cai" };    usdx1 = 9927815975 usdt0 = 10000000000
+    record { name = "ckUSDC/ICP"; canisterId = principal "ctiya-peaaa-aaaaa-qaaja-cai" };
+    record { name = "ICP/ckBTC"; canisterId = principal "cuj6u-c4aaa-aaaaa-qaajq-cai" };
+    record { name = "ckETH/ICP"; canisterId = principal "cbopz-duaaa-aaaaa-qaaka-cai" };
+    record { name = "ICP/ckUSDT"; canisterId = principal "cgpjn-omaaa-aaaaa-qaakq-cai" };
+    record { name = "ckUSDC/ckBTC"; canisterId = principal "cpmcr-yeaaa-aaaaa-qaala-cai" };
+    record { name = "ckUSDC/ckETH"; canisterId = principal "cinef-v4aaa-aaaaa-qaalq-cai" };
+    record { name = "ckUSDC/ckUSDT"; canisterId = principal "dfdal-2uaaa-aaaaa-qaama-cai" };    usdc1 =9927815975  usdt0 = 10000000000
+    record { name = "ckETH/ckBTC"; canisterId = principal "dccg7-xmaaa-aaaaa-qaamq-cai" };
+    record { name = "ckBTC/ckUSDT"; canisterId = principal "dlbnd-beaaa-aaaaa-qaana-cai" };
+    record { name = "ckETH/ckUSDT"; canisterId = principal "dmalx-m4aaa-aaaaa-qaanq-cai" };
+};
+
+*/
+
+// 2025 - 02 - 08 07 : 46 : 22.848293 UTC : [Canister ajuq4 - ruaaa - aaaaa - qaaga - cai]
+
+// calculatePositionAmount - - ckUSDC / ICP(token1 / token0) sqrtPriceX96 = 2_994_543_069_219_333_035_066_916_864 decimals0 = 8 decimals1 = 6 price = 0.142857 lowerPrice = 0.071429 upperPrice = 0.285714 tickCurrent = -19_440 tickLower = -26_340 tickUpper = -12_480 amount0Desired = 100_000_000_000 amount1Desired = 7_000_000_000 amount0 = +1_318_109_024_955 amount1 = +12_336_725_588;

@@ -43,6 +43,24 @@ chmod +x ./scripts/mint-usdx-local.sh
 echo "Transfer 5110$ worth of 5110 USDx to Swap Canister"
 dfx canister call $USDx icrc1_transfer "(record {to=record{owner= principal \"$SWAP\"}; amount=5_110_000_000})"
 
+##### New Amount for stable coins
+# for usdx_ckUsdT and ckUsdC_ckUsdT pool 10k each
+echo "Transfer 20,000$ worth of 20,000 ckUSDT to Swap Canister" 
+dfx canister call $ckUSDT icrc1_transfer "(record {to=record{owner= principal \"$SWAP\"}; amount=20000000000})" --identity minter
+
+# for ckUsdC_usdx and ckUsdC_ckUsdT pool 10k each
+echo "Transfer 20,000$ worth of 20,000 ckUSDT to Swap Canister" 
+dfx canister call $ckUSDC icrc1_transfer "(record {to=record{owner= principal \"$SWAP\"}; amount=20000000000})" --identity minter
+
+# for ckUsdC_usdx and usdx_ckUsdT pool 10k each
+echo "Minting 20,000 USDx for Testing"
+chmod +x ./scripts/mint-usdx-local.sh
+./scripts/mint-usdx-local.sh 20000
+
+echo "Transfer 20,000$ worth of 20,000 USDx to Swap Canister"
+dfx canister call $USDx icrc1_transfer "(record {to=record{owner= principal \"$SWAP\"}; amount=20000000000})"
+
+####
 
 dfx canister call swap addInitialLiquidityLocal "(record{
 ICP=7;
