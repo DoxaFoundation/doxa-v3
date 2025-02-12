@@ -80,6 +80,10 @@
 					"ic": "xevnm-gaaaa-aaaar-qafnq-cai"
 				}
 			}
+		},
+		"swap": {
+			"main": "src/backend/swap/main.mo",
+			"type": "motoko"
 		}
 	},
 	"defaults": {

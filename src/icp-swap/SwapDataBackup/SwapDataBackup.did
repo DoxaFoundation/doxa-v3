@@ -1,0 +1,167 @@
+type UserPositionInfoWithId = 
+ record {
+   feeGrowthInside0LastX128: nat;
+   feeGrowthInside1LastX128: nat;
+   id: nat;
+   liquidity: nat;
+   tickLower: int;
+   tickUpper: int;
+   tokensOwed0: nat;
+   tokensOwed1: nat;
+ };
+type Token = 
+ record {
+   address: text;
+   standard: text;
+ };
+type TickInfoWithId = 
+ record {
+   feeGrowthOutside0X128: nat;
+   feeGrowthOutside1X128: nat;
+   id: text;
+   initialized: bool;
+   liquidityGross: nat;
+   liquidityNet: int;
+   secondsOutside: nat;
+   secondsPerLiquidityOutsideX128: nat;
+   tickCumulativeOutside: int;
+ };
+type SwapDataBackup = 
+ service {
+   backup: (principal) -> (Result);
+   clearAllBackupData: () -> (Result);
+   getAllPoolBackups: () -> (Result_4) query;
+   getCycleInfo: () -> (Result_3);
+   getPoolBackup: (principal) -> (Result_2) query;
+   getVersion: () -> (text) query;
+   isBackupDone: (principal) -> (Result_1) query;
+   removeBackupData: (principal) -> (Result);
+ };
+type Result_4 = 
+ variant {
+   err: Error;
+   ok: vec record {
+             principal;
+             PoolBackupData;
+           };
+ };
+type Result_3 = 
+ variant {
+   err: Error;
+   ok: CycleInfo;
+ };
+type Result_2 = 
+ variant {
+   err: Error;
+   ok: PoolBackupData;
+ };
+type Result_1 = 
+ variant {
+   err: Error;
+   ok: bool;
+ };
+type Result = 
+ variant {
+   err: Error;
+   ok;
+ };
+type PositionInfoWithId = 
+ record {
+   feeGrowthInside0LastX128: nat;
+   feeGrowthInside1LastX128: nat;
+   id: text;
+   liquidity: nat;
+   tokensOwed0: nat;
+   tokensOwed1: nat;
+ };
+type PoolMetadata = 
+ record {
+   fee: nat;
+   key: text;
+   liquidity: nat;
+   maxLiquidityPerTick: nat;
+   nextPositionId: nat;
+   sqrtPriceX96: nat;
+   tick: int;
+   token0: Token;
+   token1: Token;
+ };
+type PoolBackupData = 
+ record {
+   allTokenBalances:
+    vec record {
+          principal;
+          record {
+            balance0: nat;
+            balance1: nat;
+          };
+        };
+   errorMsg: text;
+   feeGrowthGlobal:
+    record {
+      feeGrowthGlobal0X128: nat;
+      feeGrowthGlobal1X128: nat;
+    };
+   isDone: bool;
+   isFailed: bool;
+   limitOrderStack: vec record {
+                          LimitOrderKey;
+                          LimitOrderValue;
+                        };
+   limitOrders:
+    record {
+      lowerLimitOrders: vec record {
+                              LimitOrderKey;
+                              LimitOrderValue;
+                            };
+      upperLimitOrders: vec record {
+                              LimitOrderKey;
+                              LimitOrderValue;
+                            };
+    };
+   metadata: PoolMetadata;
+   positions: vec PositionInfoWithId;
+   tickBitmaps: vec record {
+                      int;
+                      nat;
+                    };
+   ticks: vec TickInfoWithId;
+   tokenAmountState:
+    record {
+      swapFee0Repurchase: nat;
+      swapFee1Repurchase: nat;
+      swapFeeReceiver: text;
+      token0Amount: nat;
+      token1Amount: nat;
+    };
+   userPositionIds: vec record {
+                          text;
+                          vec nat;
+                        };
+   userPositions: vec UserPositionInfoWithId;
+ };
+type LimitOrderValue = 
+ record {
+   owner: principal;
+   token0InAmount: nat;
+   token1InAmount: nat;
+   userPositionId: nat;
+ };
+type LimitOrderKey = 
+ record {
+   tickLimit: int;
+   timestamp: nat;
+ };
+type Error = 
+ variant {
+   CommonError;
+   InsufficientFunds;
+   InternalError: text;
+   UnsupportedToken: text;
+ };
+type CycleInfo = 
+ record {
+   available: nat;
+   balance: nat;
+ };
+service : (principal, opt principal) -> SwapDataBackup

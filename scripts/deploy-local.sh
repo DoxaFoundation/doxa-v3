@@ -11,18 +11,22 @@ if ! dfx identity list | grep -q minter; then
     dfx identity new minter
 fi
 
+
 export MINTER_ACCOUNT_ID=$(dfx ledger account-id --identity minter)
+export MINTER_PRINCIPAL=$(dfx identity get-principal --identity minter)
 export DEFAULT_ACCOUNT_ID=$(dfx ledger account-id --identity default)
+
 
 dfx deploy icp_ledger --specified-id ryjl3-tyaaa-aaaaa-aaaba-cai --argument "
   (variant {
     Init = record {
       minting_account = \"$MINTER_ACCOUNT_ID\";
+      icrc1_minting_account = opt record { owner = principal \"${MINTER_PRINCIPAL}\"; subaccount = null };
       initial_values = vec {
         record {
           \"$DEFAULT_ACCOUNT_ID\";
           record {
-            e8s = 10_000_000_000 : nat64;
+            e8s = 100_000_000_000 : nat64;
           };
         };
       };

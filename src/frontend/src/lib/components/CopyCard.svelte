@@ -32,7 +32,7 @@
 </script>
 
 <Card size="lg">
-	<Badge rounded border class="w-fit">{badge}</Badge>
+	<!-- <Badge rounded border class="w-fit">{badge}</Badge> -->
 	<button onclick={copyPrincipalToClipboard}>
 		<p
 			class="font-normal text-gray-700 dark:text-gray-400 leading-tight hover:underline text-start whitespace-pre-wrap"

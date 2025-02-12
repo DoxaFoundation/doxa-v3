@@ -1,0 +1,26 @@
+type TrustedCanisterManager = 
+ service {
+   addCanister: (principal) -> (bool);
+   deleteCanister: (principal) -> (bool);
+   getCanisters: () -> (vec principal) query;
+   getCycleInfo: () -> (Result);
+   isCanisterTrusted: (principal) -> (bool) query;
+ };
+type Result = 
+ variant {
+   err: Error;
+   ok: CycleInfo;
+ };
+type Error = 
+ variant {
+   CommonError;
+   InsufficientFunds;
+   InternalError: text;
+   UnsupportedToken: text;
+ };
+type CycleInfo = 
+ record {
+   available: nat;
+   balance: nat;
+ };
+service : (opt principal) -> TrustedCanisterManager
