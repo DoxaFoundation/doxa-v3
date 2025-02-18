@@ -12,6 +12,11 @@ import { defineConfig, loadEnv } from 'vite';
 const network = process.env.DFX_NETWORK ?? 'local';
 const host = network === 'local' ? 'http://localhost:8080' : 'https://icp-api.io';
 
+type Details = {
+	ic?: string;
+	local?: string;
+};
+
 const readCanisterIds = ({ prefix }: { prefix?: string }): Record<string, string> => {
 	const canisterIdsJsonFile =
 		network === 'ic'
@@ -19,16 +24,18 @@ const readCanisterIds = ({ prefix }: { prefix?: string }): Record<string, string
 			: join(process.cwd(), '.dfx', 'local', 'canister_ids.json');
 
 	try {
-		type Details = {
-			ic?: string;
-			local?: string;
-		};
+		const canisterIdsInRootDirectory: Record<string, Details> = JSON.parse(
+			readFileSync(canisterIdsJsonFile, 'utf-8')
+		);
+		const canisterIdsInIcpSwapDirectory = readCanisterIdsInIcpSwapDirectory();
 
-		const config: Record<string, Details> = JSON.parse(readFileSync(canisterIdsJsonFile, 'utf-8'));
+		const config: Record<string, Details> = {
+			...canisterIdsInRootDirectory,
+			...canisterIdsInIcpSwapDirectory
+		};
 
 		return Object.entries(config).reduce((acc, current: [string, Details]) => {
 			const [canisterName, canisterDetails] = current;
-
 			return {
 				...acc,
 				[`${prefix ?? ''}${canisterName.toUpperCase()}_CANISTER_ID`]:
@@ -37,6 +44,23 @@ const readCanisterIds = ({ prefix }: { prefix?: string }): Record<string, string
 		}, {});
 	} catch (e) {
 		throw Error(`Could not get canister ID from ${canisterIdsJsonFile}: ${e}`);
+	}
+};
+
+const readCanisterIdsInIcpSwapDirectory = (): Record<string, Details> => {
+	const canisterIdsJsonFilePath =
+		network === 'ic'
+			? join(process.cwd(), 'src', 'icp-swap', 'canister_ids.json')
+			: join(process.cwd(), 'src', 'icp-swap', '.dfx', 'local', 'canister_ids.json');
+
+	try {
+		const config: Record<string, Details> = JSON.parse(
+			readFileSync(canisterIdsJsonFilePath, 'utf-8')
+		);
+
+		return config;
+	} catch (error) {
+		throw Error(`Could not get canister ID from ${canisterIdsJsonFilePath}: ${error}`);
 	}
 };
 
