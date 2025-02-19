@@ -9,6 +9,7 @@ import {
 import { connectPlug, disconnectPlug, syncPlugConnection } from '$lib/connection/plug.connection';
 import { connectAnonymously } from '$lib/connection/anonymous.connection';
 import { nfidLogin, nfidLogout } from '$lib/connection/nfid.connection';
+import type { IdentityProvider } from '$lib/types/auth';
 
 export interface AuthStoreData {
 	isAuthenticated: boolean;
@@ -16,14 +17,14 @@ export interface AuthStoreData {
 	stablecoinMinter: StablecoinMinterActor;
 	ckUSDC: IcrcLedgerActor;
 	USDx: IcrcLedgerActor;
-	identityProvider: string;
+	identityProvider: IdentityProvider;
 	principal: Principal;
 	staking: StakingActor;
 }
 
 export interface AuthSignInParams {
 	// domain?: 'ic0.app' | 'internetcomputer.org';
-	identityProvider?: 'ii' | 'plug' | 'nfid';
+	identityProvider?: IdentityProvider;
 }
 
 export interface AuthStore extends Readable<AuthStoreData> {
