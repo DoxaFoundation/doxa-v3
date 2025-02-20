@@ -1,15 +1,10 @@
 import { goto } from '$app/navigation';
 import { getActorsFromPlug } from '$lib/actors/actors.plug';
 import type { AuthStoreData } from '$lib/stores/auth.store';
-import {
-	CKUSDC_LEDGER_CANISTER_ID,
-	HOST,
-	STABLECOIN_MINTER_CANISTER_ID,
-	STAKING_CANISTER_ID,
-	USDX_LEDGER_CANISTER_ID
-} from '@constants/app.constants';
+import { HOST } from '@constants/app.constants';
 import { connectAnonymously } from './anonymous.connection';
 import type { ResultSuccess } from '$lib/types/utils';
+import { getWhitelist } from '@utils/wallet.utils';
 
 // @ts-ignore: next-line
 const plug = window?.ic?.plug;
@@ -57,12 +52,7 @@ const onConnectionUpdateHelper = async (set: (this: void, value: AuthStoreData) 
 export const connectPlug = async (set: (this: void, value: AuthStoreData) => void) => {
 	if (plug) {
 		try {
-			const whitelist = [
-				STABLECOIN_MINTER_CANISTER_ID,
-				USDX_LEDGER_CANISTER_ID,
-				CKUSDC_LEDGER_CANISTER_ID,
-				STAKING_CANISTER_ID
-			];
+			const whitelist = await getWhitelist();
 
 			const onConnectionUpdate = () => onConnectionUpdateHelper(set);
 

@@ -1,3 +1,7 @@
+import type {
+	Error as SwapFactoryError,
+	PoolData
+} from '@declarations/SwapFactory/SwapFactory.did';
 import type { MetadataValue, Subaccount } from '@dfinity/ledger-icrc/dist/candid/icrc_ledger';
 import type { Principal } from '@dfinity/principal';
 
@@ -19,3 +23,7 @@ export interface IcrcAccount {
 	owner: Principal;
 	subaccount?: Subaccount;
 }
+
+export type GetPoolResponse = { ok: PoolData } | { err: SwapFactoryError };
+
+export type GetPoolsResponse = { ok: PoolData[] } | { err: SwapFactoryError };

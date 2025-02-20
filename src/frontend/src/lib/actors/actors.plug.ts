@@ -9,7 +9,9 @@ import {
 	stakingCanisterIdlFactory,
 	icrcLedgerIdlFactory,
 	type Actors,
-	type IcrcLedgerActor
+	type IcrcLedgerActor,
+	swapPoolIdlFactory,
+	type SwapPoolActor
 } from '../types/actors';
 
 // @ts-ignore: next-line
@@ -38,5 +40,12 @@ export const getIcrcLedgerActorFromPlug = async (canisterId: string): Promise<Ic
 	return plug.createActor({
 		canisterId,
 		interfaceFactory: icrcLedgerIdlFactory
+	});
+};
+
+export const getSwapPoolActorFromPlug = async (canisterId: string): Promise<SwapPoolActor> => {
+	return plug.createActor({
+		canisterId,
+		interfaceFactory: swapPoolIdlFactory
 	});
 };
