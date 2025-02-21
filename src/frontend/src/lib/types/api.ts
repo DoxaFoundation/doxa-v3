@@ -2,6 +2,11 @@ import type {
 	Error as SwapFactoryError,
 	PoolData
 } from '@declarations/SwapFactory/SwapFactory.did';
+import type {
+	PoolMetadata,
+	Error as SwapPoolError,
+	Value
+} from '@declarations/SwapPool/SwapPool.did';
 import type { MetadataValue, Subaccount } from '@dfinity/ledger-icrc/dist/candid/icrc_ledger';
 import type { Principal } from '@dfinity/principal';
 
@@ -27,3 +32,18 @@ export interface IcrcAccount {
 export type GetPoolResponse = { ok: PoolData } | { err: SwapFactoryError };
 
 export type GetPoolsResponse = { ok: PoolData[] } | { err: SwapFactoryError };
+
+export type SwapPoolResponse = { ok: bigint } | { err: SwapPoolError };
+
+export type GetUserUnusedBalanceResponse =
+	| { ok: { balance0: bigint; balance1: bigint } }
+	| { err: SwapPoolError };
+
+export interface TokenMetadata {
+	token0: Array<[string, Value]>;
+	token1: Array<[string, Value]>;
+	token0Fee: [] | [bigint];
+	token1Fee: [] | [bigint];
+}
+
+export type MetadataResponse = { ok: PoolMetadata } | { err: SwapPoolError };
