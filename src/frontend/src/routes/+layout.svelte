@@ -5,11 +5,13 @@
 	import '../app.css';
 	import { authStore } from '$lib/stores/auth.store';
 	import { Toaster, toast } from 'svelte-sonner';
+	import { fetchLedgerMetadata, LedgerMetadata } from '@states/ledger-metadata.svelte';
 
 	let { children } = $props();
 
 	onMount(async () => {
 		await authStore.sync();
+		fetchLedgerMetadata();
 	});
 
 	const unsubscribe = authStore.subscribe((value) => {
@@ -18,6 +20,8 @@
 		}
 	});
 	onDestroy(unsubscribe);
+
+	$inspect(LedgerMetadata);
 </script>
 
 <Toaster />

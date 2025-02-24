@@ -5,7 +5,7 @@ import type {
 	GetUserUnusedBalanceResponse,
 	MetadataResponse,
 	SwapPoolResponse,
-	TokenMetadata
+	PoolTokensMetadata
 } from '$lib/types/api';
 import type { DepositArgs, SwapArgs, WithdrawArgs } from '@declarations/SwapPool/SwapPool.did';
 import type { Principal } from '@dfinity/principal';
@@ -34,7 +34,7 @@ export const depositFrom = async ({
 
 export const getTokenMeta = async ({
 	canisterId
-}: CanisterApiFunctionParams): Promise<TokenMetadata> => {
+}: CanisterApiFunctionParams): Promise<PoolTokensMetadata> => {
 	const { getTokenMeta } = await swapPoolCanister({ canisterId });
 
 	return getTokenMeta();

@@ -14,7 +14,7 @@ export type CanisterApiFunctionParams<T = unknown> = T & {
 	canisterId: string;
 };
 
-export declare enum IcrcMetadataResponseEntries {
+export enum IcrcMetadataResponseEntries {
 	SYMBOL = 'icrc1:symbol',
 	NAME = 'icrc1:name',
 	DECIMALS = 'icrc1:decimals',
@@ -39,7 +39,7 @@ export type GetUserUnusedBalanceResponse =
 	| { ok: { balance0: bigint; balance1: bigint } }
 	| { err: SwapPoolError };
 
-export interface TokenMetadata {
+export interface PoolTokensMetadata {
 	token0: Array<[string, Value]>;
 	token1: Array<[string, Value]>;
 	token0Fee: [] | [bigint];
