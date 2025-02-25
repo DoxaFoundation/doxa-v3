@@ -3,6 +3,7 @@ import { getActors } from '$lib/actors/actors.ic';
 import type { AuthStoreData } from '$lib/stores/auth.store';
 import { AuthClient } from '@dfinity/auth-client';
 import { connectAnonymously } from './anonymous.connection';
+import { FRONTEND_CANISTER_ID } from '@constants/app.constants';
 
 let authClient: AuthClient | null | undefined;
 
@@ -40,6 +41,7 @@ export const authClientLogin = async (set: (this: void, value: AuthStoreData) =>
 		// }
 		await authClient.login({
 			identityProvider,
+			derivationOrigin: `https://${FRONTEND_CANISTER_ID}.icp0.io`,
 			maxTimeToLive: BigInt(7) * BigInt(24) * BigInt(3_600_000_000_000), // 1 week
 			onSuccess: async () => {
 				await syncAuthClient(set);
