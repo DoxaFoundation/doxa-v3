@@ -3,7 +3,7 @@ import { getActors } from '$lib/actors/actors.ic';
 import type { AuthStoreData } from '$lib/stores/auth.store';
 import { AuthClient } from '@dfinity/auth-client';
 import { connectAnonymously } from './anonymous.connection';
-import { FRONTEND_CANISTER_ID } from '@constants/app.constants';
+import { FRONTEND_CANISTER_ID, LOCAL, PROD } from '@constants/app.constants';
 
 let authClient: AuthClient | null | undefined;
 
@@ -31,17 +31,16 @@ export const authClientLogin = async (set: (this: void, value: AuthStoreData) =>
 	new Promise<void>(async (resolve, reject) => {
 		authClient = authClient ?? (await AuthClient.create());
 
-		const identityProvider =
-			import.meta.env.VITE_DFX_NETWORK === 'local'
-				? 'http://rdmx6-jaaaa-aaaaa-aaadq-cai.localhost:8080'
-				: 'https://identity.internetcomputer.org/';
+		const identityProvider = LOCAL
+			? 'http://rdmx6-jaaaa-aaaaa-aaadq-cai.localhost:8080'
+			: 'https://identity.internetcomputer.org/';
 
 		// if (get(authStore).identityProvider === 'plug') {
 		// 	await plug?.disconnect();
 		// }
 		await authClient.login({
 			identityProvider,
-			derivationOrigin: `https://${FRONTEND_CANISTER_ID}.icp0.io`,
+			derivationOrigin: PROD ? `https://${FRONTEND_CANISTER_ID}.icp0.io` : `http://localhost:5173`,
 			maxTimeToLive: BigInt(7) * BigInt(24) * BigInt(3_600_000_000_000), // 1 week
 			onSuccess: async () => {
 				await syncAuthClient(set);
