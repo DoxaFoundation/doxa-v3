@@ -3,7 +3,6 @@
 	import { Button } from 'flowbite-svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { Modal } from 'flowbite-svelte';
-	import { balanceStore } from '$lib/stores/balance.store';
 	import { authStore } from '$lib/stores/auth.store';
 	import { type IcrcTransferArg } from '@dfinity/ledger-icrc';
 	import { Toast } from 'flowbite-svelte';
@@ -11,7 +10,9 @@
 	import { Select, Label, Input, Spinner } from 'flowbite-svelte';
 	import { fly } from 'svelte/transition';
 	import { assertNonNullish } from '@dfinity/utils';
-	import { from6Decimals, to6Decimals } from '@utils/decimals.utils';
+	import { to6Decimals } from '@utils/decimals.utils';
+	import { CKUSDC_LEDGER_CANISTER_ID, USDX_LEDGER_CANISTER_ID } from '@constants/app.constants';
+	import { balances, fetchBalances } from '@states/ledger-balance.svelte';
 
 	interface Props {
 		openTransferModal: boolean;
@@ -79,9 +80,9 @@
 
 	function getCurrentSelectTokenBalance(): number {
 		if (selectedToken === 'USDx') {
-			return from6Decimals($balanceStore.usdx);
+			return balances[USDX_LEDGER_CANISTER_ID].number;
 		} else if (selectedToken === 'ckUSDC') {
-			return from6Decimals($balanceStore.ckUsdc);
+			return balances[CKUSDC_LEDGER_CANISTER_ID].number;
 		} else {
 			return 0;
 		}
@@ -90,9 +91,9 @@
 	let amountPlaceholder = $state('Amount');
 	function changeAmountPlaceholder() {
 		if (selectedToken === 'USDx') {
-			amountPlaceholder = 'Balance: ' + from6Decimals($balanceStore.usdx);
+			amountPlaceholder = 'Balance: ' + balances[USDX_LEDGER_CANISTER_ID].format;
 		} else if (selectedToken === 'ckUSDC') {
-			amountPlaceholder = 'Balance: ' + from6Decimals($balanceStore.ckUsdc);
+			amountPlaceholder = 'Balance: ' + balances[CKUSDC_LEDGER_CANISTER_ID].format;
 		} else {
 			amountPlaceholder = 'Amount';
 		}
@@ -106,13 +107,13 @@
 	}
 	function onClickMaxButton() {
 		if (selectedToken === 'USDx') {
-			let balance = from6Decimals($balanceStore.usdx);
-			if ($balanceStore.usdx > 0) {
+			let balance = balances[USDX_LEDGER_CANISTER_ID].number;
+			if (balance > 0) {
 				amount = balance - 0.01;
 			}
 		} else if (selectedToken === 'ckUSDC') {
-			let balance = from6Decimals($balanceStore.ckUsdc);
-			if ($balanceStore.ckUsdc > 0) {
+			let balance = balances[CKUSDC_LEDGER_CANISTER_ID].number;
+			if (balance > 0) {
 				amount = balance - 0.01;
 			}
 		}
@@ -169,7 +170,7 @@
 		openTransferModal = false;
 		changeAmountPlaceholder();
 		disableTransferButton();
-		await balanceStore.sync();
+		await fetchBalances();
 	}
 
 	onMount(() => {
@@ -180,10 +181,10 @@
 	});
 	onDestroy(unsubscribe);
 
-	const unsubscribe2 = balanceStore.subscribe((value) => {
+	$effect(() => {
+		balances;
 		disableTransferButton();
 	});
-	onDestroy(unsubscribe2);
 </script>
 
 <Modal size="xs" title="Transfer tokens" bind:open={openTransferModal} outsideclose>
@@ -231,7 +232,6 @@
 		<Button on:click={onClickTransferButton} disabled={buttonDisable} class="w-full">
 			{#if loadSpinner}<Spinner class="me-3" size="6" color="white" />{/if}{buttomMessage}</Button
 		>
-		<!-- <Button color="alternative">Decline</Button> -->
 	{/snippet}
 </Modal>
 

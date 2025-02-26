@@ -1,8 +1,9 @@
 import type { Stake } from '$lib/types/staking';
 import type { ResultSuccess } from '$lib/types/utils';
+import { USDX_LEDGER_CANISTER_ID } from '@constants/app.constants';
+import { updateBalance } from '@states/ledger-balance.svelte';
 import { myStakes } from '@states/my-stakes.svelte';
 import { authStore } from '@stores/auth.store';
-import { balanceStore } from '@stores/balance.store';
 import { toast } from 'svelte-sonner';
 import { get } from 'svelte/store';
 
@@ -21,7 +22,7 @@ export const claimReward = async (stake: Stake): Promise<ResultSuccess> => {
 		if ('ok' in response) {
 			toastId = toast.success(`Claimed ${stake.unclaimedRewards} USDx`, { id: toastId });
 			myStakes.fetch();
-			balanceStore.updateUsdxBalance();
+			updateBalance(USDX_LEDGER_CANISTER_ID);
 		} else {
 			toastId = toast.error(`Failed to claim reward: ${response.err}`, { id: toastId });
 		}

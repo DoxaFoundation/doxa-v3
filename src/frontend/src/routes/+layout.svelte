@@ -1,27 +1,28 @@
 <script lang="ts">
 	import Navbar from '$lib/components/Navbar.svelte';
-	import { balanceStore } from '$lib/stores/balance.store';
 	import { onDestroy, onMount } from 'svelte';
 	import '../app.css';
 	import { authStore } from '$lib/stores/auth.store';
 	import { Toaster, toast } from 'svelte-sonner';
-	import { fetchLedgerMetadata, LedgerMetadata } from '@states/ledger-metadata.svelte';
+	import { syncLedgerMetadata, LedgerMetadata } from '@states/ledger-metadata.svelte';
+	import { balances, fetchBalances } from '@states/ledger-balance.svelte';
 
 	let { children } = $props();
 
 	onMount(async () => {
 		await authStore.sync();
-		fetchLedgerMetadata();
+		syncLedgerMetadata();
 	});
 
 	const unsubscribe = authStore.subscribe((value) => {
-		if (value) {
-			balanceStore.sync();
+		if (value && value.isAuthenticated) {
+			fetchBalances();
 		}
 	});
 	onDestroy(unsubscribe);
 
-	$inspect(LedgerMetadata);
+	$inspect('Ledger Metadata', LedgerMetadata);
+	$inspect('Balances ', balances);
 </script>
 
 <Toaster />

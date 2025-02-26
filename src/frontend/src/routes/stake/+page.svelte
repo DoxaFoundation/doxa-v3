@@ -1,16 +1,12 @@
 <script lang="ts">
 	import { Button } from 'flowbite-svelte';
-	import { Select, Input } from 'flowbite-svelte';
+	import { Input } from 'flowbite-svelte';
 	import { LockTimeSolid } from 'flowbite-svelte-icons';
-	import { DarkMode } from 'flowbite-svelte';
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy } from 'svelte';
 	import { fetchStakingPoolDetails, stakeUSDx } from '@services/staking.service';
 	import { stakingPoolDetails } from '@states/staking.svelte';
 	import { fetchFeecollecteds } from '@services/fee-collected.service';
 	import { feeCollected } from '@states/fee-collected.svelte';
-	import { balanceStore } from '@stores/balance.store';
-	import { displayBalanceInFormat } from '@utils/fromat.utils';
-	import { from6Decimals, truncateDecimal } from '@utils/decimals.utils';
 	import { assertNonNullish, isNullish } from '@dfinity/utils';
 	import UserStakesPosition from '@components/Stake/UserStakePositions.svelte';
 	import {
@@ -20,6 +16,10 @@
 	} from '@constants/staking.constants';
 	import { authStore } from '@stores/auth.store';
 	import { Range, Label } from 'flowbite-svelte';
+	import { Tabs, TabItem } from 'flowbite-svelte';
+	import { myStakes } from '@states/my-stakes.svelte';
+	import { DECIMALS, USDX_LEDGER_CANISTER_ID } from '@constants/app.constants';
+	import { balances } from '@states/ledger-balance.svelte';
 
 	let days = $state(MINMUM_STAKE_DURATION_IN_DAYS);
 
@@ -34,10 +34,7 @@
 
 	let amount = $state<number>();
 
-	let balance = $state(from6Decimals($balanceStore.usdx));
-	$effect(() => {
-		balance = from6Decimals($balanceStore.usdx);
-	});
+	let balance = balances[USDX_LEDGER_CANISTER_ID].number;
 
 	let buttonContent = $derived.by<string>(() => {
 		if (isNullish(amount)) {
@@ -79,7 +76,6 @@
 	const onclick = async () => {
 		assertNonNullish(amount);
 		await stakeUSDx({ amount: Number(amount?.toFixed(DECIMALS)), days });
-		balance = from6Decimals($balanceStore.usdx);
 		amount = 0;
 	};
 
@@ -92,9 +88,6 @@
 	/// add start time ckUSDC pool
 
 	///
-	import { Tabs, TabItem } from 'flowbite-svelte';
-	import { myStakes } from '@states/my-stakes.svelte';
-	import { DECIMALS } from '@constants/app.constants';
 
 	$inspect(myStakes);
 
@@ -115,8 +108,6 @@
 		}
 	}
 </script>
-
-<!-- <DarkMode /> -->
 
 <div class="flex flex-col items-center justify-center mt-2 dark:text-white mb-4">
 	<div class="bg-gray-100 dark:bg-gray-900 box-border max-w-[548px] w-full rounded-xl p-4 md:p-6">
@@ -188,7 +179,7 @@
 						</div>
 						<div class="flex justify-between items-center mt-3 w-full">
 							<p class="text-sm text-gray-500 dark:text-gray-400">
-								Balance: {displayBalanceInFormat($balanceStore.usdx)}
+								Balance: {balances[USDX_LEDGER_CANISTER_ID].format}
 							</p>
 							<button
 								class="w-fit underline rounded text-sm text-gray-500 dark:text-gray-400"

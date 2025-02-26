@@ -3,14 +3,15 @@
 	import { Principal } from '@dfinity/principal';
 	import { onMount, onDestroy, tick } from 'svelte';
 	import { Button, Tooltip } from 'flowbite-svelte';
-	import { balanceStore } from '$lib/stores/balance.store';
 	import { Select, Label, Input } from 'flowbite-svelte';
 	import ProgressSteps from '$lib/components/ProgressSteps.svelte';
 	import type { Account, BlockIndex } from '@dfinity/ledger-icrc/dist/candid/icrc_ledger';
 	import { ArrowLeftOutline } from 'flowbite-svelte-icons';
 	import SelectDropDown from '$lib/components/SelectDropDown.svelte';
 	import { ckUsdcBase64 } from '../assets/base64-svg';
-	import { from6Decimals, to6Decimals } from '@utils/decimals.utils';
+	import { to6Decimals } from '@utils/decimals.utils';
+	import { balances, updateBalance } from '@states/ledger-balance.svelte';
+	import { CKUSDC_LEDGER_CANISTER_ID, USDX_LEDGER_CANISTER_ID } from '@constants/app.constants';
 
 	let selectedToken: string = $state('ckUSDC');
 	let selectedMint: string = $state('USDx');
@@ -41,7 +42,7 @@
 	let buttonMessage = $state('Mint');
 
 	function setMaxCkUSDC() {
-		let balance = from6Decimals($balanceStore.ckUsdc);
+		let balance = balances[CKUSDC_LEDGER_CANISTER_ID].number;
 		if (balance > 0) {
 			selectTokenAmount_ckUSDC = balance - 0.01;
 		}
@@ -63,7 +64,7 @@
 			return;
 		} else {
 			let minimumBalance = 1.01;
-			let currentBalance = from6Decimals($balanceStore.ckUsdc);
+			let currentBalance = balances[CKUSDC_LEDGER_CANISTER_ID]?.number;
 
 			if (currentBalance < minimumBalance) {
 				buttonMessage = 'Not enough balance, minimum 1 ckUSDC + fee';
@@ -102,7 +103,8 @@
 
 	async function mintAndUpdateBalance() {
 		await mintUSDxWithCkUSDC();
-		await balanceStore.sync();
+		await updateBalance(USDX_LEDGER_CANISTER_ID);
+		await updateBalance(CKUSDC_LEDGER_CANISTER_ID);
 	}
 
 	async function mintUSDxWithCkUSDC() {
@@ -211,10 +213,10 @@
 	});
 	onDestroy(unsubscribe);
 
-	const unsubscribe2 = balanceStore.subscribe((value) => {
+	$effect(() => {
+		balances;
 		disableMintButton();
 	});
-	onDestroy(unsubscribe2);
 </script>
 
 <div class="flex flex-col items-center justify-center mt-2">
@@ -241,7 +243,7 @@
 								on:input={disableMintButton}
 							>
 								<!-- <svelte:fragment slot="right">
-									{#if selectTokenAmount_ckUSDC + 0.01 !== from6Decimals($balanceStore.ckUsdc) && selectedToken === 'ckUSDC'}
+									{#if selectTokenAmount_ckUSDC + 0.01 !== balances[CKUSDC_LEDGER_CANISTER_ID].number && selectedToken === 'ckUSDC'}
 										<button class="text-center" on:click={setMaxCkUSDC}>Max</button>
 									{/if}
 								</svelte:fragment> -->

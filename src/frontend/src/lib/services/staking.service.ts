@@ -7,9 +7,10 @@ import { transfer } from './icrc.service';
 import { to6Decimals } from '@utils/decimals.utils';
 import { STAKING_ACCOUNT } from '@constants/staking.constants';
 import { daysToNanoseconds } from '@utils/date-time.utils';
-import { balanceStore } from '@stores/balance.store';
 import { myStakes } from '@states/my-stakes.svelte';
 import type { AutoCompoundAction } from '@declarations/staking_canister/staking_canister.did';
+import { updateBalance } from '@states/ledger-balance.svelte';
+import { USDX_LEDGER_CANISTER_ID } from '@constants/app.constants';
 
 export const fetchStakingPoolDetails = async () => {
 	try {
@@ -39,7 +40,7 @@ export const stakeUSDx = async ({ amount, days }: StakePrams) => {
 		toastId = toast.loading('Notifying staking canister...', { id: toastId });
 
 		const { notifyStake } = get(authStore).staking;
-		balanceStore.updateUsdxBalance();
+		updateBalance(USDX_LEDGER_CANISTER_ID);
 
 		const daysNano = daysToNanoseconds(days);
 
@@ -140,7 +141,7 @@ export const unstake = async (index: number) => {
 		if ('ok' in response) {
 			myStakes.value.splice(index, 1);
 			toastId = toast.success('Unstaked successfully', { id: toastId });
-			balanceStore.updateUsdxBalance();
+			updateBalance(USDX_LEDGER_CANISTER_ID);
 		} else {
 			toastId = toast.error(response.err, { id: toastId });
 		}
