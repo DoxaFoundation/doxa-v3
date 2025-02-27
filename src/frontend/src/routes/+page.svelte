@@ -42,7 +42,7 @@
 	let buttonMessage = $state('Mint');
 
 	function setMaxCkUSDC() {
-		let balance = balances[CKUSDC_LEDGER_CANISTER_ID].number;
+		let balance = balances[CKUSDC_LEDGER_CANISTER_ID]?.number;
 		if (balance > 0) {
 			selectTokenAmount_ckUSDC = balance - 0.01;
 		}
@@ -243,7 +243,7 @@
 								on:input={disableMintButton}
 							>
 								<!-- <svelte:fragment slot="right">
-									{#if selectTokenAmount_ckUSDC + 0.01 !== balances[CKUSDC_LEDGER_CANISTER_ID].number && selectedToken === 'ckUSDC'}
+									{#if selectTokenAmount_ckUSDC + 0.01 !== balances[CKUSDC_LEDGER_CANISTER_ID]?.number && selectedToken === 'ckUSDC'}
 										<button class="text-center" on:click={setMaxCkUSDC}>Max</button>
 									{/if}
 								</svelte:fragment> -->

@@ -3,10 +3,16 @@
 	import { writable, type Writable } from 'svelte/store';
 	// import ToolbarButton from '../toolbar/ToolbarButton.svelte';
 	import Menu from './Menu.svelte';
-	let hiddenStore: Writable<boolean> = getContext('navHidden') ?? writable(true);
-	const toggle = (ev: any) => hiddenStore.update((h) => !h);
-
 	import { ToolbarButton } from 'flowbite-svelte';
+
+	let hiddenStore: Writable<boolean> = getContext('navHidden') ?? writable(true);
+	let isMenuHidden = $state(true);
+
+	const toggle = (ev: any) => {
+		hiddenStore.update((h) => !h);
+		isMenuHidden = !isMenuHidden;
+	};
+
 	interface Props {
 		menuClass?: string;
 		onClick?: any;
@@ -23,7 +29,7 @@
 </script>
 
 <ToolbarButton name="Open main menu" onclick={onclick || toggle} {...rest} class={btnClass}>
-	<Menu class={menuClass} />
+	<Menu class={menuClass} isOpen={!isMenuHidden} />
 </ToolbarButton>
 
 <!--d

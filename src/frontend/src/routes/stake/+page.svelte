@@ -34,7 +34,7 @@
 
 	let amount = $state<number>();
 
-	let balance = balances[USDX_LEDGER_CANISTER_ID].number;
+	let balance = balances[USDX_LEDGER_CANISTER_ID]?.number;
 
 	let buttonContent = $derived.by<string>(() => {
 		if (isNullish(amount)) {
@@ -179,7 +179,7 @@
 						</div>
 						<div class="flex justify-between items-center mt-3 w-full">
 							<p class="text-sm text-gray-500 dark:text-gray-400">
-								Balance: {balances[USDX_LEDGER_CANISTER_ID].format}
+								Balance: {balances[USDX_LEDGER_CANISTER_ID]?.format}
 							</p>
 							<button
 								class="w-fit underline rounded text-sm text-gray-500 dark:text-gray-400"

@@ -80,9 +80,9 @@
 
 	function getCurrentSelectTokenBalance(): number {
 		if (selectedToken === 'USDx') {
-			return balances[USDX_LEDGER_CANISTER_ID].number;
+			return balances[USDX_LEDGER_CANISTER_ID]?.number;
 		} else if (selectedToken === 'ckUSDC') {
-			return balances[CKUSDC_LEDGER_CANISTER_ID].number;
+			return balances[CKUSDC_LEDGER_CANISTER_ID]?.number;
 		} else {
 			return 0;
 		}
@@ -91,9 +91,9 @@
 	let amountPlaceholder = $state('Amount');
 	function changeAmountPlaceholder() {
 		if (selectedToken === 'USDx') {
-			amountPlaceholder = 'Balance: ' + balances[USDX_LEDGER_CANISTER_ID].format;
+			amountPlaceholder = 'Balance: ' + balances[USDX_LEDGER_CANISTER_ID]?.format;
 		} else if (selectedToken === 'ckUSDC') {
-			amountPlaceholder = 'Balance: ' + balances[CKUSDC_LEDGER_CANISTER_ID].format;
+			amountPlaceholder = 'Balance: ' + balances[CKUSDC_LEDGER_CANISTER_ID]?.format;
 		} else {
 			amountPlaceholder = 'Amount';
 		}
@@ -107,12 +107,12 @@
 	}
 	function onClickMaxButton() {
 		if (selectedToken === 'USDx') {
-			let balance = balances[USDX_LEDGER_CANISTER_ID].number;
+			let balance = balances[USDX_LEDGER_CANISTER_ID]?.number;
 			if (balance > 0) {
 				amount = balance - 0.01;
 			}
 		} else if (selectedToken === 'ckUSDC') {
-			let balance = balances[CKUSDC_LEDGER_CANISTER_ID].number;
+			let balance = balances[CKUSDC_LEDGER_CANISTER_ID]?.number;
 			if (balance > 0) {
 				amount = balance - 0.01;
 			}
