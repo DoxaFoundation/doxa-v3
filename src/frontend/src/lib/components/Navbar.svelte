@@ -13,9 +13,11 @@
 	let nonActiveClass =
 		'text-black bg-white text-sm border border-black py-2 w-fit px-7 rounded-md hover:text-white hover:bg-black shadow';
 
-	let smallscreenStyle = 'transition-colors transition-[font-weight] duration-[250ms] ease-out';
-	let smallscreenActiveClass = 'font-bold text-black';
-	let smallscreenNonActiveClass = 'font-light text-gray-500 hover:text-gray-950 hover:font-medium';
+	let smallscreenStyle =
+		'transition-all duration-500 lg:duration-300 ease-out border-b-2 border-transparent';
+	let smallscreenActiveClass = 'font-bold text-black border-b-2 border-black';
+	let smallscreenNonActiveClass =
+		'font-light text-gray-500 hover:text-gray-950 hover:border-gray-300 hover:font-medium';
 </script>
 
 <Navbar class="px-2 sm:px-4 py-2.5 w-full border-b">
@@ -93,7 +95,7 @@
 			>
 				Swap
 			</div>
-			<Tooltip type="light">Coming soon...</Tooltip>
+			<!-- <Tooltip type="light">Coming soon...</Tooltip> -->
 		</NavLi>
 
 		<NavLi href="/transactions/">
@@ -104,7 +106,7 @@
 			>
 				Transactions
 			</div>
-			<Tooltip type="light">Coming soon...</Tooltip>
+			<!-- <Tooltip type="light">Coming soon...</Tooltip> -->
 		</NavLi>
 	</NavUl>
 </Navbar>
