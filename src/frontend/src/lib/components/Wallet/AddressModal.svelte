@@ -2,8 +2,8 @@
 	import { AccountIdentifier } from '@dfinity/ledger-icp';
 	import { authStore } from '@stores/auth.store';
 	import { copyToClipboard } from '@utils/copy.utils';
-	import { Button, Input, Label, Modal } from 'flowbite-svelte';
-	import { Copy, IdCard } from 'lucide-svelte';
+	import { Button, Input, Label, Modal, Tooltip } from 'flowbite-svelte';
+	import { CircleHelp, Copy, IdCard } from 'lucide-svelte';
 	let popupModal = $state(false);
 
 	let principalId = $authStore.principal.toString();
@@ -55,10 +55,12 @@
 				size="md"
 				class="outline-0 text-xs"
 			/>
+			<p class="text-xs text-gray-500">
+				Use for all ICRC tokens when receiving from wallets, users, or other apps that support
+				Principal ID.
+			</p>
 		</Label>
-	</div>
 
-	<div class="space-y-4">
 		<Label for="principal-id" class="w-full border rounded-lg p-3 md:p-4 space-y-3">
 			<div class="flex justify-between items-center">
 				<span class="font-medium text-base">Account ID</span>
@@ -79,6 +81,9 @@
 				size="md"
 				class="outline-0 text-xs"
 			/>
+			<p class="text-xs text-gray-500">
+				Use for ICP deposits from exchanges or other wallets that only support Account IDs.
+			</p>
 		</Label>
 	</div>
 </Modal>
