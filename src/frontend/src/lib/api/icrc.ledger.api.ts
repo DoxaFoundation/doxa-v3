@@ -150,7 +150,7 @@ const icrcLedgerCanister = async ({
 }: CanisterApiFunctionParams): Promise<IcrcLedgerActor> => {
 	let { principal } = get(authStore);
 
-	const cacheKey = `${principal}_${canisterId}`;
+	const cacheKey = `${principal.toString()}_${canisterId}`;
 
 	// If a canister instance exists for the key, return it.
 	if (ledgerCanisterCache.has(cacheKey)) {

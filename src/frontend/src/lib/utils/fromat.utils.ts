@@ -1,6 +1,17 @@
 import { LedgerMetadata } from '@states/ledger-metadata.svelte';
-import { from6Decimals } from './decimals.utils';
+import { from6Decimals, fromBigIntDecimals } from './decimals.utils';
 
+/**
+ * Formats a number according to the token's decimal places with proper formatting.
+ * Features:
+ * - Truncates (not rounds) to the token's decimal precision
+ * - Removes trailing zeros after the decimal point
+ * - Adds thousand separators (') to the integer part
+ *
+ * @param number - The number to format
+ * @param canisterId - The ID of the token canister to determine decimal places
+ * @returns A formatted string representation of the number
+ */
 export function formatNumber(number: number, canisterId: string): string {
 	const { decimals } = LedgerMetadata[canisterId];
 
@@ -21,6 +32,14 @@ export function formatNumber(number: number, canisterId: string): string {
 	return decimalPart ? `${intPart}.${decimalPart}` : intPart;
 }
 
-export function displayBalanceInFormat(balance: bigint, canisterId: string): string {
-	return formatNumber(from6Decimals(balance), canisterId);
+/**
+ * Converts a bigint balance to a formatted string representation.
+ * Uses the token's decimal places from the ledger metadata.
+ *
+ * @param balance - The bigint balance to display
+ * @param canisterId - The ID of the token canister
+ * @returns A formatted string representation of the balance
+ */
+export function displayBigIntBalanceInFormat(balance: bigint, canisterId: string): string {
+	return formatNumber(fromBigIntDecimals(balance, canisterId), canisterId);
 }

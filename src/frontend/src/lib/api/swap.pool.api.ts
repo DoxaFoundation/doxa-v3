@@ -89,7 +89,7 @@ const swapPoolCanister = async ({
 }: CanisterApiFunctionParams): Promise<SwapPoolActor> => {
 	let { principal } = get(authStore);
 
-	const cacheKey = `${principal}_${canisterId}`;
+	const cacheKey = `${principal.toString()}_${canisterId}`;
 
 	if (swapPoolCanisterCache.has(cacheKey)) {
 		return swapPoolCanisterCache.get(cacheKey)!;
