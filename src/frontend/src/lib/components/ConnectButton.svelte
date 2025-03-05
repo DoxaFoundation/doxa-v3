@@ -1,12 +1,11 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { authStore } from '$lib/stores/auth.store';
 	import { WalletOutline } from 'flowbite-svelte-icons';
-	import OptionButton from './OptionButton.svelte';
+	import WalletModal from './Wallet/WalletModal.svelte';
 </script>
 
 {#if $authStore?.isAuthenticated}
-	<OptionButton />
+	<WalletModal />
 {:else}
 	<a
 		href="/connect"
