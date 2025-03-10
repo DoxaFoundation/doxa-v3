@@ -38,3 +38,5 @@ export interface Balance {
 }
 
 export type BalancesState = Record<string, Balance>;
+
+export type TokensPriceState = Record<string, number>;

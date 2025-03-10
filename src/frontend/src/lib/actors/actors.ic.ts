@@ -6,15 +6,19 @@ import {
 	type IcrcLedgerActor,
 	type StakingActor,
 	stakingCanisterIdlFactory,
-	type Actors
+	type Actors,
+	type UtilityActor,
+	utilityIdlFactory
 } from '$lib/types/actors';
 import {
 	CKUSDC_LEDGER_CANISTER_ID,
 	STABLECOIN_MINTER_CANISTER_ID,
 	STAKING_CANISTER_ID,
-	USDX_LEDGER_CANISTER_ID
+	USDX_LEDGER_CANISTER_ID,
+	UTILITY_CANISTER_ID
 } from '@constants/app.constants';
 import { getAgent } from './agents.ic';
+import { anonIdentity } from '$lib/connection/anonymous.connection';
 
 export const getStablecoinMinterActor = async (
 	identity: Identity
@@ -53,3 +57,9 @@ export const getActors = async (identity: Identity): Promise<Actors> => ({
 	USDx: await getUsdxActor(identity),
 	staking: await getStakingActor(identity)
 });
+
+export const getUtilityActor = async (): Promise<UtilityActor> => {
+	const agent = await getAgent({ identity: anonIdentity });
+
+	return Actor.createActor(utilityIdlFactory, { agent, canisterId: UTILITY_CANISTER_ID });
+};

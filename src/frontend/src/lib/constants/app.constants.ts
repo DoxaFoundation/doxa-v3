@@ -9,6 +9,8 @@ export const PROD = Network === 'ic';
 export const STABLECOIN_MINTER_CANISTER_ID = import.meta.env
 	.VITE_STABLECOIN_MINTER_CANISTER_ID as string;
 
+export const UTILITY_CANISTER_ID = import.meta.env.VITE_UTILITY_CANISTER_CANISTER_ID as string;
+
 export const CKUSDC_LEDGER_CANISTER_ID = import.meta.env.VITE_CKUSDC_LEDGER_CANISTER_ID as string;
 
 export const USDX_LEDGER_CANISTER_ID = import.meta.env.VITE_USDX_LEDGER_CANISTER_ID as string;

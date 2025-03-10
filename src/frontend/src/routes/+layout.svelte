@@ -6,12 +6,14 @@
 	import { Toaster, toast } from 'svelte-sonner';
 	import { syncLedgerMetadata, LedgerMetadata } from '@states/ledger-metadata.svelte';
 	import { balances, fetchBalances } from '@states/ledger-balance.svelte';
+	import { fetchPrices, price } from '@states/tokens-price.svelte';
 
 	let { children } = $props();
 
 	onMount(async () => {
 		await authStore.sync();
 		syncLedgerMetadata();
+		fetchPrices();
 	});
 
 	const unsubscribe = authStore.subscribe((value) => {
@@ -23,6 +25,7 @@
 
 	$inspect('Ledger Metadata', LedgerMetadata);
 	$inspect('Balances ', balances);
+	$inspect('Prices', price);
 </script>
 
 <Toaster />
