@@ -23,12 +23,14 @@
 		"SwapFactory": {
 			"wasm": "./SwapFactory/SwapFactory.wasm",
 			"type": "custom",
-			"candid": "./SwapFactory/SwapFactory.did"
+			"candid": "./SwapFactory/SwapFactory.did",
+			"specified_id": "4mmnk-kiaaa-aaaag-qbllq-cai"
 		},
 		"PasscodeManager": {
 			"wasm": "./PasscodeManager/PasscodeManager.wasm",
 			"type": "custom",
-			"candid": "./PasscodeManager/PasscodeManager.did"
+			"candid": "./PasscodeManager/PasscodeManager.did",
+			"specified_id": "7eikv-2iaaa-aaaag-qdgwa-cai"
 		},
 		"TrustedCanisterManager": {
 			"wasm": "./TrustedCanisterManager/TrustedCanisterManager.wasm",
@@ -43,7 +45,8 @@
 		"SwapCalculator": {
 			"wasm": "./SwapCalculator/SwapCalculator.wasm",
 			"type": "custom",
-			"candid": "./SwapCalculator/SwapCalculator.did"
+			"candid": "./SwapCalculator/SwapCalculator.did",
+			"specified_id": "phr2m-oyaaa-aaaag-qjuoq-cai"
 		},
 		"ics_ledger": {
 			"type": "custom",
