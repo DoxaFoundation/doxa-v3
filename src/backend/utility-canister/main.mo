@@ -104,9 +104,9 @@ actor {
 		Option.get(decimalsMap.get(tokenId), 1);
 	};
 
-	/*
-      Get the price of all tokens from mainnet ICPSwap
-      @return - Array of (token, price)
+	/**
+     * Get the price of all tokens from mainnet ICPSwap
+     * @return - Array of (token, price)
      */
 	public composite query func get_all_token_prices() : async [(Text, Float)] {
 		let x = allTokenPriceMainnet.keys();
