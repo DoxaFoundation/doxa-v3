@@ -30,6 +30,10 @@ export const getSwapPoolActor = async (canisterId: string): Promise<SwapPoolActo
 		return Actor.createActor(swapPoolIdlFactory, { agent, canisterId });
 	} else if (identityProvider === 'plug') {
 		return getSwapPoolActorFromPlug(canisterId);
+	} else if (identityProvider === 'anonymous') {
+		const agent = await getAgent({ identity: anonIdentity });
+
+		return Actor.createActor(swapPoolIdlFactory, { agent, canisterId });
 	}
 
 	throw new Error('Invalid identity provider');
