@@ -21,7 +21,7 @@
 	}
 
 	let {
-		menuClass = 'h-6 w-6 shrink-0',
+		menuClass = 'h-8 w-8 shrink-0',
 		onclick = undefined,
 		btnClass = 'ms-3',
 		...rest

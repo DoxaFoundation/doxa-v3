@@ -2,7 +2,7 @@
 	import { ChevronDoubleDownOutline } from 'flowbite-svelte-icons';
 
 	let {
-		size = '24',
+		size = 32,
 		color = 'currentColor',
 		isOpen = false,
 		ariaLabel = 'toggle menu',
