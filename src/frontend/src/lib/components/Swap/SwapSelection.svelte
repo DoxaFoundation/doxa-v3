@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { balances } from '@states/ledger-balance.svelte';
 	import { LedgerMetadata } from '@states/ledger-metadata.svelte';
+	import { price } from '@states/tokens-price.svelte';
+	import { formatUsdValue } from '@utils/fromat.utils';
 	import { getIcrcLedgerCanisterIds } from '@utils/icrc-ledger.utils';
 	import { Button, Modal } from 'flowbite-svelte';
 	import { ChevronDownIcon } from 'lucide-svelte';
@@ -13,8 +15,6 @@
 	let open = $state(false);
 
 	const tokens = getIcrcLedgerCanisterIds();
-
-	// let selected: string | undefined = $state();
 
 	const onSelect = (ledger: string) => () => {
 		selected = ledger;
@@ -54,20 +54,22 @@
 			onclick={onSelect(ledgerId)}
 		>
 			<img
-				src={LedgerMetadata[ledgerId].logo}
+				src={LedgerMetadata[ledgerId]?.logo}
 				class="size-10"
-				alt={LedgerMetadata[ledgerId].symbol}
+				alt={LedgerMetadata[ledgerId]?.symbol}
 			/>
 
 			<div class="flex justify-between w-full text-start text-gray-900 dark:text-white">
 				<div class="flex flex-col">
-					<span class="font-semibold">{LedgerMetadata[ledgerId].symbol}</span>
-					<span class="text-sm text-gray-500">{LedgerMetadata[ledgerId].name}</span>
+					<span class="font-semibold">{LedgerMetadata[ledgerId]?.symbol}</span>
+					<span class="text-sm text-gray-500">{LedgerMetadata[ledgerId]?.name}</span>
 				</div>
 
 				<div class="flex flex-col text-right">
-					<span class="text-sm">{balances[ledgerId].format}</span>
-					<span class="text-xs text-gray-500">$0.00</span>
+					<span class="text-sm">{balances[ledgerId]?.format}</span>
+					<span class="text-xs text-gray-500"
+						>${formatUsdValue((price[ledgerId] ?? 0) * (balances[ledgerId]?.number ?? 0))}
+					</span>
 				</div>
 			</div>
 		</button>

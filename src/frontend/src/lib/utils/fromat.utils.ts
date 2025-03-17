@@ -33,6 +33,46 @@ export function formatNumber(number: number, canisterId: string): string {
 }
 
 /**
+ * Formats a number to 2 decimal places if it's less than 1, otherwise 0 decimal places.
+ *
+ * @param number - The number to format
+ * @returns A formatted string representation of the number
+ */
+export function formatUsdValue(number: number): string {
+	const decimals = number < 1 ? 6 : 2;
+
+	// // Truncate the number so that we don't round it
+	// const factor = Math.pow(10, decimals);
+	// const truncated = Math.floor(number * factor) / factor;
+
+	// Get a fixed string representation with the desired decimal places.
+	let fixedStr = number.toFixed(decimals);
+
+	// Remove unnecessary trailing zeros and a trailing decimal point if present.
+	fixedStr = fixedStr.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '');
+
+	// Add thousand separators to integer part by splitting the number on the decimal point.
+	let [intPart, decimalPart] = fixedStr.split('.');
+	intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, "'");
+
+	return decimalPart ? `${intPart}.${decimalPart}` : intPart;
+}
+
+/**
+ * Formats a raw number with thousand separators.
+ *
+ * @param number - The number to format
+ * @returns A formatted string representation of the number
+ */
+export function formatRawNumber(number: number): string {
+	// Add thousand separators to integer part by splitting the number on the decimal point.
+	let [intPart, decimalPart] = number.toString().split('.');
+	intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, "'");
+
+	return decimalPart ? `${intPart}.${decimalPart}` : intPart;
+}
+
+/**
  * Converts a bigint balance to a formatted string representation.
  * Uses the token's decimal places from the ledger metadata.
  *

@@ -8,7 +8,8 @@
 		"node_index": {
 			"wasm": "./data-collection/node_index/node_index.wasm",
 			"type": "custom",
-			"candid": "./data-collection/node_index/node_index.did"
+			"candid": "./data-collection/node_index/node_index.did",
+			"specified_id": "ggzvv-5qaaa-aaaag-qck7a-cai"
 		},
 		"base_index": {
 			"wasm": "./data-collection/base_index/base_index.wasm",

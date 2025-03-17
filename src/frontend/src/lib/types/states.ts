@@ -1,3 +1,4 @@
+import type { PoolData } from '@declarations/SwapFactory/SwapFactory.did';
 import type { Stake } from './staking';
 export interface StakingPoolDetailsState {
 	stakingTokenSymbol: string;
@@ -40,3 +41,5 @@ export interface Balance {
 export type BalancesState = Record<string, Balance>;
 
 export type TokensPriceState = Record<string, number>;
+
+export type SwapPoolDataState = Map<string, PoolData>;

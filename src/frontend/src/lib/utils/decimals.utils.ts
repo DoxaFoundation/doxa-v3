@@ -36,7 +36,7 @@ export function truncateDecimal(num: number, places: number) {
  * @param canisterId - The ID of the token canister to determine decimal places
  * @returns The equivalent JavaScript number with proper decimal representation
  */
-export function fromBigIntDecimals(value: bigint, canisterId: string) {
+export function fromBigIntDecimals(value: bigint, canisterId: string): number {
 	const { decimals } = LedgerMetadata[canisterId];
 
 	assertNonNullish(decimals, 'Decimals not found');
@@ -55,7 +55,7 @@ export function toBigIntDecimals(value: number, canisterId: string) {
 
 	assertNonNullish(decimals, 'Decimals not found');
 
-	return BigInt(value * 10 ** decimals);
+	return BigInt(Math.trunc(value * Math.pow(10, decimals)));
 }
 
 /**

@@ -1,10 +1,11 @@
 import type { TokensPriceState } from '$lib/types/states';
-import { getPricesFromCkusdcPools } from '$lib/api/utility.canister.api';
+import { getAllTokenPrices, getPricesFromCkusdcPools } from '$lib/api/utility.canister.api';
+import { LOCAL } from '@constants/app.constants';
 
 export const price = $state<TokensPriceState>({});
 
 export const fetchPrices = async () => {
-	const prices = await getPricesFromCkusdcPools();
+	const prices = LOCAL ? await getPricesFromCkusdcPools() : await getAllTokenPrices();
 
 	prices.forEach(([tokenId, tokenPrice]) => {
 		price[tokenId] = tokenPrice;

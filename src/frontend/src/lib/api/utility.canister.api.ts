@@ -5,9 +5,15 @@ import { isNullish } from '@dfinity/utils';
 let canister: UtilityActor | undefined;
 
 export const getPricesFromCkusdcPools = async (): Promise<Array<[string, number]>> => {
-	const { get_prices_from_ckusdc_pools } = await getUtilityCanister();
+	const { get_prices_from_ckusdc_pools_local } = await getUtilityCanister();
 
-	return get_prices_from_ckusdc_pools();
+	return get_prices_from_ckusdc_pools_local();
+};
+
+export const getAllTokenPrices = async (): Promise<Array<[string, number]>> => {
+	const { get_all_token_prices } = await getUtilityCanister();
+
+	return get_all_token_prices();
 };
 
 const getUtilityCanister = async (): Promise<UtilityActor> => {

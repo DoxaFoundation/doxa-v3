@@ -1,7 +1,7 @@
 <script>
-	import { ChevronsDownUpIcon, ChevronsUpDownIcon } from 'lucide-svelte';
+	import { ChevronsDownUpIcon } from 'lucide-svelte';
 
-	let { from = $bindable(), to = $bindable() } = $props();
+	let { from = $bindable(), to = $bindable(), give = $bindable(), get = $bindable() } = $props();
 
 	let animation = $state(false);
 
@@ -9,7 +9,12 @@
 		const temp = from;
 		from = to;
 		to = temp;
+
 		animation = !animation;
+
+		const tempGive = give;
+		give = get;
+		get = tempGive;
 	};
 </script>
 

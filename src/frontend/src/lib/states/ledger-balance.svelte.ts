@@ -2,7 +2,7 @@ import { balance } from '$lib/api/icrc.ledger.api';
 import type { Balance, BalancesState } from '$lib/types/states';
 import { authStore } from '@stores/auth.store';
 import { fromBigIntDecimals } from '@utils/decimals.utils';
-import { formatNumber } from '@utils/fromat.utils';
+import { formatRawNumber } from '@utils/fromat.utils';
 import { getIcrcLedgerCanisterIds } from '@utils/icrc-ledger.utils';
 import { toast } from 'svelte-sonner';
 import { get } from 'svelte/store';
@@ -22,7 +22,7 @@ export const fetchBalances = async () => {
 				try {
 					const response = await balance({ canisterId, owner: principal });
 					const number = fromBigIntDecimals(response, canisterId);
-					const format = formatNumber(number, canisterId);
+					const format = formatRawNumber(number);
 
 					return { number, format };
 				} catch (error) {
@@ -50,7 +50,7 @@ export const updateBalance = async (canisterId: string) => {
 		const response = await balance({ canisterId, owner: principal });
 
 		const number = fromBigIntDecimals(response, canisterId);
-		const format = formatNumber(number, canisterId);
+		const format = formatRawNumber(number);
 
 		balances[canisterId] = { number, format };
 	} catch (error) {
