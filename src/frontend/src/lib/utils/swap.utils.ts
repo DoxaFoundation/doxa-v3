@@ -94,14 +94,6 @@ export const getSwapArgs = (
 export const calculateAmountOutMinimum = (to: string, amount: string, slippage: number): string => {
 	const factor = 1 - slippage / 100;
 
-	if (amount !== '0') {
-		console.log(
-			'slipage factor ',
-			factor,
-			'amountOutMinimum',
-			toStringDecimals(Number(amount) * factor, to)
-		);
-	}
 	return toStringDecimals(Number(amount) * factor, to);
 };
 
@@ -159,11 +151,6 @@ export function calculatePriceImpact(
 
 	return adjustedPriceImpact;
 }
-
-// Example usage:
-const impact = calculatePriceImpact(2, 4308.15, 5.68, 0.00262, 0.0059997);
-console.log('Calculated Price Impact:', impact);
-// In the Dex UI, this is multiplied by -1 and then formatted to show as -0.02% (if impact is roughly 0.0002)
 
 /**
  * Calculate the price impact based on input parameters.

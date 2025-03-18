@@ -79,7 +79,7 @@
 	const debounceUpdateQuote = () => {
 		if (give === '' || give === '0') return;
 		clearTimeout(quoteUpdateTimeout);
-		console.log('debounce initated');
+
 		quoteUpdateTimeout = setTimeout(updateQuote, 500);
 	};
 

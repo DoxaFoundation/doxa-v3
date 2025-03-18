@@ -118,13 +118,13 @@ export const swapToken = async (
 	try {
 		const pool = getPoolData(from, to);
 		const fee = getFee(from);
-		console.log('amount', amount);
+
 		const approveAmount = Number(amount) + fee;
 		const approveResult = await approveSwapPool(approveAmount, from, pool.canisterId);
-		console.log('approveAmount', approveAmount);
+
 		if (approveResult.success) {
 			const depositAmount = Number(amount);
-			console.log('depostAmount', depositAmount);
+
 			const depositResult = await depositTokenSwapPool(pool.canisterId, from, depositAmount);
 
 			if (depositResult.success) {
@@ -134,8 +134,7 @@ export const swapToken = async (
 				);
 
 				const swapArgs = getSwapArgs(from, to, depositAmount, quoteAmount, slippage);
-				console.log('swap amount', depositAmount);
-				console.log('swapArgs', swapArgs);
+
 				const swapResponse = await swap({ canisterId: pool.canisterId.toString(), ...swapArgs });
 
 				// { ok: bigint } | { err: SwapPoolError }
@@ -143,7 +142,7 @@ export const swapToken = async (
 				if ('ok' in swapResponse) {
 					// response.ok is the amount deposited
 					const outputToken = swapResponse.ok;
-					console.log('outputToken', outputToken);
+
 					const withdrawResult = await withdrawTokenSwapPool(pool.canisterId, to, outputToken);
 
 					if (withdrawResult.success) {
@@ -200,7 +199,7 @@ const depositTokenSwapPool = async (
 			updateBalance(ledgerId);
 			// response.ok is the amount deposited
 			const depositedAmount = response.ok;
-			console.log('depositedAmount', depositedAmount);
+
 			toastId = toast.success(
 				`Deposited ${displayBigIntBalanceInFormat(depositedAmount, ledgerId)} ${LedgerMetadata[ledgerId]?.symbol ?? 'token'}`,
 				{ id: toastId }
@@ -276,7 +275,6 @@ const withdrawTokenSwapPool = async (swapPoolId: Principal, ledgerId: string, am
 			// response.ok is the amount deposited
 			const wthdrawnAmount = response.ok;
 
-			console.log('wthdrawnAmount', wthdrawnAmount);
 			toastId = toast.success(
 				`Withdrawn ${displayBigIntBalanceInFormat(wthdrawnAmount, ledgerId)} ${LedgerMetadata[ledgerId]?.symbol ?? 'token'}`,
 				{ id: toastId }

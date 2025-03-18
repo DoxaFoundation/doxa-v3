@@ -41,7 +41,7 @@
 		try {
 			return getFee(ledgerId);
 		} catch (e) {
-			console.log(e);
+			console.error(e);
 			return 0;
 		}
 	});
