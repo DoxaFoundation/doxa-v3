@@ -1,0 +1,16 @@
+service : {
+  /// * Get the price of all tokens from mainnet ICPSwap
+  ///      * @return - Array of (token, price)
+  get_all_token_prices: () -> (vec record {
+                                     text;
+                                     float64;
+                                   }) composite_query;
+  /// * Get the price of a token from a pool. FOR LOCAL TESTING
+  ///      * @param poolId - The pool id array
+  ///      * @return - Array of (token, price)
+  get_prices_from_ckusdc_pools_local: () ->
+   (vec record {
+          text;
+          float64;
+        }) composite_query;
+}

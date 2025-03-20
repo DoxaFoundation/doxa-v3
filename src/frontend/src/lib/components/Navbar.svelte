@@ -4,6 +4,7 @@
 	import NavHamburger from './Navbar/NavHamburger.svelte';
 	import NavLi from './Navbar/NavLi.svelte';
 	import ConnectButton from './ConnectButton.svelte';
+	import { sineIn } from 'svelte/easing';
 
 	let activeUrl = $derived(page.url.pathname);
 
@@ -11,6 +12,12 @@
 		'text-white bg-black text-sm border border-black py-2 w-fit px-7 rounded-md box';
 	let nonActiveClass =
 		'text-black bg-white text-sm border border-black py-2 w-fit px-7 rounded-md hover:text-white hover:bg-black shadow';
+
+	let smallscreenStyle =
+		'transition-all duration-500 lg:duration-300 ease-out border-b-2 border-transparent';
+	let smallscreenActiveClass = 'font-bold text-black border-b-2 border-black';
+	let smallscreenNonActiveClass =
+		'font-light text-gray-500 hover:text-gray-950 hover:border-gray-300 hover:font-medium';
 </script>
 
 <Navbar class="px-2 sm:px-4 py-2.5 w-full border-b">
@@ -26,12 +33,12 @@
 		<NavHamburger btnClass="ms-3 lg:hidden" />
 	</div>
 
-	<NavUl
+	<!-- <NavUl
 		class="order-1"
 		divClass="w-full lg:block lg:w-auto"
-		ulClass="flex flex-col p-2  mt-4 lg:flex-row lg:space-x-8 rtl:space-x-reverse lg:mt-0 lg:text-sm lg:font-medium"
+		ulClass="flex flex-row p-2  mt-4 flex-wrap lg:flex-nowrap justify-center lg:space-x-8 rtl:space-x-reverse lg:mt-0 lg:text-sm lg:font-medium"
 	>
-		<NavLi href="/">
+		<NavLi href="/" class="w-fit bg-red-400" activeClass="bg-red-400" nonActiveClass="bg-red-400">
 			<div class={activeUrl === '/' ? activeClass : nonActiveClass}>Mint</div>
 		</NavLi>
 		<NavLi href="/stake/">
@@ -41,19 +48,65 @@
 			<div class={activeUrl === '/swap/' ? activeClass : nonActiveClass}>Swap</div>
 			<Tooltip type="light">Coming soon...</Tooltip>
 		</NavLi>
-		<!-- <NavLi>
-			<div class={activeUrl === '/redeem/' ? activeClass : nonActiveClass}>Redeem</div>
-			<Tooltip type="light">Coming soon...</Tooltip>
-		</NavLi> -->
-		<!-- <NavLi>
-			<div class={activeUrl === '/stabilityPool/' ? activeClass : nonActiveClass}>
-				Stability Pool
+		<NavLi>
+			<div
+				class="{smallscreenStyle} {activeUrl === '/redeem/'
+					? smallscreenActiveClass
+					: smallscreenNonActiveClass}"
+			>
+				Redeem
 			</div>
-			<Tooltip type="light">Coming soon...</Tooltip>
-		</NavLi> -->
+		</NavLi>
 		<NavLi href="/transactions/">
 			<div class={activeUrl === '/transactions/' ? activeClass : nonActiveClass}>Transactions</div>
 			<Tooltip type="light">Coming soon...</Tooltip>
+		</NavLi>
+	</NavUl> -->
+
+	<NavUl
+		slideParams={{ delay: 100, duration: 300, easing: sineIn }}
+		class="order-1"
+		divClass="w-full lg:block lg:w-auto"
+		ulClass="flex flex-row p-2  mt-4 flex-wrap lg:flex-nowrap justify-center lg:space-x-8 rtl:space-x-reverse lg:mt-0 lg:text-sm lg:font-medium"
+	>
+		<NavLi href="/" class="p-72 bg-slate-500">
+			<div
+				class="{smallscreenStyle} {activeUrl === '/'
+					? smallscreenActiveClass
+					: smallscreenNonActiveClass}"
+			>
+				Mint
+			</div>
+		</NavLi>
+		<NavLi href="/stake/">
+			<div
+				class="{smallscreenStyle} {activeUrl === '/stake/'
+					? smallscreenActiveClass
+					: smallscreenNonActiveClass}"
+			>
+				Stake
+			</div>
+		</NavLi>
+		<NavLi href="/swap/">
+			<div
+				class="{smallscreenStyle} {activeUrl === '/swap/'
+					? smallscreenActiveClass
+					: smallscreenNonActiveClass}"
+			>
+				Swap
+			</div>
+			<!-- <Tooltip type="light">Coming soon...</Tooltip> -->
+		</NavLi>
+
+		<NavLi href="/transactions/">
+			<div
+				class="{smallscreenStyle} {activeUrl === '/transactions/'
+					? smallscreenActiveClass
+					: smallscreenNonActiveClass}"
+			>
+				Transactions
+			</div>
+			<!-- <Tooltip type="light">Coming soon...</Tooltip> -->
 		</NavLi>
 	</NavUl>
 </Navbar>

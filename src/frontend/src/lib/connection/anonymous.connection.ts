@@ -6,7 +6,7 @@ import { AnonymousIdentity } from '@dfinity/agent';
 import type { Principal } from '@dfinity/principal';
 import { isNullish } from '@dfinity/utils';
 
-const anonIdentity = new AnonymousIdentity();
+export const anonIdentity = new AnonymousIdentity();
 
 export const anonPrincipal: Principal = anonIdentity.getPrincipal();
 

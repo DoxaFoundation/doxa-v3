@@ -1,5 +1,6 @@
 import {
 	CKUSDC_LEDGER_CANISTER_ID,
+	ICP_LEDGER_CANISTER_ID,
 	STABLECOIN_MINTER_CANISTER_ID,
 	STAKING_CANISTER_ID,
 	USDX_LEDGER_CANISTER_ID
@@ -8,7 +9,12 @@ import {
 	stablecoinMinterIdlFactory,
 	stakingCanisterIdlFactory,
 	icrcLedgerIdlFactory,
-	type Actors
+	type Actors,
+	type IcrcLedgerActor,
+	swapPoolIdlFactory,
+	type SwapPoolActor,
+	type IcpLedgerActor,
+	icpLedgerIdlFactory
 } from '../types/actors';
 
 // @ts-ignore: next-line
@@ -32,3 +38,24 @@ export const getActorsFromPlug = async (): Promise<Actors> => ({
 		interfaceFactory: stakingCanisterIdlFactory
 	})
 });
+
+export const getIcrcLedgerActorFromPlug = async (canisterId: string): Promise<IcrcLedgerActor> => {
+	return plug.createActor({
+		canisterId,
+		interfaceFactory: icrcLedgerIdlFactory
+	});
+};
+
+export const getSwapPoolActorFromPlug = async (canisterId: string): Promise<SwapPoolActor> => {
+	return plug.createActor({
+		canisterId,
+		interfaceFactory: swapPoolIdlFactory
+	});
+};
+
+export const getIcpLedgerActorFromPlug = async (): Promise<IcpLedgerActor> => {
+	return plug.createActor({
+		canisterId: ICP_LEDGER_CANISTER_ID,
+		interfaceFactory: icpLedgerIdlFactory
+	});
+};

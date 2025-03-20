@@ -9,11 +9,23 @@ export const PROD = Network === 'ic';
 export const STABLECOIN_MINTER_CANISTER_ID = import.meta.env
 	.VITE_STABLECOIN_MINTER_CANISTER_ID as string;
 
+export const UTILITY_CANISTER_ID = import.meta.env.VITE_UTILITY_CANISTER_CANISTER_ID as string;
+
 export const CKUSDC_LEDGER_CANISTER_ID = import.meta.env.VITE_CKUSDC_LEDGER_CANISTER_ID as string;
 
 export const USDX_LEDGER_CANISTER_ID = import.meta.env.VITE_USDX_LEDGER_CANISTER_ID as string;
 
 export const STAKING_CANISTER_ID = import.meta.env.VITE_STAKING_CANISTER_CANISTER_ID as string;
+
+export const FRONTEND_CANISTER_ID = import.meta.env.VITE_FRONTEND_CANISTER_ID as string;
+
+export const ICP_LEDGER_CANISTER_ID = import.meta.env.VITE_ICP_LEDGER_CANISTER_ID as string;
+
+export const CKUSDT_LEDGER_CANISTER_ID = import.meta.env.VITE_CKUSDT_LEDGER_CANISTER_ID as string;
+
+export const CKETH_LEDGER_CANISTER_ID = import.meta.env.VITE_CKETH_LEDGER_CANISTER_ID as string;
+
+export const CKBTC_LEDGER_CANISTER_ID = import.meta.env.VITE_CKBTC_LEDGER_CANISTER_ID as string;
 
 export const DECIMALS = 6;
 export const DIVISOR = 10 ** DECIMALS; // 1e8

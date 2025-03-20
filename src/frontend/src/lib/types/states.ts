@@ -1,6 +1,5 @@
-import type { QueryStakes } from '@declarations/staking_canister/staking_canister.did';
+import type { PoolData } from '@declarations/SwapFactory/SwapFactory.did';
 import type { Stake } from './staking';
-
 export interface StakingPoolDetailsState {
 	stakingTokenSymbol: string;
 	rewardTokenSymbol: string;
@@ -33,3 +32,14 @@ export interface MyStakesState {
 	value: Array<Stake>;
 	fetch(): Promise<void>;
 }
+
+export interface Balance {
+	number: number;
+	format: string;
+}
+
+export type BalancesState = Record<string, Balance>;
+
+export type TokensPriceState = Record<string, number>;
+
+export type SwapPoolDataState = Map<string, PoolData>;
