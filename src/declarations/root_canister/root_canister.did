@@ -1,2 +1,14 @@
+type Result = 
+ variant {
+   err: text;
+   ok;
+ };
+type EmailPermission = 
+ variant {
+   Allow: text;
+   Deny;
+ };
 service : {
+  get_email_permission: () -> (opt EmailPermission) query;
+  insert_email: (opt text) -> (Result);
 }
