@@ -71,7 +71,7 @@ export const nfidLogin = async (set: (this: void, value: AuthStoreData) => void)
 
 		set({
 			isAuthenticated: true,
-			// identity: delegationIdentity,
+			identity: delegationIdentity,
 			identityProvider: 'nfid',
 			principal: delegationIdentity.getPrincipal(),
 			...authenticatedActor

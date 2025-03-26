@@ -17,7 +17,7 @@ export const syncAuthClient = async (set: (this: void, value: AuthStoreData) => 
 
 		set({
 			isAuthenticated,
-			// identity: signIdentity,
+			identity: signIdentity,
 			identityProvider: 'ii',
 			principal: signIdentity.getPrincipal(),
 			...authenticatedActor

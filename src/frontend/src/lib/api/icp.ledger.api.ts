@@ -14,12 +14,12 @@ export const transferICP = async (args: TransferArgs): Promise<TransferResult> =
 };
 
 const icpLedgerCanister = async (): Promise<IcpLedgerActor> => {
-	let { principal } = get(authStore);
+	const { principal } = get(authStore);
 
 	const cacheKey = principal.toString();
 
 	if (isNullish(canister) || isNullish(canister[cacheKey])) {
-		let icpLedger = await getIcpLedgerActor();
+		const icpLedger = await getIcpLedgerActor();
 
 		canister = {
 			...(canister ?? {}),

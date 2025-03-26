@@ -8,7 +8,7 @@ import { icrcLedgerIdlFactory, type IcrcLedgerActor } from '$lib/types/actors';
 import { anonIdentity } from '$lib/connection/anonymous.connection';
 
 export const getIcrcLedgerActor = async (canisterId: string): Promise<IcrcLedgerActor> => {
-	let { identityProvider, principal } = get(authStore);
+	const { identityProvider, principal } = get(authStore);
 
 	if (identityProvider === 'ii' || identityProvider === 'nfid') {
 		const agent = getAgentFromCache(principal);
