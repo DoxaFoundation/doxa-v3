@@ -12,6 +12,7 @@
 	import { to6Decimals } from '@utils/decimals.utils';
 	import { balances, updateBalance } from '@states/ledger-balance.svelte';
 	import { CKUSDC_LEDGER_CANISTER_ID, USDX_LEDGER_CANISTER_ID } from '@constants/app.constants';
+	import EmailPopUp from '@components/NewsLetter/EmailPopUp.svelte';
 
 	let selectedToken: string = $state('ckUSDC');
 	let selectedMint: string = $state('USDx');
@@ -218,6 +219,8 @@
 		disableMintButton();
 	});
 </script>
+
+<EmailPopUp />
 
 <div class="flex flex-col items-center justify-center mt-2">
 	<div class="md:p-8 p-4 dark:bg-sky-200 md:w-fit w-full rounded-2xl border box mb-4">
