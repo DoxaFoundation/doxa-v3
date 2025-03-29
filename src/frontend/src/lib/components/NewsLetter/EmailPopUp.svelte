@@ -47,10 +47,12 @@
 <Modal bind:open={popupModal} size="xs">
 	<div class="text-center space-y-4">
 		<MailPlus class="mx-auto mb-4 text-gray-400 w-12 h-12 dark:text-gray-200" />
-		<h3 class="mb-5 text-lg font-normal text-gray-500 dark:text-gray-400">Join Our Mailing List</h3>
-		<p class="text-sm">
+		<h3 class="mb-5 text-lg font-normal text-gray-500 dark:text-gray-400">
+			Get the latest updates, airdrop and upcoming features
+		</h3>
+		<!-- <p class="text-sm">
 			Join our mailing list and be the first to know about new products and services.
-		</p>
+		</p> -->
 		<div>
 			<Input
 				type="email"
@@ -64,7 +66,7 @@
 				{emailError}
 			</Helper>
 		</div>
-		<Button class="me-2 w-full" onclick={submitEmail}>Get Updates</Button>
+		<Button color="blue" class="me-2 w-full" onclick={submitEmail}>Submit</Button>
 		<!-- <Button onclick={decline} color="alternative">No Thanks</Button> -->
 	</div>
 </Modal>
