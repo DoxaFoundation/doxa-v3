@@ -27,6 +27,7 @@ export const connectAnonymously = async (set: (this: void, value: AuthStoreData)
 	set({
 		isAuthenticated: false,
 		// identity: anonIdentity,
+		identity: null,
 		identityProvider: 'anonymous',
 		principal: anonPrincipal,
 		...anonActors

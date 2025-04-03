@@ -1,26 +1,30 @@
-import { getAgent, getAgentFromCache } from '$lib/actors/agents.ic';
-import { getIcrcLedgerActorFromPlug } from '$lib/actors/actors.plug';
-import { assertNonNullish } from '@dfinity/utils';
+import { rootCanisterIdlFactory, type RootActor } from '$lib/types/actors';
+import { ROOT_CANISTER_ID } from '@constants/app.constants';
 import { authStore } from '@stores/auth.store';
 import { get } from 'svelte/store';
+import { getAgent, getAgentFromCache } from './agents.ic';
+import { assertNonNullish } from '@dfinity/utils';
 import { Actor } from '@dfinity/agent';
-import { icrcLedgerIdlFactory, type IcrcLedgerActor } from '$lib/types/actors';
+import { getRootActorFromPlug } from './actors.plug';
 import { anonIdentity } from '$lib/connection/anonymous.connection';
 
-export const getIcrcLedgerActor = async (canisterId: string): Promise<IcrcLedgerActor> => {
+export const getRootCanister = async (): Promise<RootActor> => {
 	const { identityProvider, principal } = get(authStore);
+
+	const canisterId = ROOT_CANISTER_ID;
 
 	if (identityProvider === 'ii' || identityProvider === 'nfid') {
 		const agent = getAgentFromCache(principal);
 
 		assertNonNullish(agent, 'Agent is Nullish value');
 
-		return Actor.createActor(icrcLedgerIdlFactory, { agent, canisterId });
+		return Actor.createActor(rootCanisterIdlFactory, { agent, canisterId });
 	} else if (identityProvider === 'plug') {
-		return getIcrcLedgerActorFromPlug(canisterId);
+		return getRootActorFromPlug();
 	} else if (identityProvider === 'anonymous') {
 		const agent = await getAgent({ identity: anonIdentity });
-		return Actor.createActor(icrcLedgerIdlFactory, { agent, canisterId });
+
+		return Actor.createActor(rootCanisterIdlFactory, { agent, canisterId });
 	}
 
 	throw new Error('Invalid identity provider');

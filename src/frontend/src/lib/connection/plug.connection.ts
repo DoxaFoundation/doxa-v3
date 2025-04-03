@@ -13,14 +13,14 @@ const plug = window?.ic?.plug;
 export const syncPlugConnection = async (
 	set: (this: void, value: AuthStoreData) => void
 ): Promise<ResultSuccess> => {
-	let isAuthenticated = await plug?.isConnected();
+	const isAuthenticated = await plug?.isConnected();
 	if (isAuthenticated) {
 		const authenticatedActor = await getActorsFromPlug();
 		const principal = await plug.getPrincipal();
 
 		set({
 			isAuthenticated,
-			// identity: publicKey,
+			identity: null,
 			identityProvider: 'plug',
 			principal,
 			...authenticatedActor
@@ -31,14 +31,14 @@ export const syncPlugConnection = async (
 };
 
 const onConnectionUpdateHelper = async (set: (this: void, value: AuthStoreData) => void) => {
-	let isAuthenticated = await plug?.isConnected();
+	const isAuthenticated = await plug?.isConnected();
 	if (isAuthenticated) {
 		const authenticatedActor = await getActorsFromPlug();
 		const principal = await plug.getPrincipal();
 
 		set({
 			isAuthenticated,
-			// identity: publicKey,
+			identity: null,
 
 			identityProvider: 'plug',
 			principal,

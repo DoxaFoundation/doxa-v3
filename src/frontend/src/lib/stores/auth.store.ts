@@ -10,10 +10,11 @@ import { connectPlug, disconnectPlug, syncPlugConnection } from '$lib/connection
 import { connectAnonymously } from '$lib/connection/anonymous.connection';
 import { nfidLogin, nfidLogout } from '$lib/connection/nfid.connection';
 import type { IdentityProvider } from '$lib/types/auth';
+import type { OptionIdentity } from '$lib/types/identity';
 
 export interface AuthStoreData {
 	isAuthenticated: boolean;
-	// identity: Identity;
+	identity: OptionIdentity;
 	stablecoinMinter: StablecoinMinterActor;
 	ckUSDC: IcrcLedgerActor;
 	USDx: IcrcLedgerActor;
@@ -48,7 +49,7 @@ const init = (): AuthStore => {
 			await connectAnonymously(set);
 		},
 		signIn: async ({ identityProvider }) => {
-			let provider = identityProvider ?? 'ii';
+			const provider = identityProvider ?? 'ii';
 
 			if (provider === 'ii') {
 				await authClientLogin(set);

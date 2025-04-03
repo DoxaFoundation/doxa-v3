@@ -20,7 +20,7 @@ export const getSwapFactoryActor = async (): Promise<SwapFactoryActor> => {
 };
 
 export const getSwapPoolActor = async (canisterId: string): Promise<SwapPoolActor> => {
-	let { identityProvider, principal } = get(authStore);
+	const { identityProvider, principal } = get(authStore);
 
 	if (identityProvider === 'ii' || identityProvider === 'nfid') {
 		const agent = getAgentFromCache(principal);

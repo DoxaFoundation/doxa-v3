@@ -9,7 +9,7 @@ import { anonIdentity } from '$lib/connection/anonymous.connection';
 import { ICP_LEDGER_CANISTER_ID } from '@constants/app.constants';
 
 export const getIcpLedgerActor = async (): Promise<IcpLedgerActor> => {
-	let { identityProvider, principal } = get(authStore);
+	const { identityProvider, principal } = get(authStore);
 
 	const canisterId = ICP_LEDGER_CANISTER_ID;
 
