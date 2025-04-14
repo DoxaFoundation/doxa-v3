@@ -13,7 +13,8 @@
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
-		"test": "./scripts/run_tests.sh",
+		"testsh": "./scripts/run_tests.sh",
+		"test": "vitest",
 		"preview": "vite preview",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",

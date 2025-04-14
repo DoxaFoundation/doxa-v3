@@ -34,7 +34,7 @@ describe('date-time.utils', () => {
         // It should handle non-integer days by effectively truncating (as BigInt conversion does)
         // Although the type is number, passing floats might happen in JS.
         it('should handle non-integer days (truncating)', () => {
-            expect(daysToNanoseconds(1.5)).toBe(NANOSECONDS_PER_DAY); // BigInt(1.5) becomes 1n
+            expect(daysToNanoseconds(1.5)).toEqual(NANOSECONDS_PER_DAY); // BigInt(1.5) becomes 1n
         });
     });
 

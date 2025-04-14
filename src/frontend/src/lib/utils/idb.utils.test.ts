@@ -7,6 +7,7 @@
  * @requires fake-indexeddb  // This library is needed for these tests to run
  */
 
+import 'fake-indexeddb/auto';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // Assuming the actual filename is idb.utilts.ts
 import { set, get, del } from './idb.utilts';

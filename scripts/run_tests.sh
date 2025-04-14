@@ -1,9 +1,13 @@
 #!/bin/bash
 
-# Log file for detailed *failure* output
-LOG_FILE="test-log.log"
-# Temporary file for full raw output 
-TMP_LOG_FILE="full_raw_log.tmp"
+# Create logs directory if it doesn't exist
+LOGS_DIR="logs"
+mkdir -p "$LOGS_DIR"
+
+# Log files
+MAIN_LOG_FILE="$LOGS_DIR/test-log.log"
+TMP_LOG_FILE="$LOGS_DIR/full_raw_log.tmp"
+COUNTS_FILE="$LOGS_DIR/test_counts.tmp"
 
 # Define ANSI color codes
 RED='\033[0;31m'
@@ -17,7 +21,7 @@ UNDERLINE='\033[4m'
 RESET='\033[0m'
 
 echo -e "${BLUE}${BOLD}Running tests...${RESET}"
-echo -e "${CYAN}(Console will show summary only, detailed failures in ${UNDERLINE}$LOG_FILE${RESET}${CYAN})${RESET}"
+echo -e "${CYAN}(Console will show summary only, detailed failures in ${UNDERLINE}$LOGS_DIR${RESET}${CYAN} folder)${RESET}"
 echo -e "${PURPLE}--------------------------------------------------${RESET}"
 
 # Run vitest, capture all output to temporary file
@@ -40,19 +44,40 @@ done
 
 if [ $test_exit_code -ne 0 ]; then
     echo ""
-    echo -e "${RED}${BOLD}❗ Failures detected. Failed tests:${RESET}"
-    grep -E '^\s*×\s' "$TMP_LOG_FILE" | sed 's/^ *× *//' | while read -r line; do
+    echo -e "${RED}${BOLD}❗ Failures detected. Failed tests by file:${RESET}"
+    
+    # Count failures per file and display them
+    grep -E '^\s*×\s' "$TMP_LOG_FILE" | sed 's/^ *× *//' > "$COUNTS_FILE"
+    
+    # Use sort -u to ensure unique file names before counting
+    awk -F'>' '{print $1}' "$COUNTS_FILE" | sort -u | while read -r file; do
+        count=$(grep -c "^$file" <(awk -F'>' '{print $1}' "$COUNTS_FILE"))
+        echo -e "${RED}[$count failures] $file${RESET}"
+        
+        # Create separate log file for each failing test file
+        test_file_name=$(basename "$file" .test.ts)
+        test_log_file="$LOGS_DIR/${test_file_name}_failures.log"
+        
+        echo "Failures for $file" > "$test_log_file"
+        echo "===================" >> "$test_log_file"
+        grep -A 5 "$file" "$TMP_LOG_FILE" >> "$test_log_file"
+    done
+    
+    echo ""
+    echo -e "${RED}${BOLD}Detailed failures:${RESET}"
+    cat "$COUNTS_FILE" | while read -r line; do
         echo -e "${RED}✗ $line${RESET}"
     done
-    echo -e "${YELLOW}   (Check ${UNDERLINE}$LOG_FILE${RESET}${YELLOW} for full details)${RESET}"
+    
+    echo -e "${YELLOW}   (Check ${UNDERLINE}$LOGS_DIR${RESET}${YELLOW} folder for detailed logs)${RESET}"
 else
     echo ""
     echo -e "${GREEN}${BOLD}✅ All tests passed.${RESET}"
 fi
 echo -e "${YELLOW}${BOLD}╚═══════════════════════════════════════════════════╝${RESET}"
 
-# --- Stylish Log File Creation ---
-cat << EOF > "$LOG_FILE"
+# --- Stylish Main Log File Creation ---
+cat << EOF > "$MAIN_LOG_FILE"
 ╔═══════════════════════════════════════════════════════════════╗
 ║                  Vitest Detailed Failure Log                   ║
 ║                  ========================                      ║
@@ -62,6 +87,16 @@ cat << EOF > "$LOG_FILE"
 EOF
 
 if [ $test_exit_code -ne 0 ]; then
+    # Add failure counts to main log file
+    echo "Test Failures by File:" >> "$MAIN_LOG_FILE"
+    echo "=====================" >> "$MAIN_LOG_FILE"
+    
+    awk -F'>' '{print $1}' "$COUNTS_FILE" | sort -u | while read -r file; do
+        count=$(grep -c "^$file" <(awk -F'>' '{print $1}' "$COUNTS_FILE"))
+        echo "[$count failures] $file" >> "$MAIN_LOG_FILE"
+    done
+    echo "" >> "$MAIN_LOG_FILE"
+    
     awk '
         /^ FAIL |^\s*×\s/ { 
             print "▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄"
@@ -74,24 +109,23 @@ if [ $test_exit_code -ne 0 ]; then
         printing_block { print }
         /Unhandled Errors/ { printing_unhandled=1 }
         printing_unhandled { print }
-    ' "$TMP_LOG_FILE" >> "$LOG_FILE"
+    ' "$TMP_LOG_FILE" >> "$MAIN_LOG_FILE"
 
-    if ! grep -q -E '(^ FAIL |^\s*×\s|Unhandled Errors)' "$LOG_FILE"; then
-        echo "⚠️  Could not automatically extract specific failure details." >> "$LOG_FILE"
-        echo "   Please check the full raw output in $TMP_LOG_FILE" >> "$LOG_FILE"
+    if ! grep -q -E '(^ FAIL |^\s*×\s|Unhandled Errors)' "$MAIN_LOG_FILE"; then
+        echo "⚠️  Could not automatically extract specific failure details." >> "$MAIN_LOG_FILE"
+        echo "   Please check the full raw output in $TMP_LOG_FILE" >> "$MAIN_LOG_FILE"
     fi
 else
-    echo "✨ All tests passed successfully! ✨" >> "$LOG_FILE"
+    echo "✨ All tests passed successfully! ✨" >> "$MAIN_LOG_FILE"
 fi
 
 # --- Cleanup & Final Message ---
 
-# Clean up temporary file
-# Uncomment this line if you want to automatically delete the raw log
+# Clean up temporary files
 rm "$TMP_LOG_FILE"
+rm "$COUNTS_FILE"
 
 echo ""
-echo -e "${CYAN}Full raw output stored in ${UNDERLINE}$TMP_LOG_FILE${RESET}${CYAN} (Can be deleted manually)${RESET}"
-echo -e "${CYAN}Formatted failure log is in ${UNDERLINE}$LOG_FILE${RESET}"
+echo -e "${CYAN}Formatted failure logs are in ${UNDERLINE}$LOGS_DIR${RESET}${CYAN} folder${RESET}"
 
 exit $test_exit_code

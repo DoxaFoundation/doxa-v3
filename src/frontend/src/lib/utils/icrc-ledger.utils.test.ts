@@ -96,22 +96,19 @@ describe('icrc-ledger.utils', () => {
 
         it('should throw error via assertNonNullish if fee is missing in metadata', () => {
             const ledgerId = 'token-missing-fee';
-            expect(() => getFeeWithDecimals(ledgerId)).toThrow(expect.stringContaining('Fee not found'));
-            // assertNonNullish would be called with undefined
+            expect(() => getFeeWithDecimals(ledgerId)).toThrowError(/Fee not found/);
             expect(assertNonNullish).toHaveBeenCalledWith(undefined, expect.stringContaining('Fee not found'));
         });
 
         it('should throw error via assertNonNullish if fee is null in metadata', () => {
             const ledgerId = 'token-null-fee';
-            expect(() => getFeeWithDecimals(ledgerId)).toThrow(expect.stringContaining('Fee not found'));
+            expect(() => getFeeWithDecimals(ledgerId)).toThrowError(/Fee not found/);
             expect(assertNonNullish).toHaveBeenCalledWith(null, expect.stringContaining('Fee not found'));
         });
 
         it('should throw error if the ledger ID is not found in metadata', () => {
-            const ledgerId = 'missing-canister';
-            // This will throw because LedgerMetadata['missing-canister'] is undefined,
-            // and trying to access .fee on undefined throws TypeError.
-            expect(() => getFeeWithDecimals(ledgerId)).toThrow(); // Likely TypeError
+            const ledgerId = 'non_existent_token';
+            expect(() => getFeeWithDecimals(ledgerId)).toThrow();
         });
     });
 
@@ -151,14 +148,14 @@ describe('icrc-ledger.utils', () => {
 
         it('should throw error via assertNonNullish if fee is missing', () => {
             const ledgerId = 'token-missing-fee';
-            expect(() => getFee(ledgerId)).toThrow(expect.stringContaining('Fee not found'));
+            expect(() => getFee(ledgerId)).toThrowError(/Fee not found/);
             expect(assertNonNullish).toHaveBeenCalledWith(undefined, expect.stringContaining('Fee not found'));
-            // assertNonNullish for decimals might not be called if the first one throws
+            // assertNonNullish for decimals might not be called if the fee check fails first
         });
 
         it('should throw error via assertNonNullish if fee is null', () => {
             const ledgerId = 'token-null-fee';
-            expect(() => getFee(ledgerId)).toThrow(expect.stringContaining('Fee not found'));
+            expect(() => getFee(ledgerId)).toThrowError(/Fee not found/);
             expect(assertNonNullish).toHaveBeenCalledWith(null, expect.stringContaining('Fee not found'));
         });
 
