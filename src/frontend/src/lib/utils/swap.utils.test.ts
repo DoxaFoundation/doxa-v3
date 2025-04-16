@@ -25,6 +25,7 @@ import { assert } from './assert.utils'; // Mocked function
 import * as AppConstants from '$lib/constants/app.constants'; // Mocked constants
 import type { GetPoolArgs, PoolData } from '@declarations/SwapFactory/SwapFactory.did';
 import type { SwapArgs } from '@declarations/SwapPool/SwapPool.did';
+import { Principal } from '@dfinity/principal'; // Import Principal
 
 
 // --- Mocks Setup ---
@@ -50,22 +51,16 @@ vi.mock('@states/ledger-metadata.svelte', () => ({
     }
 }));
 
-// Mock poolsMap state - Provide control functions from the mock itself
-// Define the map and controls inside the factory
-let internalMockPoolsMap: Map<string, PoolData>; // Keep track internally
-
+// Mock poolsMap state - Manage state and controls within the factory
 vi.mock('@states/swap-pool-data.svelte', () => {
-    internalMockPoolsMap = new Map<string, PoolData>();
+    const internalMockPoolsMap = new Map<string, PoolData>(); // Map inside factory
     return {
-        poolsMap: internalMockPoolsMap, // Export the map itself
-        // Export control functions
+        poolsMap: internalMockPoolsMap, // Export the map
+        // Export control functions as part of the mocked module
         __clearMockPoolsMap: () => internalMockPoolsMap.clear(),
         __setMockPoolsMap: (key: string, value: PoolData) => internalMockPoolsMap.set(key, value)
     };
 });
-
-// Import the control functions specifically for the test setup
-import { __clearMockPoolsMap, __setMockPoolsMap } from '@states/swap-pool-data.svelte';
 
 // Mock @dfinity/utils
 vi.mock('@dfinity/utils', async (importOriginal) => {
@@ -89,26 +84,31 @@ vi.mock('./assert.utils', () => ({
     })
 }));
 
-// Skipping entire suite due to persistent mock initialization errors (Cannot access 'exportedMockPoolsMap')
-// that likely stem from interactions between vi.mock hoisting, module imports, and top-level state access
-// in the utility file being tested.
 // --- Tests ---
+
+// Import the mocked module to access its exports (including controls)
+import * as SwapPoolDataState from '@states/swap-pool-data.svelte';
 
 describe.skip('swap.utils', () => {
 
     beforeEach(() => {
         // Reset mocks and state before each test
         vi.clearAllMocks();
-        // Use the control function from the mock
-        __clearMockPoolsMap(); // Clear the mocked pools map via helper
+        // Use type assertion to access mocked functions
+        (SwapPoolDataState as any).__clearMockPoolsMap();
 
         // Setup default pool data for relevant tests via helper
         const key1 = getPoolKeyStoreKey('usdx-id', 'icp-id');
-        __setMockPoolsMap(key1, {
-            poolId: 'pool-icp-usdx', // Example PoolData
+        const mockPool: PoolData = {
+            canisterId: Principal.fromText('ryjl3-tyaaa-aaaaa-aaaba-cai'),
+            fee: 3000n,
+            key: key1,
+            tickSpacing: 60n,
             token0: { address: 'icp-id', standard: 'ICP' },
             token1: { address: 'usdx-id', standard: 'ICRC2' },
-        } as PoolData);
+        };
+        // Use type assertion to access mocked functions
+        (SwapPoolDataState as any).__setMockPoolsMap(key1, mockPool);
     });
 
     describe('getPoolsArgsToFetch', () => {
@@ -167,7 +167,8 @@ describe.skip('swap.utils', () => {
         it('should return pool data if it exists in poolsMap', () => {
             const poolData = getPoolData('usdx-id', 'icp-id');
             expect(poolData).toBeDefined();
-            expect(poolData?.poolId).toBe('pool-icp-usdx'); // From beforeEach setup
+            // Use canisterId instead of poolId
+            expect(poolData?.canisterId.toString()).toBe('ryjl3-tyaaa-aaaaa-aaaba-cai');
             expect(assertNonNullish).toHaveBeenCalledWith(poolData, expect.any(String));
         });
 
