@@ -10,16 +10,15 @@ import { LedgerMetadata } from '@states/ledger-metadata.svelte';
 import { toBigIntDecimals } from '@utils/decimals.utils';
 import { toast } from 'svelte-sonner';
 
-let toastId: string | number | undefined;
-
 export const handleTransferResponse = async (
 	response: IcrcTransferResult | IcpTransferResult,
 	amount: number,
 	symbol: string,
-	ledgerId: string
+	ledgerId: string,
+	toastId?: string | number
 ): Promise<ResultSuccess> => {
 	if ('Ok' in response) {
-		toastId = toast.success(`${amount} ${symbol} sent successfully.`, {
+		toast.success(`${amount} ${symbol} sent successfully.`, {
 			id: toastId
 		});
 
@@ -27,7 +26,7 @@ export const handleTransferResponse = async (
 		return { success: true };
 	} else {
 		console.error(`Failed to send ${amount} ${symbol}.`, response);
-		toastId = toast.error(`Failed to send ${amount} ${symbol}.`, {
+		toast.error(`Failed to send ${amount} ${symbol}.`, {
 			id: toastId
 		});
 		return { success: false, err: response };
@@ -39,11 +38,10 @@ export const transferToken = async (
 	to: IcrcAccount | AccountIdentifier,
 	ledgerId: string
 ): Promise<ResultSuccess> => {
+	let currentToastId: string | number | undefined = undefined;
 	try {
 		const { fee, symbol } = LedgerMetadata[ledgerId];
-		toastId = toast.loading(`Sending ${amount} ${symbol}...`, {
-			id: toastId
-		});
+		currentToastId = toast.loading(`Sending ${amount} ${symbol}...`);
 
 		if ('owner' in to) {
 			const response = await transfer({
@@ -55,7 +53,7 @@ export const transferToken = async (
 				amount: toBigIntDecimals(amount, ledgerId)
 			});
 
-			return await handleTransferResponse(response, amount, symbol, ledgerId);
+			return await handleTransferResponse(response, amount, symbol, ledgerId, currentToastId);
 		} else {
 			const response = await transferICP({
 				to: to.toUint8Array(),
@@ -65,12 +63,12 @@ export const transferToken = async (
 				from_subaccount: [],
 				amount: { e8s: toBigIntDecimals(amount, ledgerId) }
 			});
-			return await handleTransferResponse(response, amount, symbol, ledgerId);
+			return await handleTransferResponse(response, amount, symbol, ledgerId, currentToastId);
 		}
 	} catch (error) {
 		console.error(error);
-		toastId = toast.error('Something went wrong while transferring token.', {
-			id: toastId
+		toast.error('Something went wrong while transferring token.', {
+			id: currentToastId
 		});
 		return { success: false, err: error };
 	}

@@ -25,11 +25,11 @@ export const fetchStakingPoolDetails = async () => {
 	}
 };
 
-let toastId: string | number;
-
 export const stakeUSDx = async ({ amount, days }: StakePrams) => {
+	let currentToastId: string | number | undefined = undefined;
 	try {
-		toastId = toast.loading('Transfering USDx to staking canister...', { id: toastId });
+		// Store ID from first loading toast
+		currentToastId = toast.loading('Transfering USDx to staking canister...');
 
 		const blockIndex = await transfer({
 			token: 'USDx',
@@ -37,7 +37,8 @@ export const stakeUSDx = async ({ amount, days }: StakePrams) => {
 			to: STAKING_ACCOUNT
 		});
 
-		toastId = toast.loading('Notifying staking canister...', { id: toastId });
+		// Update toast using the stored ID
+		toast.loading('Notifying staking canister...', { id: currentToastId });
 
 		const { notifyStake } = get(authStore).staking;
 		updateBalance(USDX_LEDGER_CANISTER_ID);
@@ -47,28 +48,30 @@ export const stakeUSDx = async ({ amount, days }: StakePrams) => {
 		const response = await notifyStake(blockIndex, daysNano);
 
 		if ('ok' in response) {
-			toastId = toast.success('Staked successfully', { id: toastId });
+			// Update toast using the stored ID
+			toast.success('Staked successfully', { id: currentToastId });
 			myStakes.fetch();
 		} else {
-			toastId = toast.error(response.err, { id: toastId });
+			// Update toast using the stored ID
+			toast.error(response.err, { id: currentToastId });
 		}
 	} catch (error) {
 		console.error(error);
-		toastId = toast.error('Something went wrong while staking.');
+		// Update toast using the stored ID
+		toast.error('Something went wrong while staking.', { id: currentToastId });
 	}
 };
 
 export const toggleAutoStakeRewads = async (index: number) => {
+	let currentToastId: string | number | undefined = undefined;
 	try {
 		const stake = myStakes.value[index];
 
-		toastId = toast.loading(
+		// Store loading toast ID
+		currentToastId = toast.loading(
 			stake.isRewardsAutoStaked
 				? 'Disabling auto stake rewards..'
-				: 'Enabling auto stake rewards..',
-			{
-				id: toastId
-			}
+				: 'Enabling auto stake rewards..'
 		);
 
 		const autoStakeAction: AutoCompoundAction = stake.isRewardsAutoStaked
@@ -81,21 +84,25 @@ export const toggleAutoStakeRewads = async (index: number) => {
 
 		if ('ok' in response) {
 			myStakes.value[index].isRewardsAutoStaked = response.ok;
+			// Update toast using the stored ID
 			toast.success(response.ok ? 'Auto stake rewards enabled' : 'Auto stake rewards disabled', {
-				id: toastId
+				id: currentToastId
 			});
 		} else {
-			toast.error(response.err, { id: toastId });
+			// Update toast using the stored ID
+			toast.error(response.err, { id: currentToastId });
 		}
 	} catch (error) {
 		console.error(error);
-		toastId = toast.error('Something went wrong while toggling auto stake rewards.', {
-			id: toastId
+		// Update toast using the stored ID
+		toast.error('Something went wrong while toggling auto stake rewards.', {
+			id: currentToastId
 		});
 	}
 };
 
 export const stakeUnclaimedRewards = async (index: number) => {
+	let currentToastId: string | number | undefined = undefined;
 	try {
 		const stake = myStakes.value[index];
 
@@ -104,7 +111,8 @@ export const stakeUnclaimedRewards = async (index: number) => {
 			return;
 		}
 
-		toastId = toast.loading('Staking rewards..', { id: toastId });
+		// Store loading toast ID
+		currentToastId = toast.loading('Staking rewards..');
 
 		const { manuallyCompoundRewards } = get(authStore).staking;
 
@@ -114,19 +122,23 @@ export const stakeUnclaimedRewards = async (index: number) => {
 			myStakes.value[index].stakedReward += myStakes.value[index].unclaimedRewards;
 			myStakes.value[index].unclaimedRewards = 0;
 
-			toast.success('Staked rewards successfully', { id: toastId });
+			// Update toast using the stored ID
+			toast.success('Staked rewards successfully', { id: currentToastId });
 		} else {
-			toast.error(response.err, { id: toastId });
+			// Update toast using the stored ID
+			toast.error(response.err, { id: currentToastId });
 		}
 	} catch (error) {
 		console.error(error);
-		toastId = toast.error('Something went wrong while staking unclaimed rewards.', {
-			id: toastId
+		// Update toast using the stored ID
+		toast.error('Something went wrong while staking unclaimed rewards.', {
+			id: currentToastId
 		});
 	}
 };
 
 export const unstake = async (index: number) => {
+	let currentToastId: string | number | undefined = undefined;
 	try {
 		const stake = myStakes.value[index];
 
@@ -134,19 +146,23 @@ export const unstake = async (index: number) => {
 			toast.info(`${stake.unlockAt.remainingDays} days left to unstake`);
 			return;
 		}
-		toastId = toast.loading(`Unstaking ${stake.amount} USDx..`, { id: toastId });
+		// Store loading toast ID
+		currentToastId = toast.loading(`Unstaking ${stake.amount} USDx..`);
 		const { unstake } = get(authStore).staking;
 		const response = await unstake(stake.id);
 
 		if ('ok' in response) {
 			myStakes.value.splice(index, 1);
-			toastId = toast.success('Unstaked successfully', { id: toastId });
+			// Update toast using the stored ID
+			toast.success('Unstaked successfully', { id: currentToastId });
 			updateBalance(USDX_LEDGER_CANISTER_ID);
 		} else {
-			toastId = toast.error(response.err, { id: toastId });
+			// Update toast using the stored ID
+			toast.error(response.err, { id: currentToastId });
 		}
 	} catch (error) {
 		console.error(error);
-		toastId = toast.error('Something went wrong while unstaking.', { id: toastId });
+		// Update toast using the stored ID
+		toast.error('Something went wrong while unstaking.', { id: currentToastId });
 	}
 };

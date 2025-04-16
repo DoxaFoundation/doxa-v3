@@ -17,9 +17,9 @@ import { get } from 'svelte/store';
 let toastId: string | number;
 
 export const fetchPools = async (): Promise<PoolData[]> => {
-	const tokenParsArgs: GetPoolArgs[] = getPoolsArgsToFetch();
-
 	try {
+		const tokenParsArgs: GetPoolArgs[] = getPoolsArgsToFetch();
+
 		// Fire off all pool requests concurrently using Promise.all.
 		const poolResults = await Promise.all(
 			tokenParsArgs.map(async (args) =>
@@ -156,7 +156,7 @@ export const swapToken = async (
 					if (
 						'InternalError' in swapResponse.err &&
 						swapResponse.err.InternalError ===
-							'Slippage is over range, please withdraw your unused token'
+						'Slippage is over range, please withdraw your unused token'
 					) {
 						await withdrawUnusedToken(pool);
 						toast.error('Swap Failed. Slippage is over range');
