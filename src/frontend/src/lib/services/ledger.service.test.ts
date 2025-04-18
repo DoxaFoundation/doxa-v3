@@ -123,8 +123,10 @@ describe('ledger.service', () => {
 
             // Verify error was logged to console
             expect(console.error).toHaveBeenCalledWith(`Failed to send ${amount} ${symbol}.`, response);
-            // Verify error toast was shown with correct message
-            expect(toast.error).toHaveBeenCalledWith(`Failed to send ${amount} ${symbol}.`, { id: undefined });
+            // Verify error toast was shown with correct message and ID
+            expect(toast.error).toHaveBeenCalledWith(`Failed to send ${amount} ${symbol}.`, {
+                id: 'toast-id'
+            });
             // Verify function returned error result
             expect(result).toEqual({ success: false, err: response });
         });
@@ -168,8 +170,10 @@ describe('ledger.service', () => {
             // Call the function we're testing
             const result = await transferToken(amount, icrcAccount as any, ledgerId);
 
-            // Verify loading toast was shown
-            expect(toast.loading).toHaveBeenCalledWith(`Sending ${amount} USDX...`);
+            // Verify loading toast was shown with ID
+            expect(toast.loading).toHaveBeenCalledWith(`Sending ${amount} USDX...`, {
+                id: 'toast-id'
+            });
             // Verify transfer was called with correct parameters
             expect(transfer).toHaveBeenCalledWith({
                 canisterId: ledgerId,
@@ -232,8 +236,10 @@ describe('ledger.service', () => {
             // Call the function we're testing
             const result = await transferToken(amount, icpAccount as any, ledgerId);
 
-            // Verify loading toast was shown
-            expect(toast.loading).toHaveBeenCalledWith(`Sending ${amount} ICP...`);
+            // Verify loading toast was shown with ID
+            expect(toast.loading).toHaveBeenCalledWith(`Sending ${amount} ICP...`, {
+                id: 'toast-id'
+            });
             // Verify transferICP was called with correct parameters
             expect(transferICP).toHaveBeenCalledWith({
                 to: icpAccount.toUint8Array(),

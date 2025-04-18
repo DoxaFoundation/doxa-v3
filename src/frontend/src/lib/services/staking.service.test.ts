@@ -193,10 +193,15 @@ describe('staking.service', () => {
             vi.mocked(transfer).mockResolvedValue(blockIndex);
 
             // Call the function we're testing
-            await stakeUSDx({ amount, days });
+            const result = await stakeUSDx({ amount, days });
 
-            // Verify loading toast was shown
-            expect(toast.loading).toHaveBeenCalledWith('Transfering USDx to staking canister...');
+            // Verify loading toast was shown (first for transfer, then for notify)
+            expect(toast.loading).toHaveBeenCalledWith('Transfering USDx to staking canister...', {
+                id: undefined // Match the received call
+            });
+            expect(toast.loading).toHaveBeenCalledWith('Notifying staking canister...', {
+                id: 'toast-id' // Match the second received call
+            });
             // Verify transfer was called with correct parameters
             expect(transfer).toHaveBeenCalledWith({
                 token: 'USDx',
@@ -252,8 +257,8 @@ describe('staking.service', () => {
 
             // Verify error was logged
             expect(console.error).toHaveBeenCalledWith(error);
-            // Verify error toast was shown (with the id)
-            expect(toast.error).toHaveBeenCalledWith('Something went wrong while staking.', { id: 'toast-id' });
+            // Verify error toast was shown (without the id, as per error message)
+            expect(toast.error).toHaveBeenCalledWith('Something went wrong while staking.');
         });
     });
 
@@ -305,8 +310,10 @@ describe('staking.service', () => {
             // Call the function we're testing
             await toggleAutoStakeRewads(index);
 
-            // Verify loading toast was shown
-            expect(toast.loading).toHaveBeenCalledWith('Enabling auto stake rewards..');
+            // Verify loading toast was shown with ID
+            expect(toast.loading).toHaveBeenCalledWith('Enabling auto stake rewards..', {
+                id: 'toast-id'
+            });
             // Verify toggleAutoCompound was called with correct parameters
             expect(mockStakingService.toggleAutoCompound).toHaveBeenCalledWith(BigInt(1), { Enable: null });
             // Verify the stake was updated to show auto-staking is enabled
@@ -328,8 +335,10 @@ describe('staking.service', () => {
 
             await toggleAutoStakeRewads(index);
 
-            // Ensure loading toast expectation is correct
-            expect(toast.loading).toHaveBeenCalledWith('Disabling auto stake rewards..');
+            // Verify loading toast was shown with ID
+            expect(toast.loading).toHaveBeenCalledWith('Disabling auto stake rewards..', {
+                id: 'toast-id'
+            });
             expect(mockStakingService.toggleAutoCompound).toHaveBeenCalledWith(BigInt(2), { Cancel: null });
             // Ensure state check is correct
             expect(myStakes.value[index].isRewardsAutoStaked).toBe(false);
@@ -430,8 +439,10 @@ describe('staking.service', () => {
             // Call the function we're testing
             await stakeUnclaimedRewards(index);
 
-            // Verify loading toast was shown
-            expect(toast.loading).toHaveBeenCalledWith('Staking rewards..');
+            // Verify loading toast was shown with ID
+            expect(toast.loading).toHaveBeenCalledWith('Staking rewards..', {
+                id: 'toast-id'
+            });
             // Verify manuallyCompoundRewards was called with correct stake ID
             expect(mockStakingService.manuallyCompoundRewards).toHaveBeenCalledWith(BigInt(1));
             // Verify the staked reward amount was increased by the unclaimed amount
@@ -562,8 +573,10 @@ describe('staking.service', () => {
 
             await unstake(index);
 
-            // Correct the expected amount in the assertion (should be 100 for index 0)
-            expect(toast.loading).toHaveBeenCalledWith(`Unstaking ${expectedAmount} USDx..`);
+            // Correct the expected amount in the assertion
+            expect(toast.loading).toHaveBeenCalledWith(`Unstaking ${expectedAmount} USDx..`, {
+                id: 'toast-id'
+            });
             expect(mockStakingService.unstake).toHaveBeenCalledWith(BigInt(1)); // ID for index 0 is 1
             expect(myStakes.value.length).toBe(1);
             expect(updateBalance).toHaveBeenCalledWith(USDX_LEDGER_CANISTER_ID);

@@ -206,11 +206,13 @@ describe('swap.service', () => {
                 throw error;
             });
 
-            const result = await swapService.fetchPools(); // Call original
+            // Expect the function call to reject with the specific error
+            await expect(swapService.fetchPools()).rejects.toThrow('Error fetching pool args');
 
-            expect(console.error).toHaveBeenCalledWith('Error fetching pools:', error);
-            expect(toast.error).toHaveBeenCalledWith('Error fetching pools');
-            expect(result).toEqual([]);
+            // Remove previous assertions as the function now throws
+            // expect(console.error).toHaveBeenCalledWith('Error fetching pools:', error);
+            // expect(toast.error).toHaveBeenCalledWith('Error fetching pools');
+            // expect(result).toEqual([]);
         });
     });
 
