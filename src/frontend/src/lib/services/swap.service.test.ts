@@ -58,16 +58,16 @@ vi.mock('$lib/api/swap.factory.api', () => ({
 
 // Mock the swap pool API methods for interacting with liquidity pools
 vi.mock('$lib/api/swap.pool.api', () => ({
-    depositFrom: vi.fn(),
-    getUserUnusedBalance: vi.fn(),
-    quote: vi.fn(),
-    swap: vi.fn(),
-    withdraw: vi.fn()
+    depositFrom: vi.fn().mockImplementation(() => Promise.resolve({ ok: 0n })),
+    getUserUnusedBalance: vi.fn().mockImplementation(() => Promise.resolve({ ok: { balance0: 0n, balance1: 0n } })),
+    quote: vi.fn().mockImplementation(() => Promise.resolve({ ok: { amountOut: 0n, tickAfter: 0n, sqrtPriceX96After: 0n } })),
+    swap: vi.fn().mockImplementation(() => Promise.resolve({ ok: { amount0: 0n, amount1: 0n } })),
+    withdraw: vi.fn().mockImplementation(() => Promise.resolve({ ok: 0n }))
 }));
 
 // Mock ICRC ledger API for token approvals
 vi.mock('$lib/api/icrc.ledger.api', () => ({
-    approve: vi.fn()
+    approve: vi.fn().mockImplementation(() => Promise.resolve({ Ok: 0n }))
 }));
 
 // Mock balance state management

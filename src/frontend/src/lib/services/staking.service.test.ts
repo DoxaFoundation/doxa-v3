@@ -54,9 +54,13 @@ vi.mock('svelte/store', () => ({
     get: vi.fn() // This will be used to return mock objects
 }));
 
-// Mock the ICRC token transfer service
+// Re-mock icrc transfer here for isolation, returning BlockIndex directly
+// The service being tested will handle the Result
 vi.mock('./icrc.service', () => ({
-    transfer: vi.fn() // Mock the transfer function to simulate token transfers
+    transfer: vi.fn().mockImplementation(async (args) => {
+        console.log('Local mock transfer (icrc.service) called with:', args);
+        return 42n; // Return block index directly for stakeUSDx test
+    })
 }));
 
 // Mock the decimal conversion utility - converts regular numbers to blockchain format
@@ -104,16 +108,27 @@ describe('staking.service', () => {
 
     describe('fetchStakingPoolDetails', () => {
         it('should fetch and set staking pool details successfully', async () => {
-            // Create mock data that our staking service would return
+            // Create mock data matching StakingPoolDetails type
             const mockPoolData = {
-                totalStaked: 1000n, // BigInt for large numbers
-                stakingRewardRate: 5n,
-                totalStakers: 100n
+                poolName: 'Doxa Dynamic Staking',
+                poolStartTime: BigInt(Date.now()) * 1000000n, // Example time
+                poolEndTime: (BigInt(Date.now()) + 31536000000n) * 1000000n, // Example time
+                totalTokensStaked: 1000000000n, // Example amount (e.g., 1000 with 6 decimals)
+                totalFeeCollected: 5000000n, // Example amount
+                minimumTotalStake: 100000000000n, // Example amount
+                stakingTokenSymbol: 'USDx',
+                stakingTokenName: 'doxa-dollar',
+                rewardTokenSymbol: 'USDx',
+                rewardTokenCanisterId: 'doxa-dollar',
+                minimumStakeAmount: 10000000n, // Example amount
+                stakeLockDuration: 2592000000000000n, // Example duration (30 days)
+                noOfStakers: 100n
             };
 
-            // Create a mock staking service with a getPoolData function
+            // Create a mock staking service actor
             const mockStakingService = {
-                getPoolData: vi.fn().mockResolvedValue(mockPoolData) // Will return our mock data when called
+                // Mock getPoolData to return the detailed mock object
+                getPoolData: vi.fn().mockResolvedValue(mockPoolData)
             };
 
             // When get() is called, return an object with our mock service
@@ -160,9 +175,13 @@ describe('staking.service', () => {
         const blockIndex = 42n; // Mock blockchain transaction ID
 
         it('should stake USDx successfully', async () => {
-            // Create a mock staking service with a notifyStake function
+            // Create a mock staking service actor
             const mockStakingService = {
-                notifyStake: vi.fn().mockResolvedValue({ ok: true }) // Returns success response
+                // Mock notifyStake to return { ok: undefined } for success
+                notifyStake: vi.fn().mockImplementation(async (blockIndex, lockDuration) => {
+                    console.log('Mock notifyStake called with:', blockIndex, lockDuration);
+                    return { ok: undefined }; // Mimic Result.Ok(())
+                })
             };
 
             // When get() is called, return an object with our mock service
@@ -197,9 +216,11 @@ describe('staking.service', () => {
         });
 
         it('should handle error response from staking canister', async () => {
-            // Create a mock service that returns an error response
+            // Create a mock service that returns an error response matching backend Result structure
+            const errorMsg = 'Invalid stake amount';
             const mockStakingService = {
-                notifyStake: vi.fn().mockResolvedValue({ err: 'Invalid stake amount' }) // Returns error response
+                // Mock notifyStake to return { err: string } for failure
+                notifyStake: vi.fn().mockResolvedValue({ err: errorMsg })
             };
 
             // When get() is called, return an object with our mock service
@@ -214,7 +235,7 @@ describe('staking.service', () => {
             await stakeUSDx({ amount, days });
 
             // Verify error toast was shown with the error message
-            expect(toast.error).toHaveBeenCalledWith('Invalid stake amount', { id: 'toast-id' });
+            expect(toast.error).toHaveBeenCalledWith(errorMsg, { id: 'toast-id' }); // Check for specific error message
             // Verify stakes were not refreshed after error
             expect(myStakes.fetch).not.toHaveBeenCalled();
         });
@@ -271,9 +292,9 @@ describe('staking.service', () => {
 
         it('should enable auto stake rewards', async () => {
             const index = 0; // First stake in the array
-            // Create a mock service that returns success
+            // Create a mock service that returns success matching backend Result<Bool, Text>
             const mockStakingService = {
-                toggleAutoCompound: vi.fn().mockResolvedValue({ ok: true })
+                toggleAutoCompound: vi.fn().mockResolvedValue({ ok: true }) // #ok(true)
             };
 
             // When get() is called, return an object with our mock service
@@ -297,8 +318,8 @@ describe('staking.service', () => {
         it('should disable auto stake rewards', async () => {
             const index = 1; // Second stake in the array
             const mockStakingService = {
-                // Ensure mock returns ok: false for disabling
-                toggleAutoCompound: vi.fn().mockResolvedValue({ ok: false })
+                // Ensure mock returns ok: false for disabling, matching backend Result<Bool, Text>
+                toggleAutoCompound: vi.fn().mockResolvedValue({ ok: false }) // #ok(false)
             };
 
             vi.mocked(get).mockReturnValue({
@@ -317,9 +338,10 @@ describe('staking.service', () => {
 
         it('should handle error response from backend', async () => {
             const index = 0;
-            // Create a mock service that returns an error
+            // Create a mock service that returns an error matching backend Result<Bool, Text>
+            const errorMsg = 'Operation failed';
             const mockStakingService = {
-                toggleAutoCompound: vi.fn().mockResolvedValue({ err: 'Operation failed' })
+                toggleAutoCompound: vi.fn().mockResolvedValue({ err: errorMsg })
             };
 
             // When get() is called, return an object with our mock service
@@ -395,9 +417,9 @@ describe('staking.service', () => {
 
         it('should stake unclaimed rewards successfully', async () => {
             const index = 0;
-            // Create a mock service that returns success
+            // Create a mock service that returns success matching backend Result<(), Text>
             const mockStakingService = {
-                manuallyCompoundRewards: vi.fn().mockResolvedValue({ ok: true })
+                manuallyCompoundRewards: vi.fn().mockResolvedValue({ ok: undefined }) // #ok()
             };
 
             // When get() is called, return an object with our mock service
@@ -446,9 +468,10 @@ describe('staking.service', () => {
 
         it('should handle error response from backend', async () => {
             const index = 0;
-            // Create a mock service that returns an error
+            // Create a mock service that returns an error matching backend Result<(), Text>
+            const errorMsg = 'Operation failed';
             const mockStakingService = {
-                manuallyCompoundRewards: vi.fn().mockResolvedValue({ err: 'Operation failed' })
+                manuallyCompoundRewards: vi.fn().mockResolvedValue({ err: errorMsg })
             };
 
             // When get() is called, return an object with our mock service
@@ -525,8 +548,9 @@ describe('staking.service', () => {
 
         it('should unstake successfully when unlock time has passed', async () => {
             const index = 0; // This test uses index 0
+            // Update mock to match backend Result<(), Text> success
             const mockStakingService = {
-                unstake: vi.fn().mockResolvedValue({ ok: true })
+                unstake: vi.fn().mockResolvedValue({ ok: undefined }) // #ok()
             };
 
             vi.mocked(get).mockReturnValue({
@@ -571,9 +595,10 @@ describe('staking.service', () => {
 
         it('should handle error response from backend', async () => {
             const index = 0;
-            // Create a mock service that returns an error
+            // Create a mock service that returns an error matching backend Result<(), Text>
+            const errorMsg = 'Operation failed';
             const mockStakingService = {
-                unstake: vi.fn().mockResolvedValue({ err: 'Operation failed' })
+                unstake: vi.fn().mockResolvedValue({ err: errorMsg })
             };
 
             // When get() is called, return an object with our mock service
@@ -585,7 +610,7 @@ describe('staking.service', () => {
             await unstake(index);
 
             // Verify error toast was shown with the error message
-            expect(toast.error).toHaveBeenCalledWith('Operation failed', { id: 'toast-id' });
+            expect(toast.error).toHaveBeenCalledWith(errorMsg, { id: 'toast-id' });
             // Verify stakes array was not changed after error
             expect(myStakes.value.length).toBe(2);
         });

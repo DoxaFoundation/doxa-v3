@@ -21,7 +21,18 @@ import { toast } from 'svelte-sonner';
 // Mock dependencies - these are mock functions we'll use for testing
 vi.mock('$lib/api/root.canister.api', () => ({
     getEmailPermission: vi.fn().mockImplementation(() => Promise.resolve([])),
-    insertEmail: vi.fn().mockImplementation(() => Promise.resolve({ ok: {} }))
+    insertEmail: vi.fn().mockImplementation(async (emailArg: string | undefined) => {
+        if (typeof emailArg === 'string') {
+            if (emailArg.trim() === '') {
+                return { err: "Already provided" };
+            }
+            return { ok: undefined };
+        } else if (emailArg === undefined || emailArg === null) {
+            return { ok: undefined };
+        } else {
+            return { err: "Already provided" };
+        }
+    })
 }));
 
 vi.mock('svelte-sonner', () => ({

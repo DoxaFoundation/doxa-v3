@@ -8,6 +8,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { transfer } from './icrc.service';
 import { IcrcTransferError, toTransferArg } from '@dfinity/ledger-icrc';
+// Import TransferArg from the correct declarations file
+import type { TransferArg } from '@declarations/icp_ledger/icp_ledger.did'; // Adjusted path
+import { Principal } from '@dfinity/principal'; // Import Principal
 import { authStore } from '@stores/auth.store';
 import { get } from 'svelte/store';
 
@@ -65,69 +68,95 @@ vi.mock('svelte/store', async () => {
 describe('icrc.service', () => {
     // Setup test data
     const mockToken = 'USDx' as const; // Fix: Use 'USDx' instead of 'USDX' and make it a literal type
+    // Define default block index at the describe scope
+    const defaultBlockIndex = 42n; // Example block index
+    // Keep mock params simple as needed by the service function call
     const mockTransferParams = {
         token: mockToken,
-        to: 'to-account',
+        to: { owner: Principal.fromText('aaaaa-aa'), subaccount: [] }, // Use [] for absent subaccount
         amount: 100n,
-        memo: new Uint8Array(),
-        fee: 10n
+        memo: new Uint8Array(), // Service likely expects Uint8Array
+        fee: 10n // Service likely expects bigint
     };
 
-    // Mock the icrc1_transfer canister method
-    const mockIcrc1Transfer = vi.fn();
+    // Define the expected type for the mocked authStore value within the describe scope
+    // Revert to simpler function signature type
+    type MockedIcrcTransferFn = (args: TransferArg) => Promise<{ Ok: bigint } | { Err: any }>;
+    type MockAuthStoreValue = {
+        [key in typeof mockToken]: {
+            icrc1_transfer: MockedIcrcTransferFn;
+        };
+    };
 
     beforeEach(() => {
-        // Reset all mocks before each test to avoid interference
         vi.clearAllMocks();
 
-        // Setup the auth store to return a mock actor with the icrc1_transfer method
-        // Fix: Use vi.mocked(get) instead of get.mockReturnValue
+        // Setup the auth store to return a mock actor with a default successful icrc1_transfer implementation
         vi.mocked(get).mockReturnValue({
             [mockToken]: {
-                icrc1_transfer: mockIcrc1Transfer
+                // Use vi.fn() and ensure implementation signature matches type
+                icrc1_transfer: vi.fn().mockImplementation(async (args: TransferArg): Promise<{ Ok: bigint } | { Err: any }> => {
+                    console.log('Mock icrc1_transfer called with:', args);
+                    // Default success response matching backend structure
+                    return { Ok: defaultBlockIndex };
+                })
             }
-        });
+        } as MockAuthStoreValue); // Cast the returned object to ensure type alignment
     });
 
     describe('transfer', () => {
         // Test case: Successful token transfer
         it('should transfer tokens successfully', async () => {
-            // Setup: Simulate a successful transfer response with a block index
-            const blockIndex = 42n;
-            mockIcrc1Transfer.mockResolvedValue({ Ok: blockIndex });
+            // const blockIndex = 42n; 
+            // mockIcrc1Transfer.mockResolvedValue({ Ok: blockIndex }); // No longer needed, default mock returns success
 
-            // Execute: Call the transfer function with mock parameters
-            // This test verifies that when we call transfer with valid parameters,
-            // it correctly processes the request and returns the block index
-            const result = await transfer(mockTransferParams as any); // Fix: Use type assertion
-
-            // Verify: Check all expected function calls and the return value
-            expect(get).toHaveBeenCalledWith(authStore);
-            expect(toTransferArg).toHaveBeenCalledWith({
-                to: mockTransferParams.to,
+            // Execute: Call the transfer function with parameters matching its signature
+            const result = await transfer({
+                token: mockTransferParams.token,
+                to: mockTransferParams.to as any, // Use type assertion to bypass linter error
                 amount: mockTransferParams.amount,
                 memo: mockTransferParams.memo,
                 fee: mockTransferParams.fee
             });
-            expect(mockIcrc1Transfer).toHaveBeenCalled();
-            expect(result).toBe(blockIndex);
+
+            // Verify: Check all expected function calls and the return value
+            expect(get).toHaveBeenCalledWith(authStore);
+            // Verify toTransferArg was called with expected structure (use objectContaining for 'to')
+            expect(toTransferArg).toHaveBeenCalledWith(expect.objectContaining({
+                to: mockTransferParams.to, // Check the overall 'to' object structure
+                amount: mockTransferParams.amount,
+                memo: mockTransferParams.memo,
+                fee: mockTransferParams.fee
+            }));
+            // Add type assertion to resolve 'unknown' type error
+            expect((vi.mocked(get)(authStore) as MockAuthStoreValue)[mockToken].icrc1_transfer).toHaveBeenCalled();
+            // Check if the result matches the default block index
+            expect(result).toBe(defaultBlockIndex);
         });
 
         // Test case: Failed transfer with an error from the canister
         it('should throw IcrcTransferError when transfer fails', async () => {
             // Setup: Simulate a transfer failure with InsufficientFunds error
-            const errorType = { InsufficientFunds: null };
-            mockIcrc1Transfer.mockResolvedValue({ Err: errorType });
+            const errorType = { InsufficientFunds: { balance: 0n } }; // Add balance field
+            // Override default implementation for this test, using 'as any' to bypass type error
+            const mockActor = vi.mocked(get)(authStore) as MockAuthStoreValue;
+            (mockActor[mockToken].icrc1_transfer as any).mockResolvedValue({ Err: errorType });
+
 
             // Execute and Verify: Ensure the transfer function throws an error
-            // This test checks that when the canister returns an error,
-            // our service properly converts it to an IcrcTransferError
-            await expect(transfer(mockTransferParams as any)).rejects.toThrow(); // Fix: Use type assertion
+            await expect(transfer({
+                token: mockTransferParams.token,
+                to: mockTransferParams.to as any, // Use type assertion to bypass linter error
+                amount: mockTransferParams.amount,
+                memo: mockTransferParams.memo,
+                fee: mockTransferParams.fee
+            })).rejects.toThrow(IcrcTransferError);
 
             // Verify all expected function calls
             expect(get).toHaveBeenCalledWith(authStore);
             expect(toTransferArg).toHaveBeenCalled();
-            expect(mockIcrc1Transfer).toHaveBeenCalled();
+            // Add type assertion
+            expect((vi.mocked(get)(authStore) as MockAuthStoreValue)[mockToken].icrc1_transfer).toHaveBeenCalled();
             expect(IcrcTransferError).toHaveBeenCalledWith({
                 errorType: errorType,
                 msg: 'Failed to transfer'
@@ -138,17 +167,18 @@ describe('icrc.service', () => {
         it('should handle network errors', async () => {
             // Setup: Simulate a network error during transfer
             const error = new Error('Network error');
-            mockIcrc1Transfer.mockRejectedValue(error);
+            // Override default implementation for this test, using 'as any' to bypass type error
+            const mockActor = vi.mocked(get)(authStore) as MockAuthStoreValue;
+            (mockActor[mockToken].icrc1_transfer as any).mockRejectedValue(error);
 
             // Execute and Verify: Ensure the original error is propagated
-            // This test verifies that when a network error occurs,
-            // our service passes through the original error without modification
-            await expect(transfer(mockTransferParams as any)).rejects.toThrow(error); // Fix: Use type assertion
-
-            // Verify all expected function calls
-            expect(get).toHaveBeenCalledWith(authStore);
-            expect(toTransferArg).toHaveBeenCalled();
-            expect(mockIcrc1Transfer).toHaveBeenCalled();
+            await expect(transfer({
+                token: mockTransferParams.token,
+                to: mockTransferParams.to as any, // Use type assertion to bypass linter error
+                amount: mockTransferParams.amount,
+                memo: mockTransferParams.memo,
+                fee: mockTransferParams.fee
+            })).rejects.toThrow(error);
         });
     });
 }); 

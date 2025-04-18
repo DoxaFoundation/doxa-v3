@@ -145,7 +145,7 @@ describe('claim-reward.service', () => {
         });
 
         it('should successfully claim rewards', async () => {
-            mockStakingService.harvestReward.mockResolvedValue({ ok: true });
+            mockStakingService.harvestReward.mockResolvedValue({ ok: undefined });
 
             const completeStake: Stake = {
                 ...mockStake,
@@ -199,7 +199,7 @@ describe('claim-reward.service', () => {
             ];
 
             (myStakes as any).value = stakes;
-            mockStakingService.harvestReward.mockResolvedValue({ ok: true });
+            mockStakingService.harvestReward.mockResolvedValue({ ok: undefined });
 
             await claimAllRewards();
 

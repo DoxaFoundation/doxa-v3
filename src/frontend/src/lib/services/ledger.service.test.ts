@@ -43,14 +43,25 @@ vi.mock('svelte-sonner', () => ({
     }
 }));
 
+// Default mock implementation returning a successful response matching backend structure
+const defaultBlockIndex = 42n; // Example block index for success
+
 vi.mock('$lib/api/icp.ledger.api', () => ({
-    // Mock transferICP function for ICP token transfers
-    transferICP: vi.fn()
+    // Mock transferICP to return a successful TransferResult by default
+    transferICP: vi.fn().mockImplementation(async (args) => {
+        console.log('Mock transferICP called with:', args); // Optional: log args
+        // Return structure matching TransferResult.Ok from icp_ledger.did
+        return { Ok: defaultBlockIndex };
+    })
 }));
 
 vi.mock('$lib/api/icrc.ledger.api', () => ({
-    // Mock transfer function for ICRC token transfers
-    transfer: vi.fn()
+    // Mock transfer to return a successful Icrc1TransferResult by default
+    transfer: vi.fn().mockImplementation(async (args) => {
+        console.log('Mock icrc transfer called with:', args); // Optional: log args
+        // Return structure matching Icrc1TransferResult.Ok from icp_ledger.did (which defines ICRC-1)
+        return { Ok: defaultBlockIndex };
+    })
 }));
 
 describe('ledger.service', () => {
