@@ -4,6 +4,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import type { UserConfig } from 'vite';
 import { defineConfig, loadEnv } from 'vite';
+import { svelteTesting } from '@testing-library/svelte/vite';
 
 // npm run dev = local
 // npm run build = local
@@ -65,7 +66,7 @@ const readCanisterIdsInIcpSwapDirectory = (): Record<string, Details> => {
 };
 
 const config: UserConfig = {
-	plugins: [sveltekit()],
+	plugins: [sveltekit(), svelteTesting()],
 	build: {
 		target: 'esnext',
 		rollupOptions: {
@@ -89,6 +90,15 @@ const config: UserConfig = {
 				global: 'globalThis'
 			}
 		}
+	},
+	test: {
+		name: 'client',
+		environment: 'jsdom',
+		include: [
+			'src/frontend/src/**/*.svelte.{test,spec}.{js,ts}',
+			'src/frontend/src/**/*.{test,spec}.{js,ts}'
+		],
+		setupFiles: ['./vitest-setup.ts']
 	}
 };
 
