@@ -325,28 +325,6 @@ describe('SlippageModal', () => {
 });
 
 describe('testing logic inside the component and effects', () => {
-	// let value = $state('0.5');
-	// let user: UserEvent;
-	// let buttonOpenModal: HTMLElement;
-
-	// // Setup test environment before each test
-	// beforeEach(async () => {
-	// 	user = userEvent.setup();
-
-	// 	// binding value prop to the state value
-	// 	render(SlippageModal, {
-	// 		get value(): string {
-	// 			return value;
-	// 		},
-	// 		set value(v: string) {
-	// 			value = v;
-	// 		}
-	// 	});
-
-	// 	buttonOpenModal = screen.getByRole('button', { name: `${value}%` });
-	// 	await user.click(buttonOpenModal);
-	// });
-
 	// Test suite for value formatting
 	describe('Value formatting', () => {
 		let value = $state('0.5');
@@ -370,11 +348,6 @@ describe('testing logic inside the component and effects', () => {
 
 		// Test removing non-numeric characters
 		it('should remove non-numeric characters from value', async () => {
-			// const input = screen.getByRole('textbox');
-			// await user.clear(input);
-			// await user.type(input, '1a2b3c.4d5e6f%');
-			// expect(value).toBe('123.45');
-
 			value = '1a2b3c.4d5e6f%';
 			flushSync();
 			expect(value).toBe('123.45');
@@ -382,13 +355,6 @@ describe('testing logic inside the component and effects', () => {
 
 		// Test handling multiple decimal points
 		it('should handle multiple decimal points by keeping only the first two parts', async () => {
-			// const input = screen.getByRole('textbox');
-			// await user.clear(input);
-			// await user.click(input);
-			// await user.keyboard('1.2.3.4');
-			// flushSync();
-			// expect(value).toBe('1.2');
-
 			value = '1.2.3.4';
 			flushSync();
 			expect(value).toBe('1.2');
@@ -396,13 +362,6 @@ describe('testing logic inside the component and effects', () => {
 
 		// Test limiting decimal places
 		it('should limit decimal places to 2', async () => {
-			// const input = screen.getByRole('textbox');
-			// await user.clear(input);
-			// await user.click(input);
-			// await user.keyboard('1.23456');
-			// flushSync();
-			// expect(value).toBe('1.23');
-
 			value = '1.23456';
 			flushSync();
 			expect(value).toBe('1.23');
@@ -429,14 +388,6 @@ describe('testing logic inside the component and effects', () => {
 
 		// Test empty value handling
 		it('should set value to 0.5 when empty and modal is closed', async () => {
-			// const input = screen.getByRole('textbox');
-			// await user.clear(input);
-			// await user.click(input);
-			// await user.keyboard('');
-			// await user.click(buttonOpenModal); // Close modal
-			// flushSync();
-			// expect(value).toBe('0.5');
-
 			value = ''; // set value to empty
 			open = false; // close modal
 			flushSync();
@@ -445,14 +396,6 @@ describe('testing logic inside the component and effects', () => {
 
 		// Test maximum value limit
 		it('should cap value at 50 when modal is closed', async () => {
-			// const input = screen.getByRole('textbox');
-			// await user.clear(input);
-			// await user.click(input);
-			// await user.keyboard('75');
-			// await user.click(buttonOpenModal); // Close modal
-			// flushSync();
-			// expect(value).toBe('50');
-
 			value = '75'; // set value to 75
 			open = false; // close modal
 			flushSync();
@@ -461,11 +404,6 @@ describe('testing logic inside the component and effects', () => {
 
 		// Test value remains unchanged when modal is open
 		it('should not modify value when modal is open', async () => {
-			// const input = screen.getByRole('textbox');
-			// await user.clear(input);
-			// await user.type(input, '75');
-			// expect(value).toBe('75');
-
 			value = '75'; // set value to 75
 			flushSync();
 			expect(value).toBe('75');
