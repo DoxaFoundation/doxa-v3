@@ -24,7 +24,10 @@
 		class:open={animation}
 		onclick={switchTokens}
 	>
-		<ChevronsDownUpIcon class="size-8 text-black transition-all duration-300 ease-out" />
+		<ChevronsDownUpIcon
+			data-testid="flip-icon"
+			class="size-8 text-black transition-all duration-300 ease-out"
+		/>
 	</button>
 </div>
 
