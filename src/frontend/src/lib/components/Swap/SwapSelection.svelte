@@ -33,7 +33,7 @@
 	{:else}
 		<span class="text-lg md:font-semibold">Select Token</span>
 	{/if}
-	<ChevronDownIcon class="size-4" />
+	<ChevronDownIcon data-testid="chevron-down-icon" class="size-4" />
 </Button>
 
 <Modal
@@ -46,8 +46,9 @@
 	outsideclose
 	classHeader="text-gray-900  dark:text-white dark:placeholder-gray-400"
 >
-	{#each tokens as ledgerId (ledgerId)}
+	{#each tokens as ledgerId, index (ledgerId)}
 		<button
+			data-testid={index}
 			color="alternative"
 			disabled={selected === ledgerId || disableTokenList.includes(ledgerId)}
 			class="border rounded-lg p-3 w-full flex items-center gap-2 hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
