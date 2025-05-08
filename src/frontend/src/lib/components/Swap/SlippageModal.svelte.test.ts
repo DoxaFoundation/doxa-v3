@@ -4,14 +4,6 @@ import SlippageModal from './SlippageModal.svelte';
 import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { flushSync } from 'svelte';
 
-export function current(getCount: () => any) {
-	return {
-		get value() {
-			return getCount();
-		}
-	};
-}
-
 describe('SlippageModal', () => {
 	let value = $state('0.5');
 	let user: UserEvent;

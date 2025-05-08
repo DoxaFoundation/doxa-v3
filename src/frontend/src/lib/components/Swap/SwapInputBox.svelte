@@ -85,12 +85,12 @@
 		{/if}
 	</div>
 
-	{#if balances[ledgerId]?.format && LedgerMetadata[ledgerId]?.symbol}
+	{#if balances[ledgerId]?.format && metadata?.symbol}
 		<div class="flex items-center gap-1">
 			<span class="text-sm font-normal">Available:</span>
 			<span class="text-sm font-medium">
 				{balances[ledgerId]?.format}
-				{LedgerMetadata[ledgerId]?.symbol}
+				{metadata?.symbol}
 			</span>
 		</div>
 	{/if}
