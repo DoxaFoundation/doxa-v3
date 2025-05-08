@@ -23,3 +23,8 @@ const getUtilityCanister = async (): Promise<UtilityActor> => {
 
 	return canister;
 };
+
+// Function to reset the canister instance for testing purposes
+export const _resetUtilityCanisterForTesting = (): void => {
+	canister = undefined;
+};

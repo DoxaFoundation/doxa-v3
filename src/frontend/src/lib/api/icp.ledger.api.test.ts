@@ -51,6 +51,7 @@ describe('ICP Ledger API', () => {
         vi.clearAllMocks();
         (get as any).mockReturnValue({ principal: mockPrincipal });
         (getIcpLedgerActor as any).mockResolvedValue(mockActor);
+        icpLedgerApi._resetIcpLedgerCanisterForTesting(); // Reset cache
     });
 
     /**
@@ -124,7 +125,7 @@ describe('ICP Ledger API', () => {
             await icpLedgerApi.transferICP(transferArgs); // Call with principal1
 
             // Change principal
-            const newPrincipal = Principal.fromText('new-test-principal');
+            const newPrincipal = Principal.fromText('rrkah-fqaaa-aaaaa-aaaaq-cai');
             (get as any).mockReturnValue({ principal: newPrincipal });
             // Important: Clear the previous mockActor setup for getIcpLedgerActor 
             // if it captures the old principal or ensure the mock factory can handle different principals.

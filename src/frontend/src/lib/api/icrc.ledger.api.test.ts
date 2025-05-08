@@ -73,6 +73,9 @@ describe('ICRC Ledger API', () => {
 
         // Setup actor provider mock to return our mock actor
         (getIcrcLedgerActor as any).mockResolvedValue(mockActor);
+
+        // Reset the API module's cache before each test
+        icrcLedgerApi._resetIcrcLedgerCacheForTesting();
     });
 
     /**

@@ -38,10 +38,7 @@ describe('Utility Canister API', () => {
         vi.clearAllMocks();
         (getUtilityActor as any).mockResolvedValue(mockActor);
         // Reset the singleton canister instance in the module to test caching correctly
-        // This assumes a reset function like _resetCanister is exposed from utility.canister.api.ts
-        if (typeof (utilityApi as any)._resetCanister === 'function') {
-            (utilityApi as any)._resetCanister();
-        }
+        utilityApi._resetUtilityCanisterForTesting();
     });
 
     /**

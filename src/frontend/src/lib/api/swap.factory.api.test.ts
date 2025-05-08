@@ -40,7 +40,7 @@ describe('Swap Factory API', () => {
         vi.clearAllMocks();
         (getSwapFactoryActor as any).mockResolvedValue(mockActor);
         // Reset the singleton canister instance in the module to test caching correctly
-        swapFactoryApi.resetCanister();
+        swapFactoryApi._resetSwapFactoryCanisterForTesting();
     });
 
     /**

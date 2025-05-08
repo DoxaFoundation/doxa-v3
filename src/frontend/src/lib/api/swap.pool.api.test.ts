@@ -75,6 +75,9 @@ describe('Swap Pool API', () => {
 
         // Setup actor provider mock to return our mock actor
         (getSwapPoolActor as any).mockResolvedValue(mockActor);
+
+        // Reset the API module's cache
+        swapPoolApi._resetSwapPoolCacheForTesting();
     });
 
     /**

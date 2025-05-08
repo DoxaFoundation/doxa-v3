@@ -57,6 +57,9 @@ describe('Root Canister API', () => {
 
         // Setup actor provider mock to return our mock actor
         (getRootCanister as any).mockResolvedValue(mockActor);
+
+        // Reset the API module's cache
+        rootCanisterApi._resetRootCanisterForTesting();
     });
 
     /**
