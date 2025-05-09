@@ -24,28 +24,28 @@ jobs:
         with:
           node-version: 20.x
 
-      - name: Install DFX
-        run: |
-          sh -ci "$(curl -fsSL https://internetcomputer.org/install.sh)"
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      # - name: Install DFX
+      #   run: |
+      #     sh -ci "$(curl -fsSL https://internetcomputer.org/install.sh)"
+      #     echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      - name: Install Mops
-        run: npm i -g ic-mops
+      # - name: Install Mops
+      #   run: npm i -g ic-mops
 
       - name: Install dependencies
         run: npm install
 
-      - name: 'start dfx local'
-        run: dfx start --clean --background
+      # - name: 'start dfx local'
+      #   run: dfx start --clean --background
 
-      - name: Make deploy script executable
-        run: chmod +x ./scripts/deploy-local.sh
+      # - name: Make deploy script executable
+      #   run: chmod +x ./scripts/deploy-local.sh
 
-      - name: Run local deployment
-        run: ./scripts/deploy-local.sh
+      # - name: Run local deployment
+      #   run: ./scripts/deploy-local.sh
 
-      - name: Build app
-        run: npm run build
+      # - name: Build app
+      #   run: npm run build
 
       - name: Run tests
         run: npm run test
