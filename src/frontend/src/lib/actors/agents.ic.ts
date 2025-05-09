@@ -45,5 +45,10 @@ export const getAgentFromCache = (principal: Principal): Option<HttpAgent> => {
 
 	const key = principal.toString();
 
-	return agents[key];
+	return agents[key] ?? null;
+};
+
+// For testing purposes, to reset the internal agents cache
+export const _resetAgentsCacheForTesting = (): void => {
+	agents = undefined;
 };
