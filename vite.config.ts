@@ -91,14 +91,9 @@ const config: UserConfig = {
 			}
 		}
 	},
+	// Add the test configuration for Vitest
 	test: {
-		name: 'client',
-		environment: 'jsdom',
-		include: [
-			'src/frontend/src/**/*.svelte.{test,spec}.{js,ts}',
-			'src/frontend/src/**/*.{test,spec}.{js,ts}'
-		],
-		setupFiles: ['./vitest-setup.ts']
+		environment: 'jsdom'
 	}
 };
 

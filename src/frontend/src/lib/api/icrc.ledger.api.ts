@@ -163,3 +163,8 @@ const icrcLedgerCanister = async ({
 	ledgerCanisterCache.set(cacheKey, icrcLedgerInstance);
 	return icrcLedgerInstance;
 };
+
+// Function to reset the cache, typically for testing purposes
+export const _resetIcrcLedgerCacheForTesting = (): void => {
+	ledgerCanisterCache.clear(); // Clear the map
+};
