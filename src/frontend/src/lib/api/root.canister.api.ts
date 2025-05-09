@@ -36,3 +36,8 @@ const rootCanister = async (): Promise<RootActor> => {
 
 	return canister[cacheKey];
 };
+
+// Function to reset the cache for testing purposes
+export const _resetRootCanisterForTesting = (): void => {
+	canister = {}; // Reset to an empty object
+};

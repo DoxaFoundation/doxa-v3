@@ -89,6 +89,10 @@ const config: UserConfig = {
 				global: 'globalThis'
 			}
 		}
+	},
+	// Add the test configuration for Vitest
+	test: {
+		environment: 'jsdom'
 	}
 };
 

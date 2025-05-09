@@ -101,3 +101,8 @@ const swapPoolCanister = async ({
 
 	return swapPoolInstance;
 };
+
+// Function to reset the cache for testing purposes
+export const _resetSwapPoolCacheForTesting = (): void => {
+	swapPoolCanisterCache.clear();
+};
