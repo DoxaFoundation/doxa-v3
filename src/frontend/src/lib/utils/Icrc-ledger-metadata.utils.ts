@@ -25,7 +25,7 @@ function convertMetadataValueToString(value: MetadataValue): string {
 	} else if ('Blob' in value) {
 		if (value.Blob instanceof Uint8Array) {
 			return new TextDecoder().decode(value.Blob);
-		} else if (Array.isArray(value.Blob)) {
+		} else {
 			return new TextDecoder().decode(new Uint8Array(value.Blob));
 		}
 	} else if ('Nat' in value) {
@@ -33,6 +33,7 @@ function convertMetadataValueToString(value: MetadataValue): string {
 	} else if ('Int' in value) {
 		return value.Int.toString();
 	}
+
 	throw new Error('Unsupported metadata value type for string conversion.');
 }
 

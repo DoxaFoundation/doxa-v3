@@ -18,7 +18,7 @@
 			>{label}
 
 			{#if tip}
-				<CircleHelp size={16} class="ml-1" />
+				<CircleHelp size={16} class="ml-1" data-testid="circle-help-icon" />
 				<Tooltip>{tip}</Tooltip>
 			{/if}
 		</span>

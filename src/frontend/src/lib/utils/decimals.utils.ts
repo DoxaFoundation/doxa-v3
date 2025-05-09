@@ -16,7 +16,8 @@ export function from6Decimals(value: bigint): number {
  * @returns A bigint representation with 6 implied decimal places
  */
 export function to6Decimals(value: number): bigint {
-	return BigInt(value * 1000000);
+	// Use Math.trunc before BigInt to handle inputs with > 6 decimals
+	return BigInt(Math.trunc(value * 1000000));
 }
 
 /**
@@ -50,12 +51,52 @@ export function fromBigIntDecimals(value: bigint, canisterId: string): number {
  * @param canisterId - The ID of the token canister to determine decimal places
  * @returns A bigint representation with the token's implied decimal places
  */
-export function toBigIntDecimals(value: number, canisterId: string) {
-	const { decimals } = LedgerMetadata[canisterId];
+export function toBigIntDecimals(value: number, canisterId: string): bigint {
+	const metadata = LedgerMetadata[canisterId];
+	assertNonNullish(metadata, `Metadata not found for ${canisterId}`);
+	const { decimals } = metadata;
+	assertNonNullish(decimals, `Decimals not found for ${canisterId}`);
 
-	assertNonNullish(decimals, 'Decimals not found');
+	let numStr = value.toString();
 
-	return BigInt(Math.trunc(value * Math.pow(10, decimals)));
+	// Handle scientific notation input from toString()
+	if (numStr.includes('e')) {
+		const exponent = parseInt(numStr.split('e')[1], 10);
+		if (exponent < 0) {
+			// Use toFixed to get a non-scientific notation string
+			// Need enough precision to cover decimals and the exponent shift
+			numStr = value.toFixed(Math.max(decimals, Math.abs(exponent)) + 1);
+		}
+		// Positive exponent cases might be large integers, toString is usually fine.
+	}
+
+	const parts = numStr.split('.');
+	const integerPart = parts[0];
+	let decimalPart = parts[1] || '';
+
+	// Take the required number of decimal digits (truncation)
+	const neededDecimalDigits = decimalPart.slice(0, decimals);
+
+	// Pad with zeros if we took fewer digits than required
+	const paddedDecimalDigits = neededDecimalDigits.padEnd(decimals, '0');
+
+	// Concatenate integer part and the adjusted decimal part
+	// Handle negative sign: if integerPart is "-0", result should be based on decimal part
+	let combinedStr = (integerPart === '-0' || integerPart === '0') && value < 0
+		? '-' + paddedDecimalDigits
+		: integerPart + paddedDecimalDigits;
+
+	// Remove leading '-' if it was '-0' and decimalpart makes it positive or zero
+	if (integerPart === '-0' && !paddedDecimalDigits.match(/[^0]/)) {
+		combinedStr = '0'
+	}
+
+	// Ensure the string is not empty or just '-' before converting
+	if (combinedStr === '' || combinedStr === '-') {
+		return 0n;
+	}
+
+	return BigInt(combinedStr);
 }
 
 /**

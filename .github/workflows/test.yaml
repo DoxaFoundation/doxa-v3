@@ -1,0 +1,79 @@
+name: Test CI Workflow
+
+on:
+  push:
+    branches:
+      - main
+      - vitest
+      - component-testing
+  pull_request:
+    branches:
+      - main
+      - vitest
+      - component-testing
+
+jobs:
+  build-and-test-app:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: 'npm'
+
+      # - name: Install DFX
+      #   run: |
+      #     sh -ci "$(curl -fsSL https://internetcomputer.org/install.sh)"
+      #     echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - name: Install DFX
+        uses: aviate-labs/setup-dfx@v0.3.2
+        with:
+          dfx-version: 0.26.0
+
+      - name: Install Mops
+        run: npm i -g ic-mops
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Start DFX local replica
+        run: dfx start --clean --background
+
+      - name: Make deploy script executable
+        run: |
+          chmod +x ./scripts/deploy-local.sh
+          chmod +x ./scripts/deploy-local-ckusdc.sh
+          chmod +x ./scripts/deploy-local-usdx.sh
+          chmod +x ./scripts/deploy-usdx-index.sh
+
+      - name: Ensure directories exist
+        run: |
+          mkdir -p .dfx/local
+          mkdir -p src/icp-swap/.dfx/local
+
+      - name: Create empty canister_ids.json files if they don't exist
+        run: |
+          # Create root canister_ids.json if it doesn't exist
+          if [ ! -f .dfx/local/canister_ids.json ]; then
+            echo '{}' > .dfx/local/canister_ids.json
+          fi
+
+          # Create icp-swap canister_ids.json if it doesn't exist
+          if [ ! -f src/icp-swap/.dfx/local/canister_ids.json ]; then
+            echo '{}' > src/icp-swap/.dfx/local/canister_ids.json
+          fi
+
+      - name: Run local deployment
+        run: ./scripts/deploy-local.sh
+        timeout-minutes: 10
+        continue-on-error: true
+
+      - name: Build app
+        run: npm run build
+
+      - name: Run tests
+        run: npm run test

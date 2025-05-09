@@ -3,7 +3,8 @@ import type { DateWithRemainingDays } from '$lib/types/staking';
 // Function to convert days to nanoseconds
 export const daysToNanoseconds = (days: number): bigint => {
 	const nanosecondsPerDay = 24n * 60n * 60n * 1_000_000_000n;
-	return BigInt(days) * nanosecondsPerDay;
+	// Use Math.trunc to ensure an integer value before BigInt conversion
+	return BigInt(Math.trunc(days)) * nanosecondsPerDay;
 };
 
 // Function to convert nanoseconds to days

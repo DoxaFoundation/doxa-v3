@@ -229,7 +229,47 @@ This ensures a clean project directory and makes the tools accessible across all
 make test
 ```
 
-```bash
-./scripts/test.sh
+## Running Tests
 
+This project uses [Vitest](https://vitest.dev/) for unit testing. You can run tests using the `npm test` command, which utilizes the `vitest` test runner defined in `package.json`.
+
+### Run All Tests
+
+To execute all test files in the project:
+
+```bash
+npm test
 ```
+
+### Run Tests for a Specific File
+
+To run tests only within a particular file, pass the file path as an argument after `--`:
+
+```bash
+npm test -- <path/to/your/file.test.ts>
+```
+
+Replace `<path/to/your/file.test.ts>` with the actual path to the test file (e.g., `npm test -- src/frontend/src/lib/services/ledger.service.test.ts`).
+
+### Run Tests for a Specific Folder or using a Filter
+
+To run all tests within a specific directory, provide the full path after `--`:
+
+```bash
+npm test -- <path/to/your/folder>
+```
+
+Replace `<path/to/your/folder>` with the actual path to the directory (e.g., `npm test -- src/frontend/src/lib/services`).
+
+Alternatively, you can provide a filter string after `--`. Vitest will run tests in any file whose path contains the string:
+
+```bash
+# Example: Run tests in any path containing "services"
+npm test -- services
+```
+
+Note: Using a filter string might run tests from unintended directories if the string matches elsewhere in the project. Using the full path is more precise.
+
+### Test Summary
+
+After running any of the above commands, Vitest will output a summary in the terminal, showing the number of tests passed, failed, and skipped, along with details for any failing tests.

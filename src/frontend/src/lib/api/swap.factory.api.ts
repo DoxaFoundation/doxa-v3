@@ -25,3 +25,8 @@ const swapFactoryCanister = async (): Promise<SwapFactoryActor> => {
 
 	return canister;
 };
+
+// Function to reset the canister instance for testing purposes
+export const _resetSwapFactoryCanisterForTesting = (): void => {
+	canister = undefined;
+};

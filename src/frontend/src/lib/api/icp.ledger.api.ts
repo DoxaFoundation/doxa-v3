@@ -31,3 +31,8 @@ const icpLedgerCanister = async (): Promise<IcpLedgerActor> => {
 
 	return canister[cacheKey];
 };
+
+// Function to reset the cache for testing purposes
+export const _resetIcpLedgerCanisterForTesting = (): void => {
+	canister = {}; // Reset to an empty object as per its initialization
+};
