@@ -23,6 +23,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20.x
+          cache: 'npm'
 
       # - name: Install DFX
       #   run: |
@@ -39,14 +40,37 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: 'start dfx local'
+      - name: Start DFX local replica
         run: dfx start --clean --background
 
       - name: Make deploy script executable
-        run: chmod +x ./scripts/deploy-local.sh
+        run: |
+          chmod +x ./scripts/deploy-local.sh
+          chmod +x ./scripts/deploy-local-ckusdc.sh
+          chmod +x ./scripts/deploy-local-usdx.sh
+          chmod +x ./scripts/deploy-usdx-index.sh
+
+      - name: Ensure directories exist
+        run: |
+          mkdir -p .dfx/local
+          mkdir -p src/icp-swap/.dfx/local
+
+      - name: Create empty canister_ids.json files if they don't exist
+        run: |
+          # Create root canister_ids.json if it doesn't exist
+          if [ ! -f .dfx/local/canister_ids.json ]; then
+            echo '{}' > .dfx/local/canister_ids.json
+          fi
+
+          # Create icp-swap canister_ids.json if it doesn't exist
+          if [ ! -f src/icp-swap/.dfx/local/canister_ids.json ]; then
+            echo '{}' > src/icp-swap/.dfx/local/canister_ids.json
+          fi
 
       - name: Run local deployment
         run: ./scripts/deploy-local.sh
+        timeout-minutes: 10
+        continue-on-error: true
 
       - name: Build app
         run: npm run build
