@@ -132,7 +132,7 @@ jobs:
       - name: Run tests with special setup
         run: |
           # Run tests with updated configuration
-          VITEST_DOM_ENV=jsdom npx vitest run --setupFiles=vitest-setup.ts
+          npx vitest run --config vite.config.ts
 
       - name: Upload test logs
         if: always()
