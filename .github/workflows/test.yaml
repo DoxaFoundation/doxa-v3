@@ -1,4 +1,4 @@
-name: Test CI Workflow
+name: Vitest Workflow
 
 on:
   push:
@@ -15,6 +15,13 @@ on:
 jobs:
   build-and-test-app:
     runs-on: ubuntu-latest
+    env:
+      ACTIONS_RUNNER_DEBUG: true
+      ACTIONS_STEP_DEBUG: true
+      # Fix for Svelte component testing in JSDOM environment
+      NODE_OPTIONS: '--unhandled-rejections=strict'
+      # Add testing environment variables
+      VITEST_DOM_ENV: 'jsdom'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -42,6 +49,27 @@ jobs:
 
       - name: Start DFX local replica
         run: dfx start --clean --background
+
+      - name: Create setup file for browser APIs
+        run: |
+          cat > browser-setup.js << 'EOL'
+          // Mock window.matchMedia for tests
+          if (typeof window.matchMedia !== 'function') {
+            Object.defineProperty(window, 'matchMedia', {
+              writable: true,
+              value: vi => ({
+                matches: false,
+                media: vi,
+                onchange: null,
+                addListener: () => {},
+                removeListener: () => {},
+                addEventListener: () => {},
+                removeEventListener: () => {},
+                dispatchEvent: () => {},
+              }),
+            });
+          }
+          EOL
 
       - name: Make deploy script executable
         run: |
@@ -75,5 +103,43 @@ jobs:
       - name: Build app
         run: npm run build
 
-      - name: Run tests
-        run: npm run test
+      - name: Create temporary setup file for Jest DOM matchers
+        run: |
+          cat > jest-dom-setup.js << 'EOL'
+          import * as matchers from '@testing-library/jest-dom/matchers';
+          import { expect } from 'vitest';
+
+          expect.extend(matchers);
+
+          // If using Chai
+          import chai from 'chai';
+          import { jestDOMChaiMatchers } from '@testing-library/jest-dom/chai-matchers';
+
+          chai.use(jestDOMChaiMatchers);
+          EOL
+
+      - name: Display test environment info
+        run: |
+          echo "Node.js version: $(node -v)"
+          echo "NPM version: $(npm -v)"
+          echo "Checking vitest-setup.ts file:"
+          cat vitest-setup.ts
+          echo "Checking @testing-library/jest-dom version:"
+          npm list @testing-library/jest-dom
+          echo "Checking testing-library/svelte version:"
+          npm list @testing-library/svelte
+
+      - name: Run tests with special setup
+        run: |
+          # Run tests with updated configuration
+          VITEST_DOM_ENV=jsdom npx vitest run --setupFiles=vitest-setup.ts
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-logs
+          path: |
+            logs/
+            .svelte-kit/
+            vitest.config.*
