@@ -144,8 +144,8 @@
 		},
 		"icp_index": {
 			"type": "custom",
-			"candid": "https://github.com/dfinity/ic/releases/download/ledger-suite-icp-2025-05-09/index.did",
-			"wasm": "https://github.com/dfinity/ic/releases/download/ledger-suite-icp-2025-05-09/ic-icp-index-canister.wasm.gz",
+			"candid": "https://github.com/dfinity/ic/releases/download/ledger-suite-icp-2025-05-15/index.did",
+			"wasm": "https://github.com/dfinity/ic/releases/download/ledger-suite-icp-2025-05-15/ic-icp-index-canister.wasm.gz",
 			"specified_id": "qhbym-qaaaa-aaaaa-aaafq-cai",
 			"remote": {
 				"id": {

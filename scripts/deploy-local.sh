@@ -1,11 +1,11 @@
 #!/bin/bash
 
 
-echo "➤➤➤➤ Create all canisters"
-dfx canister create --all
+# echo "➤➤➤➤ Create all canisters"
+# dfx canister create --all
 
-# echo "➤➤➤➤ Build all canisters"
-dfx build
+# # echo "➤➤➤➤ Build all canisters"
+# dfx build
 
 echo "➤➤➤➤ Deploy internet_identity"
 dfx deploy internet_identity

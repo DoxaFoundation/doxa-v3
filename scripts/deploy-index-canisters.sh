@@ -9,8 +9,7 @@ LEDGER_ID=$(dfx canister id usdx_ledger)
 
 
 echo "➤➤➤➤ Deploy ICP Index Canister"
-LEDGER_ID=$(dfx canister id icp_ledger)
-dfx deploy icp_ledger --argument "(record { ledger_id = principal \"$LEDGER_ID\" })"
+dfx deploy icp_ledger --argument "(record { ledger_id = principal \"ryjl3-tyaaa-aaaaa-aaaba-cai\" })"
 
 
 echo "➤➤➤➤ Deploy ckUSDC Index Canister"
