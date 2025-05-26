@@ -1,0 +1,75 @@
+# FIRST PART
+#
+# This first part sets up the dfx, and builds the local canisters + the app UI!
+# FROM ubuntu:latest AS build-app
+FROM --platform=linux/amd64 ubuntu:latest AS build-app
+
+WORKDIR /
+
+# Install deps!
+RUN apt-get update
+RUN apt-get install -y curl jq libunwind-dev build-essential
+
+# Install node and confirm commands are available
+RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - && apt-get install -y nodejs
+RUN nodejs --version
+RUN npm --version
+
+# Download and install dfx
+ENV PATH="/root/.local/share/dfx/bin:/root/.local/bin:${PATH}"
+RUN DFXVM_INIT_YES=true DFX_VERSION="0.26.1" sh -c "$(curl -fsSL https://sdk.dfinity.org/install.sh)" && dfx --version
+RUN dfx --help
+
+RUN npm i -g ic-mops
+RUN mops --version
+
+# # Make the doxa-v3 directory, and copy code into it
+WORKDIR /doxa-v3
+COPY .dfx .dfx
+
+RUN npm install
+
+# Disable warning about mainnet plaintext identity
+ENV DFX_WARNING=-mainnet_plaintext_identity
+
+# Create identities non-interactively
+RUN dfx identity new minter --storage-mode plaintext
+RUN dfx identity new doxa --storage-mode plaintext
+RUN dfx identity use default
+
+# We need the dfx to bind to all interfaces within the container when running in
+# docker, which will allow outside access when port 8080 is exposed.
+RUN jq '.networks.local.bind = "127.0.0.1:8080"' dfx.json > dfx.json.tmp && mv dfx.json.tmp dfx.json
+
+# RUN dfx start --clean > /dev/null 2>&1 & \
+#     sleep 6 && \
+#     curl -I http://127.0.0.1:8080/api/v2/status && \
+#     ./scripts/deploy-local.sh && \
+#     sleep 6 && \
+#     dfx ping && \
+#     dfx stop
+
+
+RUN dfx start > /dev/null 2>&1 & \
+    sleep 6 && \
+    curl -I http://127.0.0.1:8080/api/v2/status && \
+    sleep 6 && \
+    dfx ping && \
+    dfx stop
+
+
+
+
+# Create a startup script! `dfx stop` makes sure that any files crated by the
+# dfx run in the previous step are removed.
+RUN echo '#!/bin/sh\n\
+    dfx stop || true\n\
+    dfx start --log file --logfile ~/dfx.log &\n\
+    ' > start.sh
+RUN chmod +x start.sh
+
+
+# Dfx runs on port 8080
+EXPOSE 8080
+
+CMD ["/bin/sh", "start.sh"]
