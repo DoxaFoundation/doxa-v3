@@ -4,7 +4,6 @@ export ICP=$(dfx canister id icp_ledger)
 cd src/icp-swap/
 
 chmod +x ./scripts/deploy-icp-swap-locally.sh
-chmod +x ./scripts/create-swap-pool.sh
 
 echo "Deploying Swap canisters Locally"
 echo

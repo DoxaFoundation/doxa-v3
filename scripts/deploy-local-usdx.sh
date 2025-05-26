@@ -12,7 +12,7 @@ export MINTER_ACCOUNT=$(dfx canister id stablecoin_minter)
 export FEE_COLLECTOR_ACCOUNT=$(dfx canister id ckusdc_pool)
 
 TOKEN_NAME="Doxa Dollar"
-TOKEN_SYMBOL="USDx"
+TOKEN_SYMBOL="DUSD"
 Decimals=6
 
 PRE_MINTED_TOKENS=0
