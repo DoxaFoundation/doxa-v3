@@ -7,7 +7,6 @@ import type {
 	TransformedICPTransaction
 } from '$lib/types/transactions';
 import { ICP_LEDGER_CANISTER_ID, RESERVE_ACCOUNT } from '@constants/app.constants';
-import { ICP_INDEX_CANISTER_ID } from '@constants/icrc-index.constants';
 import { STAKING_ACCOUNT } from '@constants/staking.constants';
 import type { PoolData } from '@declarations/SwapFactory/SwapFactory.did';
 import {
@@ -42,10 +41,12 @@ export const fetchIcpTransactions = async () => {
 		const { balance, oldest_tx_id, transactions } = await getTransactions(args);
 
 		storeNextTransactionsToFetch(
-			ICP_INDEX_CANISTER_ID,
+			ICP_LEDGER_CANISTER_ID,
 			oldest_tx_id,
 			transactions[transactions.length - 1]?.id
 		);
+
+		transformAndStoreTransactions(transactions);
 
 		map = undefined;
 	} catch (error) {
@@ -58,7 +59,7 @@ export const fetchIcpTransactions = async () => {
 
 const transformAndStoreTransactions = (transactions: Array<TransactionWithId>) => {
 	const transformedTransactions = transformTransactions(transactions);
-	storeTransactions(ICP_INDEX_CANISTER_ID, transformedTransactions);
+	storeTransactions(ICP_LEDGER_CANISTER_ID, transformedTransactions);
 };
 
 const transformTransactions = (transactions: Array<TransactionWithId>) => {
@@ -91,7 +92,7 @@ const transformTransferTx = (
 	id: bigint
 ): TransformedICPTransaction => {
 	return {
-		ledgerId: ICP_INDEX_CANISTER_ID,
+		ledgerId: ICP_LEDGER_CANISTER_ID,
 		block_id: Number(id),
 		type: getTransferType({
 			from: transfer.from,
@@ -124,7 +125,7 @@ const transformApproveTx = (
 	id: bigint
 ): TransformedICPTransaction => {
 	return {
-		ledgerId: ICP_INDEX_CANISTER_ID,
+		ledgerId: ICP_LEDGER_CANISTER_ID,
 		block_id: Number(id),
 		type: 'Approve',
 		from: getAliasAccount(approve.from),
@@ -147,7 +148,7 @@ const transformMintTx = (
 	id: bigint
 ): TransformedICPTransaction => {
 	return {
-		ledgerId: ICP_INDEX_CANISTER_ID,
+		ledgerId: ICP_LEDGER_CANISTER_ID,
 		block_id: Number(id),
 		type: 'Mint',
 		memo: Number(memo),
@@ -165,7 +166,7 @@ const transformBurnTx = (
 	id: bigint
 ): TransformedICPTransaction => {
 	return {
-		ledgerId: ICP_INDEX_CANISTER_ID,
+		ledgerId: ICP_LEDGER_CANISTER_ID,
 		block_id: Number(id),
 		type: 'Burn',
 		from: getAliasAccount(burn.from),

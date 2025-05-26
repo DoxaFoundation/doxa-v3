@@ -1,7 +1,7 @@
 import { get } from 'svelte/store';
 import { authStore } from '@stores/auth.store';
 import { storeNextTransactionsToFetch, storeTransactions } from '$lib/states/transactions.svelte';
-import { getIcrcIndexCanisterIds } from '@utils/icrc-ledger.utils';
+import { getIcrcLedgerAndIndexCanisterIds } from '@utils/icrc-ledger.utils';
 import { toast } from 'svelte-sonner';
 import { getTransactions, ledgerId } from '$lib/api/icrc.index.api';
 import { encodeIcrcAccount, type GetIndexNgAccountTransactionsParams } from '@dfinity/ledger-icrc';
@@ -39,29 +39,29 @@ export const fetchTransactions = async () => {
 		const { principal } = get(authStore);
 		const args = getAccountTransactionsArgs(principal);
 
-		const icrcIndexCanisterIds = getIcrcIndexCanisterIds();
+		const icrcIndexCanisterIds = getIcrcLedgerAndIndexCanisterIds();
 
 		map = getPrincipalNameMap();
 
 		await Promise.all(
-			icrcIndexCanisterIds.map(async (canisterId) => {
+			icrcIndexCanisterIds.map(async ({ ledger_id, index_id }) => {
 				try {
 					const { balance, oldest_tx_id, transactions } = await getTransactions({
-						canisterId,
+						canisterId: index_id,
 						...args
 					});
 
 					storeNextTransactionsToFetch(
-						canisterId,
+						ledger_id,
 						oldest_tx_id,
 						transactions[transactions.length - 1]?.id
 					);
 
-					transformAndStoreTransactions(canisterId, transactions);
+					transformAndStoreTransactions(ledger_id, transactions);
 				} catch (error) {
-					console.error(`Error fetching transactions for ${canisterId}`, error);
+					console.error(`Error fetching transactions for ${ledger_id}`, error);
 					toast.error(
-						`Failed fetching transactions history for ${LedgerMetadata[canisterId]?.name ?? canisterId}`
+						`Failed fetching transactions history for ${LedgerMetadata[ledger_id]?.name ?? ledger_id}`
 					);
 				}
 			})
@@ -113,10 +113,10 @@ const transformTransferTx = (
 	transfer: Transfer,
 	timestamp: bigint,
 	id: bigint,
-	canisterId: string
+	ledger_id: string
 ): TransformedTransaction => {
 	return {
-		ledgerId: canisterId,
+		ledgerId: ledger_id,
 		block_id: Number(id),
 		type: getTransferType({
 			from: transfer.from,
@@ -128,7 +128,7 @@ const transformTransferTx = (
 		from: getAliasAccount(transfer.from),
 		memo: memoToHex(transfer.memo),
 		created_at_time: getTimestampAndDateTimeOptional(transfer.created_at_time),
-		amount: fromBigIntDecimals(transfer.amount, canisterId),
+		amount: fromBigIntDecimals(transfer.amount, ledger_id),
 		spender: transfer.spender[0] ? getAliasAccount(transfer.spender[0]) : undefined
 	};
 };
@@ -137,19 +137,19 @@ const transformApproveTx = (
 	approve: Approve,
 	timestamp: bigint,
 	id: bigint,
-	canisterId: string
+	ledger_id: string
 ): TransformedTransaction => {
 	return {
-		ledgerId: canisterId,
+		ledgerId: ledger_id,
 		block_id: Number(id),
 		type: 'Approve',
 		at: getTimestampAndDateTime(timestamp),
 		from: getAliasAccount(approve.from),
 		memo: memoToHex(approve.memo),
 		created_at_time: getTimestampAndDateTimeOptional(approve.created_at_time),
-		amount: fromBigIntDecimals(approve.amount, canisterId),
+		amount: fromBigIntDecimals(approve.amount, ledger_id),
 		expected_allowance: approve.expected_allowance[0]
-			? fromBigIntDecimals(approve.expected_allowance[0], canisterId)
+			? fromBigIntDecimals(approve.expected_allowance[0], ledger_id)
 			: undefined,
 		expires_at: getTimestampAndDateTimeOptional(approve.expires_at),
 		spender: getAliasAccount(approve.spender)
@@ -160,17 +160,17 @@ const transformMintTx = (
 	mint: Mint,
 	timestamp: bigint,
 	id: bigint,
-	canisterId: string
+	ledger_id: string
 ): TransformedTransaction => {
 	return {
-		ledgerId: canisterId,
+		ledgerId: ledger_id,
 		block_id: Number(id),
 		type: 'Mint',
 		at: getTimestampAndDateTime(timestamp),
 		to: getAliasAccount(mint.to),
 		memo: memoToHex(mint.memo),
 		created_at_time: getTimestampAndDateTimeOptional(mint.created_at_time),
-		amount: fromBigIntDecimals(mint.amount, canisterId)
+		amount: fromBigIntDecimals(mint.amount, ledger_id)
 	};
 };
 
@@ -178,17 +178,17 @@ const transformBurnTx = (
 	burn: Burn,
 	timestamp: bigint,
 	id: bigint,
-	canisterId: string
+	ledger_id: string
 ): TransformedTransaction => {
 	return {
-		ledgerId: canisterId,
+		ledgerId: ledger_id,
 		block_id: Number(id),
 		type: 'Burn',
 		at: getTimestampAndDateTime(timestamp),
 		from: getAliasAccount(burn.from),
 		memo: memoToHex(burn.memo),
 		created_at_time: getTimestampAndDateTimeOptional(burn.created_at_time),
-		amount: fromBigIntDecimals(burn.amount, canisterId),
+		amount: fromBigIntDecimals(burn.amount, ledger_id),
 		spender: burn.spender[0] ? getAliasAccount(burn.spender[0]) : undefined
 	};
 };

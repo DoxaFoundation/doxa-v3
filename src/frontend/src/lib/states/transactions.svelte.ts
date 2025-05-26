@@ -5,16 +5,16 @@ export const transactionsState: TransactionsState = $state({});
 export const nextTxsState: NextTxsState = $state({});
 
 export const storeNextTransactionsToFetch = (
-	canisterId: string,
+	ledger_id: string,
 	oldest_tx_id: [] | [bigint],
 	last_fetch_id?: bigint
 ) => {
-	nextTxsState[canisterId] = {
+	nextTxsState[ledger_id] = {
 		oldest_tx_id: oldest_tx_id[0],
 		last_fetch_id
 	};
 };
 
-export const storeTransactions = (canisterId: string, transactions: TransformedTransactions) => {
-	transactionsState[canisterId] = transactions;
+export const storeTransactions = (ledger_id: string, transactions: TransformedTransactions) => {
+	transactionsState[ledger_id] = transactions;
 };

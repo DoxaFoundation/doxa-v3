@@ -33,6 +33,29 @@ export const getIcrcIndexCanisterIds = () => [
 	CKUSDT_INDEX_CANISTER_ID
 ];
 
+export const getIcrcLedgerAndIndexCanisterIds = (): { ledger_id: string; index_id: string }[] => [
+	{
+		ledger_id: USDX_LEDGER_CANISTER_ID,
+		index_id: USDX_INDEX_CANISTER_ID
+	},
+	{
+		ledger_id: CKUSDC_LEDGER_CANISTER_ID,
+		index_id: CKUSDC_INDEX_CANISTER_ID
+	},
+	{
+		ledger_id: CKBTC_LEDGER_CANISTER_ID,
+		index_id: CKBTC_INDEX_CANISTER_ID
+	},
+	{
+		ledger_id: CKETH_LEDGER_CANISTER_ID,
+		index_id: CKETH_INDEX_CANISTER_ID
+	},
+	{
+		ledger_id: CKUSDT_LEDGER_CANISTER_ID,
+		index_id: CKUSDT_INDEX_CANISTER_ID
+	}
+];
+
 /**
  *
  * @param ledgerId
