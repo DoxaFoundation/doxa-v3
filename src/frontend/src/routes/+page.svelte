@@ -11,7 +11,11 @@
 	import { ckUsdcBase64 } from '../assets/base64-svg';
 	import { to6Decimals } from '@utils/decimals.utils';
 	import { balances, updateBalance } from '@states/ledger-balance.svelte';
-	import { CKUSDC_LEDGER_CANISTER_ID, USDX_LEDGER_CANISTER_ID } from '@constants/app.constants';
+	import {
+		CKUSDC_LEDGER_CANISTER_ID,
+		RESERVE_ACCOUNT,
+		USDX_LEDGER_CANISTER_ID
+	} from '@constants/app.constants';
 	import EmailPopUp from '@components/NewsLetter/EmailPopUp.svelte';
 
 	let selectedToken: string = $state('ckUSDC');
@@ -124,7 +128,7 @@
 
 	async function transferCkusdcToReserve(): Promise<BlockIndex> {
 		try {
-			const usdxReserveAccount: Account = getUsdxReserveAccount();
+			const usdxReserveAccount: Account = RESERVE_ACCOUNT;
 			const transferResult = await $authStore.ckUSDC.icrc1_transfer({
 				to: usdxReserveAccount,
 				fee: [],
@@ -176,14 +180,6 @@
 		}
 	}
 
-	function getUsdxReserveAccount(): Account {
-		const array: number[] = new Array(32).fill(0);
-		array[31] = 1;
-		return {
-			owner: Principal.fromText(import.meta.env.VITE_STABLECOIN_MINTER_CANISTER_ID),
-			subaccount: [new Uint8Array(array)]
-		};
-	}
 	async function getUsdxReserveAccount_(): Promise<Account> {
 		return await $authStore.stablecoinMinter.get_ckusdc_reserve_account_of({
 			token: { USDx: null }

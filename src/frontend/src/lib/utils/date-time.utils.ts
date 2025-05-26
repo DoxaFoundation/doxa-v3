@@ -68,3 +68,18 @@ export const formatTimestampWithDaysFromNow = (timestamp: bigint): DateWithRemai
 	};
 };
 //days remaining
+
+// Output: "May 15, 2023, 10:25:26 AM" (exact output depends on your locale)
+export const formatLocalDate = (nanosTimestamp: bigint): string => {
+	const millisec = Number(nanosTimestamp) / 1_000_000;
+	const date = new Date(millisec);
+	return new Intl.DateTimeFormat('default', {
+		year: 'numeric',
+		month: 'short',
+		day: 'numeric',
+		hour: 'numeric',
+		minute: 'numeric',
+		second: 'numeric',
+		hour12: true
+	}).format(date);
+};
