@@ -30,13 +30,33 @@ import { toast } from 'svelte-sonner';
 import { get } from 'svelte/store';
 
 let map: PrincipalNameMap | undefined;
+let swapPoolIds: Array<string> = [];
 
-export const fetchIcpTransactions = async () => {
+const createSwapPoolIds = () => {
+	const user = get(authStore).principal;
+	poolsMap.forEach((pool) => {
+		swapPoolIds.push(
+			AccountIdentifier.fromPrincipal({
+				principal: pool.canisterId
+			}).toHex()
+		);
+
+		swapPoolIds.push(
+			AccountIdentifier.fromPrincipal({
+				principal: pool.canisterId,
+				subAccount: SubAccount.fromPrincipal(user)
+			}).toHex()
+		);
+	});
+};
+
+export const fetchInitialIcpTransactions = async () => {
 	try {
 		const { principal } = get(authStore);
 		const args = getTransactionsParams(principal);
 
 		map = getPrincipalNameMap();
+		createSwapPoolIds();
 
 		const { balance, oldest_tx_id, transactions } = await getTransactions(args);
 
@@ -49,11 +69,13 @@ export const fetchIcpTransactions = async () => {
 		transformAndStoreTransactions(transactions);
 
 		map = undefined;
+		swapPoolIds = [];
 	} catch (error) {
 		console.error('Error fetching ICP transactions', error);
 
 		toast.error('Failed fetching ICP transactions history');
 		map = undefined;
+		swapPoolIds = [];
 	}
 };
 
@@ -264,9 +286,9 @@ const getTransferType = ({
 	userAccountId: string;
 }): TransactionType => {
 	if (userAccountId === from) {
-		return 'Send';
+		return swapPoolIds.includes(to) ? 'Swap' : 'Send';
 	} else if (userAccountId === to) {
-		return 'Receive';
+		return swapPoolIds.includes(from) ? 'Swap' : 'Receive';
 	}
 	return 'Transfer';
 };

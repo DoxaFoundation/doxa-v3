@@ -33,8 +33,9 @@ import { fromBigIntDecimals } from '@utils/decimals.utils';
 import { memoToHex } from '@utils/transaction.utils';
 
 let map: PrincipalNameMap | undefined;
+let swapPoolIds: Array<string> = [];
 
-export const fetchTransactions = async () => {
+export const fetchInitialIcrcTransactions = async () => {
 	try {
 		const { principal } = get(authStore);
 		const args = getAccountTransactionsArgs(principal);
@@ -42,6 +43,7 @@ export const fetchTransactions = async () => {
 		const icrcIndexCanisterIds = getIcrcLedgerAndIndexCanisterIds();
 
 		map = getPrincipalNameMap();
+		swapPoolIds = Array.from(poolsMap.values()).map((pool) => pool.canisterId.toString());
 
 		await Promise.all(
 			icrcIndexCanisterIds.map(async ({ ledger_id, index_id }) => {
@@ -67,11 +69,13 @@ export const fetchTransactions = async () => {
 			})
 		);
 		map = undefined;
+		swapPoolIds = [];
 	} catch (error) {
 		console.error('Error fetching transactions', error);
 
 		toast.error('Failed fetching transactions history');
 		map = undefined;
+		swapPoolIds = [];
 	}
 };
 
@@ -251,9 +255,9 @@ const getTransferType = ({
 	userPrincipal: Principal;
 }): TransactionType => {
 	if (userPrincipal.compareTo(from.owner) === 'eq') {
-		return 'Send';
+		return swapPoolIds.includes(to.owner.toString()) ? 'Swap' : 'Send';
 	} else if (userPrincipal.compareTo(to.owner) === 'eq') {
-		return 'Receive';
+		return swapPoolIds.includes(from.owner.toString()) ? 'Swap' : 'Receive';
 	}
 	return 'Transfer';
 };

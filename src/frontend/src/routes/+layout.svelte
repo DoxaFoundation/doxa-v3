@@ -8,6 +8,7 @@
 	import { balances, fetchBalances } from '@states/ledger-balance.svelte';
 	import { fetchPrices, price } from '@states/tokens-price.svelte';
 	import { fetchSwapPoolData, poolsMap } from '@states/swap-pool-data.svelte';
+	import { fetchAllInitialTransactions } from '@services/transaction.service';
 
 	let { children } = $props();
 
@@ -22,6 +23,8 @@
 		if (value && value.isAuthenticated) {
 			fetchBalances();
 		}
+
+		fetchAllInitialTransactions();
 	});
 	onDestroy(unsubscribe);
 
