@@ -1,0 +1,70 @@
+FROM --platform=linux/amd64 rust:1.83-slim-bookworm
+
+ENV NVM_DIR=/root/.nvm
+ENV NVM_VERSION=v0.40.1
+ENV NODE_VERSION=22.10.0
+
+RUN apt -yq update
+RUN apt -yqq install --no-install-recommends curl ca-certificates libunwind-dev git
+
+# Install Node.js using nvm
+ENV PATH="/root/.nvm/versions/node/v${NODE_VERSION}/bin:${PATH}"
+RUN curl --fail -sSf https://raw.githubusercontent.com/creationix/nvm/${NVM_VERSION}/install.sh | bash
+RUN . "${NVM_DIR}/nvm.sh" && nvm install ${NODE_VERSION}
+RUN . "${NVM_DIR}/nvm.sh" && nvm use v${NODE_VERSION}
+RUN . "${NVM_DIR}/nvm.sh" && nvm alias default v${NODE_VERSION}
+
+# Install ic-mops
+RUN npm install -g ic-mops
+
+# Install dfx
+RUN DFX_VERSION=0.26.1 DFXVM_INIT_YES=true sh -ci "$(curl -fsSL https://internetcomputer.org/install.sh)"
+ENV PATH="/root/.local/share/dfx/bin:$PATH"
+
+# Add wasm32-unknown-unknown target
+RUN rustup target add wasm32-unknown-unknown
+
+# Install candid-extractor
+RUN curl -fsSL https://github.com/dfinity/candid-extractor/releases/download/0.1.5/candid-extractor-x86_64-unknown-linux-gnu.tar.gz -o candid-extractor.tar.gz
+RUN tar -xvf candid-extractor.tar.gz && rm candid-extractor.tar.gz
+RUN mv candid-extractor /usr/local/bin
+
+WORKDIR /doxa-v3
+COPY . .
+
+
+# Disable warning about mainnet plaintext identity
+ENV DFX_WARNING=-mainnet_plaintext_identity
+
+# Create identities non-interactively
+RUN dfx identity new minter --storage-mode plaintext
+RUN dfx identity new doxa --storage-mode plaintext
+RUN dfx identity use default
+
+
+RUN dfx start --clean > /dev/null 2>&1 & \
+    sleep 6 && \
+    curl -I http://127.0.0.1:8080/api/v2/status && \
+    ./scripts/deploy-local.sh && \
+    sleep 6 && \
+    dfx ping && \
+    dfx stop
+
+
+# # Create a startup script! `dfx stop` makes sure that any files crated by the
+# # dfx run in the previous step are removed.
+# RUN echo '#!/bin/sh\n\
+#     dfx stop || true\n\
+#     dfx start --log file --logfile ~/dfx.log &\n\
+#     ' > start.sh
+# RUN chmod +x start.sh
+
+
+
+# Clean apt
+# RUN apt-get autoremove && apt-get clean
+
+# Dfx runs on port 8080
+EXPOSE 8080
+
+CMD ["./scripts/docker-start.sh"]

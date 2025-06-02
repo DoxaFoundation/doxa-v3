@@ -77,12 +77,13 @@ RUN dfx identity new doxa --storage-mode plaintext
 RUN dfx identity use default
 
 # Start dfx and wait for it to be ready
-RUN dfx start --background --clean && \
-    timeout 60 bash -c 'until nc -z localhost 8080; do sleep 1; done'
-
-RUN chmod +x ./scripts/deploy-local.sh && ./scripts/deploy-local.sh
-
-RUN dfx stop
+RUN dfx start --clean > /dev/null 2>&1 & \
+    sleep 6 && \
+    curl -I http://127.0.0.1:8080/api/v2/status && \
+    ./scripts/deploy-local.sh && \
+    sleep 6 && \
+    dfx ping && \
+    dfx stop
 
 EXPOSE 80
 # Dfx runs on port 8080

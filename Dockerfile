@@ -1,14 +1,19 @@
 # FIRST PART
 #
 # This first part sets up the dfx, and builds the local canisters + the app UI!
-# FROM ubuntu:latest AS build-app
-FROM --platform=linux/amd64 ubuntu:latest AS build-app
+FROM --platform=$BUILDPLATFORM ubuntu:latest AS build-app
 
 WORKDIR /
 
 # Install deps!
-RUN apt-get update
-RUN apt-get install -y curl jq libunwind-dev build-essential
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    jq \
+    libunwind-dev \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install node and confirm commands are available
 RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - && apt-get install -y nodejs
@@ -48,16 +53,6 @@ RUN dfx start --clean > /dev/null 2>&1 & \
     sleep 6 && \
     dfx ping && \
     dfx stop
-
-
-# RUN dfx start > /dev/null 2>&1 & \
-#     sleep 6 && \
-#     curl -I http://127.0.0.1:8080/api/v2/status && \
-#     sleep 6 && \
-#     dfx ping && \
-#     dfx stop
-
-
 
 
 # Create a startup script! `dfx stop` makes sure that any files crated by the
