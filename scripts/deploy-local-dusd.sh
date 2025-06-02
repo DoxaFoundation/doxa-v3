@@ -1,5 +1,5 @@
 #########################################################################################
-########################### Deploy local USDx ledger canister ###########################
+########################### Deploy local DUSD ledger canister ###########################
 #########################################################################################
 
 # The archive controller
@@ -17,7 +17,7 @@ Decimals=6
 
 PRE_MINTED_TOKENS=0
 
-# Fee is 0.01 USDx
+# Fee is 0.01 DUSD
 TRANSFER_FEE=10_000
 
 TRIGGER_THRESHOLD=2000
@@ -37,7 +37,7 @@ METADATA="vec {
     };
   }"
 
-dfx deploy usdx_ledger  --argument "(variant {Init = 
+dfx deploy dusd_ledger  --argument "(variant {Init = 
 record {
      decimals = opt ${Decimals};
      token_symbol = \"${TOKEN_SYMBOL}\";

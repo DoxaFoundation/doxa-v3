@@ -22,7 +22,7 @@ cd ../../
 dfx wallet balance
 dfx wallet send $SwapFactory 32_000_000_000_000
 
-export USDx=$(dfx canister id usdx_ledger)
+export DUSD=$(dfx canister id dusd_ledger)
 export ckUSDC=$(dfx canister id ckusdc_ledger)
 
 dfx deploy swap  --argument="(\"$ICP\",\"$PasscodeManager\",\"$SwapCalculator\",\"$SwapFactory\")"
@@ -54,7 +54,7 @@ dfx canister call icp_ledger icrc1_transfer "( record {
 # Token  #  USD value
 ######################
 # ICP    #  7       #
-# USDX   #  1       #
+# DUSD   #  1       #
 # ckUSDC #  1       #
 # ckBTC  #  100_000 #
 # ckETH  #  3_000   #
@@ -62,41 +62,41 @@ dfx canister call icp_ledger icrc1_transfer "( record {
 ######################
 
 echo
-echo "Creating ICP - USDx Swap Pool"
+echo "Creating ICP - DUSD Swap Pool"
 echo
-dfx canister call swap create "(\"$USDx\", \"$ICP\")"
+dfx canister call swap create "(\"$DUSD\", \"$ICP\")"
 
 echo "Pause for 1 minute" # For not to get error from swapfactory
 sleep 1m
 
 echo
-echo "Creating ckUSDC - USDx Swap Pool"
+echo "Creating ckUSDC - DUSD Swap Pool"
 echo
-dfx canister call swap create "(\"$USDx\", \"$ckUSDC\")"
+dfx canister call swap create "(\"$DUSD\", \"$ckUSDC\")"
 
 echo "Pause for 1 minute"
 sleep 1m
 
 echo
-echo "Creating ckBTC - USDx Swap Pool"
+echo "Creating ckBTC - DUSD Swap Pool"
 echo
-dfx canister call swap create "(\"$USDx\", \"$ckBTC\")"
+dfx canister call swap create "(\"$DUSD\", \"$ckBTC\")"
 
 echo "Pause for 1 minute"
 sleep 1m
 
 echo
-echo "Creating ckETH - USDx Swap Pool"
+echo "Creating ckETH - DUSD Swap Pool"
 echo
-dfx canister call swap create "(\"$USDx\", \"$ckETH\")"
+dfx canister call swap create "(\"$DUSD\", \"$ckETH\")"
 
 echo "Pause for 1 minute"
 sleep 1m
 
 echo
-echo "Creating ckUSDT - USDx Swap Pool"
+echo "Creating ckUSDT - DUSD Swap Pool"
 echo
-dfx canister call swap create "(\"$ckUSDT\", \"$USDx\")"
+dfx canister call swap create "(\"$ckUSDT\", \"$DUSD\")"
 
 echo "Pause for 1 minute"
 sleep 1m

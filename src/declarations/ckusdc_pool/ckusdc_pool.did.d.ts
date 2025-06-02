@@ -21,11 +21,11 @@ export type ExchangeRateError = { 'AnonymousPrincipalNotAllowed' : null } |
 export interface ResultErrorLog {
   'error' : { 'ExchangeRateError' : ExchangeRateError } |
     { 'FailedToAdjustReserve' : Tokens } |
-    { 'USDxBurnTransferError' : TransferError } |
+    { 'DUSDBurnTransferError' : TransferError } |
     { 'CkUDSCTransferError' : TransferError },
   'timestamp' : bigint,
 }
-export type Tokens = { 'USDx' : null };
+export type Tokens = { 'DUSD' : null };
 export type TransferError = {
     'GenericError' : { 'message' : string, 'error_code' : bigint }
   } |

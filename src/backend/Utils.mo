@@ -17,7 +17,7 @@ module {
 	type HashMap<K, V> = HashMap.HashMap<K, V>;
 
 	type Tokens = {
-		#USDx;
+		#DUSD;
 	};
 
 	public let accountIdentifier = Account.accountIdentifier;
@@ -45,7 +45,7 @@ module {
 		var i = 0;
 
 		while (decimal > 0) {
-			array[31 -i] := Nat8.fromNat(decimal % 256);
+			array[31 - i] := Nat8.fromNat(decimal % 256);
 			decimal := decimal / 256;
 			i += 1;
 		};

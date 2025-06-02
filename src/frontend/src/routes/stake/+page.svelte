@@ -3,7 +3,7 @@
 	import { Input } from 'flowbite-svelte';
 	import { LockTimeSolid } from 'flowbite-svelte-icons';
 	import { onDestroy } from 'svelte';
-	import { fetchStakingPoolDetails, stakeUSDx } from '@services/staking.service';
+	import { fetchStakingPoolDetails, stakeDUSD } from '@services/staking.service';
 	import { stakingPoolDetails } from '@states/staking.svelte';
 	import { fetchFeecollecteds } from '@services/fee-collected.service';
 	import { feeCollected } from '@states/fee-collected.svelte';
@@ -18,7 +18,7 @@
 	import { Range, Label } from 'flowbite-svelte';
 	import { Tabs, TabItem } from 'flowbite-svelte';
 	import { myStakes } from '@states/my-stakes.svelte';
-	import { DECIMALS, USDX_LEDGER_CANISTER_ID } from '@constants/app.constants';
+	import { DECIMALS, DUSD_LEDGER_CANISTER_ID } from '@constants/app.constants';
 	import { balances } from '@states/ledger-balance.svelte';
 
 	let days = $state(MINMUM_STAKE_DURATION_IN_DAYS);
@@ -34,7 +34,7 @@
 
 	let amount = $state<number>();
 
-	let balance = balances[USDX_LEDGER_CANISTER_ID]?.number;
+	let balance = balances[DUSD_LEDGER_CANISTER_ID]?.number;
 
 	let buttonContent = $derived.by<string>(() => {
 		if (isNullish(amount)) {
@@ -75,7 +75,7 @@
 
 	const onclick = async () => {
 		assertNonNullish(amount);
-		await stakeUSDx({ amount: Number(amount?.toFixed(DECIMALS)), days });
+		await stakeDUSD({ amount: Number(amount?.toFixed(DECIMALS)), days });
 		amount = 0;
 	};
 
@@ -153,18 +153,18 @@
 			<TabItem class="w-full" open>
 				<span slot="title">Stake</span>
 				<div class="w-full">
-					<h1 class="text-3xl font-normal mb-4 text-center">Stake USDx</h1>
-					<p class="font-light text-sm text-center">Earn native yield with USDx</p>
+					<h1 class="text-3xl font-normal mb-4 text-center">Stake DUSD</h1>
+					<p class="font-light text-sm text-center">Earn native yield with DUSD</p>
 					<div class="max-sm:flex max-sm:flex-col max-sm:items-center">
 						<div class="flex gap-2 mt-4 justify-between w-full">
 							<img
-								src="/images/USDx-black.svg"
-								alt="USDx Icon"
+								src="/images/DUSD-black.svg"
+								alt="DUSD Icon"
 								class="md:size-14 size-12 dark:hidden"
 							/>
 							<img
-								src="/images/USDx-white.svg"
-								alt="USDx Icon"
+								src="/images/DUSD-white.svg"
+								alt="DUSD Icon"
 								class="md:size-14 size-12 hidden dark:block"
 							/>
 
@@ -179,7 +179,7 @@
 						</div>
 						<div class="flex justify-between items-center mt-3 w-full">
 							<p class="text-sm text-gray-500 dark:text-gray-400">
-								Balance: {balances[USDX_LEDGER_CANISTER_ID]?.format}
+								Balance: {balances[DUSD_LEDGER_CANISTER_ID]?.format}
 							</p>
 							<button
 								class="w-fit underline rounded text-sm text-gray-500 dark:text-gray-400"

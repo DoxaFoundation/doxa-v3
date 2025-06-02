@@ -9,7 +9,7 @@
 	import { Checkbox } from 'flowbite-svelte';
 	import {
 		stakeUnclaimedRewards,
-		stakeUSDx,
+		stakeDUSD,
 		toggleAutoStakeRewads,
 		unstake
 	} from '@services/staking.service';

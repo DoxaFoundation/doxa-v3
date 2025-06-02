@@ -19,7 +19,7 @@ actor class TestStakingCanister(
 		stakePeriod : Int;
 	}
 ) = this {
-	private let USDx : Icrc.Self = actor ("irorr-5aaaa-aaaak-qddsq-cai"); // USDx token canister
+	private let DUSD : Icrc.Self = actor ("irorr-5aaaa-aaaak-qddsq-cai"); // DUSD token canister
 
 	type Account = { owner : Principal; subaccount : ?Blob };
 	type Tokens = Types.Tokens;
@@ -65,9 +65,9 @@ actor class TestStakingCanister(
 	};
 	// Test distribute weekly rewards
 	public shared func testDistributeWeeklyRewards(amount : Nat) : async () {
-		Debug.print("📅 Testing weekly rewards distribution with amount " # debug_show(amount));
+		Debug.print("📅 Testing weekly rewards distribution with amount " # debug_show (amount));
 		let result = await staking.distributeWeeklyRewards(amount);
-		switch(result) {
+		switch (result) {
 			case (#ok(msg)) Debug.print("Weekly rewards distributed successfully: " # msg);
 			case (#err(e)) Debug.print("Weekly rewards distribution failed: " # e);
 		};
@@ -82,49 +82,49 @@ actor class TestStakingCanister(
 
 	// Test compound reward manually
 	public shared func testCompoundRewardManually(stakeId : StakeId) : async Result.Result<(), Text> {
-		Debug.print("🔄 Testing manual compound for stake " # debug_show(stakeId));
+		Debug.print("🔄 Testing manual compound for stake " # debug_show (stakeId));
 		let result = await staking.manuallyCompoundRewards(stakeId);
-		Debug.print("Manual compound result: " # debug_show(result));
+		Debug.print("Manual compound result: " # debug_show (result));
 		result;
 	};
 
 	// Test is stake auto compound
 	public shared func testIsStakeAutoCompound(stakeId : StakeId) : async Result.Result<Bool, Text> {
-		Debug.print("🔍 Checking if stake is auto-compounding: " # debug_show(stakeId));
+		Debug.print("🔍 Checking if stake is auto-compounding: " # debug_show (stakeId));
 		let result = await staking.isStakeAutoCompound(stakeId);
-		Debug.print("Auto compound status: " # debug_show(result));
+		Debug.print("Auto compound status: " # debug_show (result));
 		result;
 	};
 
 	// Test toggle auto-compound
 	public shared func testToggleAutoCompound(stakeId : StakeId, action : Types.AutoCompoundAction) : async Result.Result<Bool, Text> {
-		Debug.print("🔄 Testing auto-compound toggle for stake " # debug_show(stakeId));
+		Debug.print("🔄 Testing auto-compound toggle for stake " # debug_show (stakeId));
 		let result = await staking.toggleAutoCompound(stakeId, action);
-		Debug.print("Result: " # debug_show(result));
+		Debug.print("Result: " # debug_show (result));
 		result;
 	};
 
 	// Test harvest reward
 	public shared func testHarvestReward(stakeId : StakeId) : async Result.Result<(), Text> {
-		Debug.print("🌾 Testing reward harvest for stake " # debug_show(stakeId));
+		Debug.print("🌾 Testing reward harvest for stake " # debug_show (stakeId));
 		let result = await staking.harvestReward(stakeId);
-		Debug.print("Result: " # debug_show(result));
+		Debug.print("Result: " # debug_show (result));
 		result;
 	};
 
 	// Get pending reward
 	public shared func testGetPendingReward(stakeId : StakeId) : async Result.Result<Nat, Text> {
-		Debug.print("💰 Getting pending reward for stake " # debug_show(stakeId));
+		Debug.print("💰 Getting pending reward for stake " # debug_show (stakeId));
 		let result = await staking.getPendingReward(stakeId);
-		Debug.print("Pending reward: " # debug_show(result));
+		Debug.print("Pending reward: " # debug_show (result));
 		result;
 	};
 
 	// Get stake reward stats
 	public shared func testGetStakeRewardStats(stakeId : StakeId) : async Result.Result<{ pendingReward : Nat; lastHarvestTime : Time; isAutoCompound : Bool }, Text> {
-		Debug.print("📊 Getting reward stats for stake " # debug_show(stakeId));
+		Debug.print("📊 Getting reward stats for stake " # debug_show (stakeId));
 		let result = await staking.getUserStakeRewardStats(stakeId);
-		Debug.print("Reward stats: " # debug_show(result));
+		Debug.print("Reward stats: " # debug_show (result));
 		result;
 	};
 
@@ -132,7 +132,7 @@ actor class TestStakingCanister(
 	public shared func testGetRewardBalance() : async Nat {
 		Debug.print("💳 Getting reward account balance");
 		let result = await staking.fetchRewardWalletBalance();
-		Debug.print("Balance: " # debug_show(result));
+		Debug.print("Balance: " # debug_show (result));
 		result;
 	};
 
@@ -180,8 +180,8 @@ actor class TestStakingCanister(
 			func() : async C.TestResult = async {
 				Debug.print("🏦 Testing stake with amount: " # debug_show (amount) # " and period: " # debug_show (stakePeriod));
 
-				// Transfer USDx to staking canister
-				let transferResult = await USDx.icrc1_transfer({
+				// Transfer DUSD to staking canister
+				let transferResult = await DUSD.icrc1_transfer({
 					to = {
 						owner = Principal.fromText("mhahe-xqaaa-aaaag-qndha-cai");
 						subaccount = null;
@@ -195,7 +195,7 @@ actor class TestStakingCanister(
 
 				switch (transferResult) {
 					case (#Ok(blockIndex)) {
-						Debug.print("✅ USDx transfer successful with block index: " # debug_show (blockIndex));
+						Debug.print("✅ DUSD transfer successful with block index: " # debug_show (blockIndex));
 
 						// Call notifyStake with block index and stake period
 						let stakePeriodNat = Int.abs(stakePeriod);
@@ -215,7 +215,7 @@ actor class TestStakingCanister(
 					};
 
 					case (#Err(e)) {
-						Debug.print("❌ USDx transfer failed: " # debug_show (e));
+						Debug.print("❌ DUSD transfer failed: " # debug_show (e));
 						M.attempt(false, M.equals(T.bool(true)));
 					};
 				};

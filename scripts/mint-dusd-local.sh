@@ -15,7 +15,7 @@ output=$(dfx canister call ckusdc_ledger icrc1_transfer "(record{ to=record {own
 number=$(echo "$output" | awk -F'Ok = ' '{print $2}' | awk -F' :' '{print $1}')
 
 echo "Notifying Doxa Dollar Minter"
-dfx canister call stablecoin_minter notify_mint_with_ckusdc "(record{ ckusdc_block_index=$number; minting_token=variant {USDx}})" --identity default
+dfx canister call stablecoin_minter notify_mint_with_ckusdc "(record{ ckusdc_block_index=$number; minting_token=variant {DUSD}})" --identity default
 
 echo "Minted $Amount Doxa Dollar in default identity."
 echo

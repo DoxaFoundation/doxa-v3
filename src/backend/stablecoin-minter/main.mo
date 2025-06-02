@@ -21,7 +21,7 @@ actor StablecoinMinter {
 		amount : Nat;
 	};
 
-	type USDxBlockIndex = Nat;
+	type DUSDBlockIndex = Nat;
 	type CkUSDCBlockIndex = Nat;
 	type NotifyError = {
 		#AlreadyProcessed : { blockIndex : Nat };
@@ -31,17 +31,17 @@ actor StablecoinMinter {
 	};
 
 	type Tokens = {
-		#USDx;
+		#DUSD;
 	};
 
-	type NotifyMintWithCkusdcResult = Result<USDxBlockIndex, NotifyError>;
+	type NotifyMintWithCkusdcResult = Result<DUSDBlockIndex, NotifyError>;
 
 	let ckUSDC : Icrc.Self = actor ("xevnm-gaaaa-aaaar-qafnq-cai");
-	let USDx : Icrc.Self = actor ("irorr-5aaaa-aaaak-qddsq-cai");
+	let DUSD : Icrc.Self = actor ("irorr-5aaaa-aaaak-qddsq-cai");
 
 	let { nhash } = Map;
 
-	private stable let processedMintWithCkusdc = Map.new<CkUSDCBlockIndex, USDxBlockIndex>();
+	private stable let processedMintWithCkusdc = Map.new<CkUSDCBlockIndex, DUSDBlockIndex>();
 
 	public query func get_ckusdc_reserve_account_of({ token : Tokens }) : async Icrc.Account {
 		getCkUsdcReserveAccount(token);
@@ -54,8 +54,8 @@ actor StablecoinMinter {
 		U.trapAnonymous caller;
 
 		switch (Map.get(processedMintWithCkusdc, nhash, ckusdc_block_index)) {
-			case (?usdxBI) {
-				return #err(#AlreadyProcessed { blockIndex = usdxBI });
+			case (?dusdBI) {
+				return #err(#AlreadyProcessed { blockIndex = dusdBI });
 			};
 			case (null) {};
 		};
@@ -74,19 +74,19 @@ actor StablecoinMinter {
 			to = mintTo : Account;
 		};
 
-		let usdxBlockIndex = switch (await USDx.icrc1_transfer(transferArg)) {
+		let dusdBlockIndex = switch (await DUSD.icrc1_transfer(transferArg)) {
 			case (#Ok(value)) { value };
 			case (#Err(error)) {
-				return #err(#Other({ error_message = "USDx Ledger Transfer Error: " #debug_show (error); error_code = 0 }));
+				return #err(#Other({ error_message = "DUSD Ledger Transfer Error: " #debug_show (error); error_code = 0 }));
 			};
 		};
-		Map.set(processedMintWithCkusdc, nhash, ckusdc_block_index, usdxBlockIndex);
-		#ok(usdxBlockIndex);
+		Map.set(processedMintWithCkusdc, nhash, ckusdc_block_index, dusdBlockIndex);
+		#ok(dusdBlockIndex);
 	};
 
 	func getCkUsdcReserveAccount(_token : Tokens) : Icrc.Account {
 		// switch (token) {
-		//     case (#USDx) {
+		//     case (#DUSD) {
 		{
 			owner = Principal.fromActor(StablecoinMinter);
 			subaccount = U.toSubAccount(1);
@@ -97,7 +97,7 @@ actor StablecoinMinter {
 
 	func tokenNameInText(token : Tokens) : Text {
 		switch (token) {
-			case (#USDx) { "USDx" };
+			case (#DUSD) { "DUSD" };
 		};
 	};
 

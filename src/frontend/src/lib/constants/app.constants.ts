@@ -18,7 +18,7 @@ export const ROOT_CANISTER_ID = import.meta.env.VITE_ROOT_CANISTER_CANISTER_ID a
 
 export const CKUSDC_LEDGER_CANISTER_ID = import.meta.env.VITE_CKUSDC_LEDGER_CANISTER_ID as string;
 
-export const USDX_LEDGER_CANISTER_ID = import.meta.env.VITE_USDX_LEDGER_CANISTER_ID as string;
+export const DUSD_LEDGER_CANISTER_ID = import.meta.env.VITE_DUSD_LEDGER_CANISTER_ID as string;
 
 export const STAKING_CANISTER_ID = import.meta.env.VITE_STAKING_CANISTER_CANISTER_ID as string;
 
@@ -35,9 +35,9 @@ export const CKBTC_LEDGER_CANISTER_ID = import.meta.env.VITE_CKBTC_LEDGER_CANIST
 export const DECIMALS = 6;
 export const DIVISOR = 10 ** DECIMALS; // 1e8
 
-export const RESERVE_ACCOUNT = getUsdxReserveAccount();
+export const RESERVE_ACCOUNT = getDusdReserveAccount();
 
-function getUsdxReserveAccount(): Account {
+function getDusdReserveAccount(): Account {
 	const array: number[] = new Array(32).fill(0);
 	array[31] = 1;
 	return {

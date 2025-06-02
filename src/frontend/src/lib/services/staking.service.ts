@@ -3,14 +3,14 @@ import { setStakingPoolDetails } from '@states/staking.svelte';
 import { authStore } from '@stores/auth.store';
 import { toast } from 'svelte-sonner';
 import { get } from 'svelte/store';
-import { transfer } from './icrc.service';
 import { to6Decimals } from '@utils/decimals.utils';
 import { STAKING_ACCOUNT } from '@constants/staking.constants';
 import { daysToNanoseconds } from '@utils/date-time.utils';
 import { myStakes } from '@states/my-stakes.svelte';
 import type { AutoCompoundAction } from '@declarations/staking_canister/staking_canister.did';
 import { updateBalance } from '@states/ledger-balance.svelte';
-import { USDX_LEDGER_CANISTER_ID } from '@constants/app.constants';
+import { DUSD_LEDGER_CANISTER_ID } from '@constants/app.constants';
+import { transfer } from '$lib/api/icrc.ledger.api';
 
 export const fetchStakingPoolDetails = async () => {
 	try {
@@ -27,30 +27,33 @@ export const fetchStakingPoolDetails = async () => {
 
 let toastId: string | number;
 
-export const stakeUSDx = async ({ amount, days }: StakePrams) => {
+export const stakeDUSD = async ({ amount, days }: StakePrams) => {
 	try {
-		toastId = toast.loading('Transfering USDx to staking canister...', { id: toastId });
+		toastId = toast.loading('Transfering DUSD to staking canister...', { id: toastId });
 
-		const blockIndex = await transfer({
-			token: 'USDx',
+		const transferResponse = await transfer({
+			canisterId: DUSD_LEDGER_CANISTER_ID,
 			amount: to6Decimals(amount),
 			to: STAKING_ACCOUNT
 		});
+		if ('Ok' in transferResponse) {
+			toastId = toast.loading('Notifying staking canister...', { id: toastId });
 
-		toastId = toast.loading('Notifying staking canister...', { id: toastId });
+			const { notifyStake } = get(authStore).staking;
+			updateBalance(DUSD_LEDGER_CANISTER_ID);
 
-		const { notifyStake } = get(authStore).staking;
-		updateBalance(USDX_LEDGER_CANISTER_ID);
+			const daysNano = daysToNanoseconds(days);
 
-		const daysNano = daysToNanoseconds(days);
+			const response = await notifyStake(transferResponse.Ok, daysNano);
 
-		const response = await notifyStake(blockIndex, daysNano);
-
-		if ('ok' in response) {
-			toastId = toast.success('Staked successfully', { id: toastId });
-			myStakes.fetch();
+			if ('ok' in response) {
+				toastId = toast.success('Staked successfully', { id: toastId });
+				myStakes.fetch();
+			} else {
+				toastId = toast.error(response.err, { id: toastId });
+			}
 		} else {
-			toastId = toast.error(response.err, { id: toastId });
+			toastId = toast.error(transferResponse.Err.toString(), { id: toastId });
 		}
 	} catch (error) {
 		console.error(error);
@@ -100,7 +103,7 @@ export const stakeUnclaimedRewards = async (index: number) => {
 		const stake = myStakes.value[index];
 
 		if (stake.unclaimedRewards <= 0.01) {
-			toast.info('Can not stake rewards less than 0.01 USDx');
+			toast.info('Can not stake rewards less than 0.01 DUSD');
 			return;
 		}
 
@@ -134,14 +137,14 @@ export const unstake = async (index: number) => {
 			toast.info(`${stake.unlockAt.remainingDays} days left to unstake`);
 			return;
 		}
-		toastId = toast.loading(`Unstaking ${stake.amount} USDx..`, { id: toastId });
+		toastId = toast.loading(`Unstaking ${stake.amount} DUSD..`, { id: toastId });
 		const { unstake } = get(authStore).staking;
 		const response = await unstake(stake.id);
 
 		if ('ok' in response) {
 			myStakes.value.splice(index, 1);
 			toastId = toast.success('Unstaked successfully', { id: toastId });
-			updateBalance(USDX_LEDGER_CANISTER_ID);
+			updateBalance(DUSD_LEDGER_CANISTER_ID);
 		} else {
 			toastId = toast.error(response.err, { id: toastId });
 		}

@@ -1,6 +1,6 @@
 import type { Stake } from '$lib/types/staking';
 import type { ResultSuccess } from '$lib/types/utils';
-import { USDX_LEDGER_CANISTER_ID } from '@constants/app.constants';
+import { DUSD_LEDGER_CANISTER_ID } from '@constants/app.constants';
 import { updateBalance } from '@states/ledger-balance.svelte';
 import { myStakes } from '@states/my-stakes.svelte';
 import { authStore } from '@stores/auth.store';
@@ -14,15 +14,15 @@ export const claimReward = async (stake: Stake): Promise<ResultSuccess> => {
 		if (stake.unclaimedRewards <= 0) {
 			toast.info('No reward to claim');
 		}
-		toastId = toast.loading(`Claiming ${stake.unclaimedRewards} USDx...`, { id: toastId });
+		toastId = toast.loading(`Claiming ${stake.unclaimedRewards} DUSD...`, { id: toastId });
 		const { harvestReward } = get(authStore).staking;
 
 		const response = await harvestReward(stake.id);
 
 		if ('ok' in response) {
-			toastId = toast.success(`Claimed ${stake.unclaimedRewards} USDx`, { id: toastId });
+			toastId = toast.success(`Claimed ${stake.unclaimedRewards} DUSD`, { id: toastId });
 			myStakes.fetch();
-			updateBalance(USDX_LEDGER_CANISTER_ID);
+			updateBalance(DUSD_LEDGER_CANISTER_ID);
 		} else {
 			toastId = toast.error(`Failed to claim reward: ${response.err}`, { id: toastId });
 		}

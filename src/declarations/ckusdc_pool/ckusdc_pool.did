@@ -12,7 +12,7 @@ type TransferError =
    TemporarilyUnavailable;
    TooOld;
  };
-type Tokens = variant {USDx;};
+type Tokens = variant {DUSD;};
 type ResultErrorLog = 
  record {
    error:
@@ -20,7 +20,7 @@ type ResultErrorLog =
       CkUDSCTransferError: TransferError;
       ExchangeRateError: ExchangeRateError;
       FailedToAdjustReserve: Tokens;
-      USDxBurnTransferError: TransferError;
+      DUSDBurnTransferError: TransferError;
     };
    timestamp: nat64;
  };

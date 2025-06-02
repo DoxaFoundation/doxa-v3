@@ -1,11 +1,11 @@
 #!/bin/bash
 
 
-# echo "➤➤➤➤ Create all canisters"
-# dfx canister create --all
+echo "➤➤➤➤ Create all canisters"
+dfx canister create --all
 
-# # echo "➤➤➤➤ Build all canisters"
-# dfx build
+# echo "➤➤➤➤ Build all canisters"
+dfx build
 
 echo "➤➤➤➤ Deploy internet_identity"
 dfx deploy internet_identity
@@ -16,10 +16,10 @@ dfx deploy exchange_rate_canister
 
 # dfx canister create ckusdc_pool --specified-id ieja4-4iaaa-aaaak-qddra-cai
 
-# Creating Local USDx Ledger before deploying stablecoin_minter (stablecoin_minter is a dependency of usdx_ledger)
-dfx canister create usdx_ledger
+# Creating Local DUSD Ledger before deploying stablecoin_minter (stablecoin_minter is a dependency of dusd_ledger)
+dfx canister create dusd_ledger
 
-# Creating Local stablecoin_minter , root_canister before deploying usdx_ledger (These are minteraccount and archivecontroller for usdx_ledger)
+# Creating Local stablecoin_minter , root_canister before deploying dusd_ledger (These are minteraccount and archivecontroller for dusd_ledger)
 # dfx canister create stablecoin_minter --specified-id iyn2n-liaaa-aaaak-qddta-cai
 # dfx canister create root_canister --specified-id iwpxf-qyaaa-aaaak-qddsa-cai
 

@@ -3,8 +3,8 @@
 chmod +x ./scripts/deploy-template-index-canister.sh
 
 echo "➤➤➤➤ Deploy DUSD Index Canister"
-CANISTER="usdx_index"
-LEDGER_ID=$(dfx canister id usdx_ledger)
+CANISTER="dusd_index"
+LEDGER_ID=$(dfx canister id dusd_ledger)
 ./scripts/deploy-template-index-canister.sh $CANISTER $LEDGER_ID
 
 

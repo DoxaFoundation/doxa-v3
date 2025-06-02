@@ -1,11 +1,11 @@
 export const idlFactory = ({ IDL }) => {
-  const Tokens = IDL.Variant({ 'USDx' : IDL.Null });
+  const Tokens = IDL.Variant({ 'DUSD' : IDL.Null });
   const Account = IDL.Record({
     'owner' : IDL.Principal,
     'subaccount' : IDL.Opt(IDL.Vec(IDL.Nat8)),
   });
   const CkUSDCBlockIndex = IDL.Nat;
-  const USDxBlockIndex = IDL.Nat;
+  const DUSDBlockIndex = IDL.Nat;
   const NotifyError = IDL.Variant({
     'AlreadyProcessed' : IDL.Record({ 'blockIndex' : IDL.Nat }),
     'InvalidTransaction' : IDL.Text,
@@ -15,7 +15,7 @@ export const idlFactory = ({ IDL }) => {
     }),
   });
   const NotifyMintWithCkusdcResult = IDL.Variant({
-    'ok' : USDxBlockIndex,
+    'ok' : DUSDBlockIndex,
     'err' : NotifyError,
   });
   return IDL.Service({

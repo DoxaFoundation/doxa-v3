@@ -12,8 +12,8 @@ export MINTER_PRINCIPAL=$(dfx identity get-principal --identity minter)
 export DEFAULT_ACCOUNT_ID=$(dfx ledger account-id --identity default)
 
 echo "➤➤➤➤ Deploy Doxa Dollar"
-chmod +x ./scripts/deploy-local-usdx.sh
-./scripts/deploy-local-usdx.sh
+chmod +x ./scripts/deploy-local-dusd.sh
+./scripts/deploy-local-dusd.sh
 
 echo "➤➤➤➤ Deploy ICP"
 dfx deploy icp_ledger --specified-id ryjl3-tyaaa-aaaaa-aaaba-cai --argument "

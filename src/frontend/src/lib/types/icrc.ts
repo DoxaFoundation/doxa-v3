@@ -1,7 +1,7 @@
 import type { TransferParams as IcrcTransferParams } from '@dfinity/ledger-icrc';
 
 export interface TransferParams extends IcrcTransferParams {
-	token: 'USDx' | 'ckUSDC';
+	token: 'DUSD' | 'ckUSDC';
 }
 
-export type Token = 'USDx' | 'ckUSDC';
+export type Token = 'DUSD' | 'ckUSDC';

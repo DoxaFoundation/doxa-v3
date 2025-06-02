@@ -6,7 +6,7 @@
 			"type": "motoko",
 			"dependencies": ["exchange_rate_canister"]
 		},
-		"usdx_ledger": {
+		"dusd_ledger": {
 			"type": "custom",
 			"candid": "https://raw.githubusercontent.com/dfinity/ic/5ba1412f9175d987661ae3c0d8dbd1ac3e092b7d/rs/rosetta-api/icrc1/ledger/ledger.did",
 			"wasm": "https://download.dfinity.systems/ic/5ba1412f9175d987661ae3c0d8dbd1ac3e092b7d/canisters/ic-icrc1-ledger.wasm.gz",
@@ -17,7 +17,7 @@
 				}
 			}
 		},
-		"usdx_index": {
+		"dusd_index": {
 			"type": "custom",
 			"candid": "https://raw.githubusercontent.com/dfinity/ic/d628aa32d72565c9e5258d033b3c0be194c77b24/rs/rosetta-api/icrc1/index-ng/index-ng.did",
 			"wasm": "https://download.dfinity.systems/ic/d628aa32d72565c9e5258d033b3c0be194c77b24/canisters/ic-icrc1-index-ng.wasm.gz",

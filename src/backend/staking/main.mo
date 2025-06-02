@@ -22,8 +22,8 @@ import Set "mo:map/Set";
 
 actor class DoxaStaking() = this {
 	// Token interfaces
-	private let USDx : Icrc.Self = actor ("irorr-5aaaa-aaaak-qddsq-cai"); // USDx token canister
-	private let USDxIndex : IcrcIndex.Self = actor ("modmy-byaaa-aaaag-qndgq-cai");
+	private let DUSD : Icrc.Self = actor ("irorr-5aaaa-aaaak-qddsq-cai"); // DUSD token canister
+	private let DUSDIndex : IcrcIndex.Self = actor ("modmy-byaaa-aaaag-qndgq-cai");
 
 	// Lock duration and bootstrap constants in nanoseconds
 	private let MIN_LOCK_DURATION_IN_NANOS : Nat = 2_592_000_000_000_000; // 30 days minimum
@@ -45,10 +45,10 @@ actor class DoxaStaking() = this {
 		totalTokensStaked = 0;
 		totalFeeCollected = 0; //  tokens with 6 decimals
 		minimumTotalStake = MIN_TOTAL_STAKE; // 100,000 tokens with 6 decimals
-		stakingTokenSymbol = "USDx";
-		stakingTokenName = "doxa-dollar";
-		rewardTokenSymbol = "USDx";
-		rewardTokenCanisterId = "doxa-dollar";
+		stakingTokenSymbol = "DUSD";
+		stakingTokenName = "doxa-usd";
+		rewardTokenSymbol = "DUSD";
+		rewardTokenCanisterId = "doxa-usd";
 		minimumStakeAmount = 10_000_000; // 10 tokens with 6 decimals
 		stakeLockDuration = MIN_LOCK_DURATION_IN_NANOS;
 	};
@@ -79,7 +79,7 @@ actor class DoxaStaking() = this {
 	private var rewardUpdateTimer : Timer.TimerId = 0; // Timer to trigger weekly reward updates
 
 	type Tokens = {
-		#USDx;
+		#DUSD;
 	};
 
 	//////////////////////////////////////////////////////////////////////////////////////////////
@@ -639,7 +639,7 @@ actor class DoxaStaking() = this {
 			};
 			case (#ok(_)) {
 				// Check current allowance
-				let allowanceResult = await USDx.icrc2_allowance({
+				let allowanceResult = await DUSD.icrc2_allowance({
 					account = {
 						owner = Principal.fromText("ieja4-4iaaa-aaaak-qddra-cai");
 						subaccount = null;
@@ -683,7 +683,7 @@ actor class DoxaStaking() = this {
 		let distributionAmount = totalReward - fee;
 
 		// Check allowance before transfer
-		let allowanceResult = await USDx.icrc2_allowance({
+		let allowanceResult = await DUSD.icrc2_allowance({
 			account = {
 				owner = Principal.fromText("ieja4-4iaaa-aaaak-qddra-cai");
 				subaccount = null;
@@ -714,7 +714,7 @@ actor class DoxaStaking() = this {
 			created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
 		};
 
-		let transferResult = await USDx.icrc2_transfer_from(transferFromArgs);
+		let transferResult = await DUSD.icrc2_transfer_from(transferFromArgs);
 
 		switch (transferResult) {
 			case (#Ok(blockIndex)) {
@@ -736,7 +736,7 @@ actor class DoxaStaking() = this {
 		let remainingAmount = Int.abs(((totalReward - 10000 - 10000) * 30) / 100); // Pehle fees subtract karte hain, phir 30% calculate karte hain
 
 		// Verify balance before transfer
-		let currentBalance = await USDx.icrc1_balance_of({
+		let currentBalance = await DUSD.icrc1_balance_of({
 			owner = Principal.fromActor(this);
 			subaccount = REWARD_SUBACCOUNT;
 		});
@@ -759,7 +759,7 @@ actor class DoxaStaking() = this {
 			created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));
 		};
 		// issue: who pay fees?
-		let remainingTransferResult = await USDx.icrc1_transfer(transferArgs);
+		let remainingTransferResult = await DUSD.icrc1_transfer(transferArgs);
 
 		switch (remainingTransferResult) {
 			case (#Ok(blockIndex)) {
@@ -802,7 +802,7 @@ actor class DoxaStaking() = this {
 
 	//     // Transfer total auto-compound amount
 	//     if (totalAutoCompoundAmount > 0) {
-	//         let transferResult = await USDx.icrc1_transfer({
+	//         let transferResult = await DUSD.icrc1_transfer({
 	//             from_subaccount = REWARD_SUBACCOUNT;
 	//             to = {
 	//                 owner = Principal.fromActor(this);
@@ -848,7 +848,7 @@ actor class DoxaStaking() = this {
 				let lastHarvestTime = Time.now();
 
 				// issue: who pay fees?
-				let transferResult = await USDx.icrc1_transfer({
+				let transferResult = await DUSD.icrc1_transfer({
 					from_subaccount = REWARD_SUBACCOUNT;
 					to = { owner = caller; subaccount = null };
 					amount = stake.pendingRewards;
@@ -885,7 +885,7 @@ actor class DoxaStaking() = this {
 				if (stake.staker != caller) return #err("Not authorized");
 				if (stake.pendingRewards == 0) return #err("No rewards to compound");
 				// issue: who pay fees?
-				let transferResult = await USDx.icrc1_transfer({
+				let transferResult = await DUSD.icrc1_transfer({
 					from_subaccount = REWARD_SUBACCOUNT;
 					to = {
 						owner = Principal.fromActor(this);
@@ -951,7 +951,7 @@ actor class DoxaStaking() = this {
 
 	// Add helper function to get reward account balance
 	// public shared func fetchRewardWalletBalance() : async Nat {
-	//     await USDx.icrc1_balance_of({
+	//     await DUSD.icrc1_balance_of({
 	//         owner = Principal.fromActor(this);
 	//         subaccount = REWARD_SUBACCOUNT;
 	//     });
@@ -1155,7 +1155,7 @@ actor class DoxaStaking() = this {
 		// issue: who pay fees?
 		// If there are pending rewards, transfer from pendingRewards account first
 		if (stake.pendingRewards > 0) {
-			let rewardTransferResult = await USDx.icrc1_transfer({
+			let rewardTransferResult = await DUSD.icrc1_transfer({
 				from_subaccount = REWARD_SUBACCOUNT;
 				to = { owner = caller; subaccount = null };
 				amount = stake.pendingRewards;
@@ -1172,7 +1172,7 @@ actor class DoxaStaking() = this {
 
 		// issue: who pay fees?
 		// Transfer stake amount
-		let stakeTransferResult = await USDx.icrc1_transfer({
+		let stakeTransferResult = await DUSD.icrc1_transfer({
 			from_subaccount = null; // Default account for stake amount
 			to = { owner = caller; subaccount = null };
 			amount = stake.amount;
@@ -1349,14 +1349,14 @@ actor class DoxaStaking() = this {
 				account = feeCollectorAccount;
 			};
 
-			let getTransactionsResult = await USDxIndex.get_account_transactions(args);
+			let getTransactionsResult = await DUSDIndex.get_account_transactions(args);
 
 			let { balance; oldest_tx_id; transactions } = switch (getTransactionsResult) {
 				case (#Ok(value)) { value };
 				case (#Err(error)) {
 					Debug.print(
 						"[method: fetchTotalFeeCollectedSofar] [args: " #debug_show (args) # "] "
-						# "Error fetching transactions from USDX Index canister: " # debug_show (error)
+						# "Error fetching transactions from DUSD Index canister: " # debug_show (error)
 					);
 
 					return ();
@@ -1512,11 +1512,11 @@ actor class DoxaStaking() = this {
     *    Exception: Works if Bob is approved spender for Alice
     *
     * 5. Validates transfer amount meets minimum stake
-    *    Example: If minimum stake is 100 USDx but only 50 USDx staked, returns error
+    *    Example: If minimum stake is 100 DUSD but only 50 DUSD staked, returns error
     */
 	func isValidStakingBlock(blockIndex : Nat, caller : Principal) : async Result.Result<Icrc.Transfer, Text> {
 		// Get transaction details
-		let getTransactionsResponse = await USDx.get_transactions({ start = blockIndex; length = 1 });
+		let getTransactionsResponse = await DUSD.get_transactions({ start = blockIndex; length = 1 });
 		let { transactions; log_length } = getTransactionsResponse;
 
 		if (blockIndex >= log_length) {
@@ -1534,7 +1534,7 @@ actor class DoxaStaking() = this {
 		};
 
 		// Check transfer.to is staking account
-		let stakingAccount = await getStakingCanisterAccount(#USDx);
+		let stakingAccount = await getStakingCanisterAccount(#DUSD);
 
 		// Compare accounts properly
 		if (
@@ -1583,7 +1583,7 @@ actor class DoxaStaking() = this {
 
 	private func getStakingCanisterAccount(token : Tokens) : async Icrc.Account {
 		switch (token) {
-			case (#USDx) {
+			case (#DUSD) {
 				{
 					owner = Principal.fromActor(this);
 					subaccount = null;
@@ -1595,7 +1595,7 @@ actor class DoxaStaking() = this {
 	// Helper function to get transaction from block index
 	func fetchTransactionByBlockIndex(blockIndex : Nat) : async Result.Result<Types.Transaction, Text> {
 		try {
-			let getTransactionsResponse = await USDx.get_transactions({
+			let getTransactionsResponse = await DUSD.get_transactions({
 				start = blockIndex;
 				length = 1;
 			});

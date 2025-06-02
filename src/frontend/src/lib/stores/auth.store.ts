@@ -17,7 +17,7 @@ export interface AuthStoreData {
 	identity: OptionIdentity;
 	stablecoinMinter: StablecoinMinterActor;
 	ckUSDC: IcrcLedgerActor;
-	USDx: IcrcLedgerActor;
+	DUSD: IcrcLedgerActor;
 	identityProvider: IdentityProvider;
 	principal: Principal;
 	staking: StakingActor;

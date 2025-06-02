@@ -68,9 +68,9 @@ echo "Generated 20 random staking amount:"
 echo "${staking_amounts[@]}"
 echo "Total sum: $total"
 
-echo "Minting 110000 USDx for Testing"
-chmod +x ./scripts/mint-usdx-local.sh
-./scripts/mint-usdx-local.sh 110000
+echo "Minting 110000 DUSD for Testing"
+chmod +x ./scripts/mint-dusd-local.sh
+./scripts/mint-dusd-local.sh 110000
 
 cd src/test
 

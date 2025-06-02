@@ -14,12 +14,12 @@
 	import {
 		CKUSDC_LEDGER_CANISTER_ID,
 		RESERVE_ACCOUNT,
-		USDX_LEDGER_CANISTER_ID
+		DUSD_LEDGER_CANISTER_ID
 	} from '@constants/app.constants';
 	import EmailPopUp from '@components/NewsLetter/EmailPopUp.svelte';
 
 	let selectedToken: string = $state('ckUSDC');
-	let selectedMint: string = $state('USDx');
+	let selectedMint: string = $state('DUSD');
 	let mintUsing = [
 		{ id: 1, value: 'ckUSDC', img: ckUsdcBase64, name: 'ckUSDC' },
 		{ id: 2, value: 'ICP', img: '/images/ICP-Token-dark.svg', name: 'ICP' },
@@ -29,19 +29,19 @@
 	let mintToken_ = [
 		{
 			id: 1,
-			value: 'USDx',
-			name: 'Doxa Dollar',
-			img: '/images/USDx-black.svg'
+			value: 'DUSD',
+			name: 'Doxa USD',
+			img: '/images/DUSD-black.svg'
 		}
 	];
 	let mintToken = [
-		{ value: 'USDx', name: 'Doxa Dollar' },
+		{ value: 'DUSD', name: 'Doxa USD' },
 		{ value: 'Doxa Euro', name: 'Doxa Euro' },
 		{ value: 'Doxa GBP', name: 'Doxa GBP' }
 	];
 
 	let selectTokenAmount_ckUSDC = $state(0);
-	// let mintAmount_usdx = 0;
+	// let mintAmount_dusd = 0;
 
 	let mintButtonDisable = $state(true);
 	let buttonMessage = $state('Mint');
@@ -63,7 +63,7 @@
 			buttonMessage = 'Minting using ' + selectedToken + ' is coming soon...';
 			mintButtonDisable = true;
 			return;
-		} else if (selectedMint !== 'USDx') {
+		} else if (selectedMint !== 'DUSD') {
 			buttonMessage = selectedMint + ' is coming soon...';
 			mintButtonDisable = true;
 			return;
@@ -96,28 +96,28 @@
 		return [
 			{
 				id: 1,
-				text: 'Connection with ckUSDC, Stablecoin minter and USDx canisters',
+				text: 'Connection with ckUSDC, Stablecoin minter and DUSD canisters',
 				status: 'completed' as Status
 			},
-			{ id: 2, text: 'Sending ckUSDC to USDx Reserve Account', status: 'in-progress' as Status },
+			{ id: 2, text: 'Sending ckUSDC to DUSD Reserve Account', status: 'in-progress' as Status },
 			{ id: 3, text: 'Notifying stablecoin minter', status: 'pending' as Status },
-			{ id: 4, text: 'Minting USDx', status: 'pending' as Status }
+			{ id: 4, text: 'Minting DUSD', status: 'pending' as Status }
 		];
 	}
 	let steps = $state(getInitialSteps());
 
 	async function mintAndUpdateBalance() {
-		await mintUSDxWithCkUSDC();
-		await updateBalance(USDX_LEDGER_CANISTER_ID);
+		await mintDUSDWithCkUSDC();
+		await updateBalance(DUSD_LEDGER_CANISTER_ID);
 		await updateBalance(CKUSDC_LEDGER_CANISTER_ID);
 	}
 
-	async function mintUSDxWithCkUSDC() {
+	async function mintDUSDWithCkUSDC() {
 		try {
 			let ckUSDCBlockIndex = await transferCkusdcToReserve();
-			let usdxBlockIndex = await notifyStablecoinMinter(ckUSDCBlockIndex);
+			let dusdBlockIndex = await notifyStablecoinMinter(ckUSDCBlockIndex);
 			steps[3].status = 'completed';
-			steps[3].text = selectTokenAmount_ckUSDC + ' USDX minted in your Wallet ';
+			steps[3].text = selectTokenAmount_ckUSDC + ' DUSD minted in your Wallet ';
 			steps = [...steps]; // Trigger reactivity
 		} catch (error) {
 			steps[3].status = 'error';
@@ -128,9 +128,9 @@
 
 	async function transferCkusdcToReserve(): Promise<BlockIndex> {
 		try {
-			const usdxReserveAccount: Account = RESERVE_ACCOUNT;
+			const dusdReserveAccount: Account = RESERVE_ACCOUNT;
 			const transferResult = await $authStore.ckUSDC.icrc1_transfer({
-				to: usdxReserveAccount,
+				to: dusdReserveAccount,
 				fee: [],
 				memo: [],
 				created_at_time: [],
@@ -159,7 +159,7 @@
 	async function notifyStablecoinMinter(ckusdc_block_index: BlockIndex): Promise<BlockIndex> {
 		try {
 			const notifyResult = await $authStore.stablecoinMinter.notify_mint_with_ckusdc({
-				minting_token: { USDx: null },
+				minting_token: { DUSD: null },
 				ckusdc_block_index
 			});
 			if ('ok' in notifyResult) {
@@ -180,9 +180,9 @@
 		}
 	}
 
-	async function getUsdxReserveAccount_(): Promise<Account> {
+	async function getDusdReserveAccount_(): Promise<Account> {
 		return await $authStore.stablecoinMinter.get_ckusdc_reserve_account_of({
-			token: { USDx: null }
+			token: { DUSD: null }
 		});
 	}
 
