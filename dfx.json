@@ -4,34 +4,28 @@
 		"ckusdc_pool": {
 			"main": "src/backend/ckusdc-pool/main.mo",
 			"type": "motoko",
-			"dependencies": ["exchange_rate_canister"]
+			"dependencies": [
+				"exchange_rate_canister"
+			]
 		},
 		"dusd_ledger": {
 			"type": "custom",
 			"candid": "https://raw.githubusercontent.com/dfinity/ic/5ba1412f9175d987661ae3c0d8dbd1ac3e092b7d/rs/rosetta-api/icrc1/ledger/ledger.did",
 			"wasm": "https://download.dfinity.systems/ic/5ba1412f9175d987661ae3c0d8dbd1ac3e092b7d/canisters/ic-icrc1-ledger.wasm.gz",
-			"specified_id": "irorr-5aaaa-aaaak-qddsq-cai",
-			"remote": {
-				"id": {
-					"ic": "irorr-5aaaa-aaaak-qddsq-cai"
-				}
-			}
+			"specified_id": "irorr-5aaaa-aaaak-qddsq-cai"
 		},
 		"dusd_index": {
 			"type": "custom",
-			"candid": "https://raw.githubusercontent.com/dfinity/ic/d628aa32d72565c9e5258d033b3c0be194c77b24/rs/rosetta-api/icrc1/index-ng/index-ng.did",
-			"wasm": "https://download.dfinity.systems/ic/d628aa32d72565c9e5258d033b3c0be194c77b24/canisters/ic-icrc1-index-ng.wasm.gz",
-			"specified_id": "modmy-byaaa-aaaag-qndgq-cai",
-			"remote": {
-				"id": {
-					"ic": "modmy-byaaa-aaaag-qndgq-cai"
-				}
-			}
+			"candid": "https://github.com/dfinity/ic/releases/download/ledger-suite-icrc-2025-05-22/index-ng.did",
+			"wasm": "https://github.com/dfinity/ic/releases/download/ledger-suite-icrc-2025-05-22/ic-icrc1-index-ng.wasm.gz",
+			"specified_id": "modmy-byaaa-aaaag-qndgq-cai"
 		},
 		"stablecoin_minter": {
 			"main": "src/backend/stablecoin-minter/main.mo",
 			"type": "motoko",
-			"dependencies": ["exchange_rate_canister"]
+			"dependencies": [
+				"exchange_rate_canister"
+			]
 		},
 		"root_canister": {
 			"main": "src/backend/root-canister/main.mo",
@@ -44,14 +38,20 @@
 		"test": {
 			"main": "src/test/staking/main.mo",
 			"type": "motoko",
-			"dependencies": ["staking_canister"]
+			"dependencies": [
+				"staking_canister"
+			]
 		},
 		"frontend": {
-			"dependencies": ["internet_identity"],
+			"dependencies": [
+				"internet_identity"
+			],
 			"frontend": {
 				"entrypoint": "build/index.html"
 			},
-			"source": ["build/"],
+			"source": [
+				"build/"
+			],
 			"type": "assets"
 		},
 		"internet_identity": {
@@ -66,7 +66,6 @@
 			"frontend": {},
 			"specified_id": "rdmx6-jaaaa-aaaaa-aaadq-cai"
 		},
-
 		"swap": {
 			"main": "src/backend/swap/main.mo",
 			"type": "motoko"
@@ -74,12 +73,7 @@
 		"utility_canister": {
 			"main": "src/backend/utility-canister/main.mo",
 			"type": "motoko",
-			"specified_id": "s2rhn-ryaaa-aaaag-qngva-cai",
-			"remote": {
-				"id": {
-					"ic": "s2rhn-ryaaa-aaaag-qngva-cai"
-				}
-			}
+			"specified_id": "s2rhn-ryaaa-aaaag-qngva-cai"
 		},
 		"exchange_rate_canister": {
 			"type": "custom",
@@ -212,7 +206,10 @@
 			"type": "ephemeral"
 		},
 		"ic": {
-			"providers": ["https://mainnet.dfinity.network", "https://ic0.app/"],
+			"providers": [
+				"https://mainnet.dfinity.network",
+				"https://ic0.app/"
+			],
 			"type": "persistent"
 		}
 	}
