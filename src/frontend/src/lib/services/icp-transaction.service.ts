@@ -53,6 +53,9 @@ const createSwapPoolIds = () => {
 export const fetchInitialIcpTransactions = async () => {
 	try {
 		const { principal } = get(authStore);
+		if (principal.isAnonymous()) {
+			return;
+		}
 		const args = getTransactionsParams(principal);
 
 		map = getPrincipalNameMap();

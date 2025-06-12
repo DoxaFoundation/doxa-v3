@@ -38,6 +38,9 @@ let swapPoolIds: Array<string> = [];
 export const fetchInitialIcrcTransactions = async () => {
 	try {
 		const { principal } = get(authStore);
+		if (principal.isAnonymous()) {
+			return;
+		}
 		const args = getAccountTransactionsArgs(principal);
 
 		const icrcIndexCanisterIds = getIcrcLedgerAndIndexCanisterIds();
