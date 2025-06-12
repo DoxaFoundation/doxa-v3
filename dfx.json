@@ -10,14 +10,14 @@
 		},
 		"dusd_ledger": {
 			"type": "custom",
-			"candid": "https://raw.githubusercontent.com/dfinity/ic/5ba1412f9175d987661ae3c0d8dbd1ac3e092b7d/rs/rosetta-api/icrc1/ledger/ledger.did",
-			"wasm": "https://download.dfinity.systems/ic/5ba1412f9175d987661ae3c0d8dbd1ac3e092b7d/canisters/ic-icrc1-ledger.wasm.gz",
+			"candid": "https://github.com/dfinity/ic/releases/download/ledger-suite-icrc-2025-06-10/ledger.did",
+			"wasm": "https://github.com/dfinity/ic/releases/download/ledger-suite-icrc-2025-06-10/ic-icrc1-ledger.wasm.gz",
 			"specified_id": "irorr-5aaaa-aaaak-qddsq-cai"
 		},
 		"dusd_index": {
 			"type": "custom",
-			"candid": "https://github.com/dfinity/ic/releases/download/ledger-suite-icrc-2025-05-22/index-ng.did",
-			"wasm": "https://github.com/dfinity/ic/releases/download/ledger-suite-icrc-2025-05-22/ic-icrc1-index-ng.wasm.gz",
+			"candid": "https://github.com/dfinity/ic/releases/download/ledger-suite-icrc-2025-06-10/index-ng.did",
+			"wasm": "https://github.com/dfinity/ic/releases/download/ledger-suite-icrc-2025-06-10/ic-icrc1-index-ng.wasm.gz",
 			"specified_id": "modmy-byaaa-aaaag-qndgq-cai"
 		},
 		"stablecoin_minter": {
