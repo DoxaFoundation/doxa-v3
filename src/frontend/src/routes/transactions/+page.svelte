@@ -7,6 +7,7 @@
 	import TransactionModal from '@components/Transactions/TransactionModal.svelte';
 	import TransactionPreview from '@components/Transactions/TransactionPreview.svelte';
 	import { getAllSortedTransactions, transactionsState } from '@states/transactions.svelte';
+	import { authStore } from '@stores/auth.store';
 
 	let transactions: TransformedTransactions = $derived.by(() => {
 		transactionsState;
@@ -34,7 +35,9 @@
 		</button>
 	{/each}
 
-	{#if transactions.length === 0}
+	{#if !$authStore.isAuthenticated}
+		<p class="text-center text-gray-500 mt-10">please login to view transactions</p>
+	{:else if transactions.length === 0}
 		<p class="text-center text-gray-500 mt-10">You have no transactions</p>
 	{/if}
 </div>
