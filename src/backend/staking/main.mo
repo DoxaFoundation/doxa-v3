@@ -45,12 +45,22 @@ actor class DoxaStaking() = this {
 		totalTokensStaked = 0;
 		totalFeeCollected = 0; //  tokens with 6 decimals
 		minimumTotalStake = MIN_TOTAL_STAKE; // 100,000 tokens with 6 decimals
-		stakingTokenSymbol = "DUSD";
-		stakingTokenName = "doxa-usd";
+		stakingTokenSymbol : Text = "DUSD";
+		stakingTokenName : Text = "Doxa USD";
 		rewardTokenSymbol = "DUSD";
-		rewardTokenCanisterId = "doxa-usd";
+		rewardTokenCanisterId = "irorr-5aaaa-aaaak-qddsq-cai";
 		minimumStakeAmount = 10_000_000; // 10 tokens with 6 decimals
 		stakeLockDuration = MIN_LOCK_DURATION_IN_NANOS;
+	};
+
+	system func postupgrade() {
+		pool := {
+			pool with
+			stakingTokenSymbol = "DUSD";
+			stakingTokenName = "Doxa USD";
+			rewardTokenSymbol = "DUSD";
+			rewardTokenCanisterId = "irorr-5aaaa-aaaak-qddsq-cai";
+		};
 	};
 
 	let { nhash; phash } = Map;
