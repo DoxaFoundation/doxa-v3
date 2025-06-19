@@ -9,6 +9,7 @@
 	import { fetchPrices, price } from '@states/tokens-price.svelte';
 	import { fetchSwapPoolData, poolsMap } from '@states/swap-pool-data.svelte';
 	import { fetchAllInitialTransactions } from '@services/transaction.service';
+	import RiskWarningBanner from '@components/RiskWarning/RiskWarningBanner.svelte';
 
 	let { children } = $props();
 
@@ -36,10 +37,9 @@
 
 <Toaster richColors />
 
-<div class="flex flex-col items-stretch">
-	<div>
-		<Navbar />
-	</div>
+<div class="flex flex-col items-stretch min-h-screen">
+	<Navbar />
 
-	<div class="px-2 self-stretch">{@render children()}</div>
+	<div class="px-2 self-stretch flex-grow">{@render children()}</div>
+	<RiskWarningBanner />
 </div>

@@ -19,6 +19,18 @@ export const insertEmail = async (email?: string): Promise<Result> => {
 	return insert_email(email ? [email] : []);
 };
 
+export const getRiskWarningAgreement = async (): Promise<[] | [boolean]> => {
+	const { get_risk_warning_agreement } = await rootCanister();
+
+	return get_risk_warning_agreement();
+};
+
+export const acceptRiskWarning = async (): Promise<Result> => {
+	const { accept_risk_warning } = await rootCanister();
+
+	return accept_risk_warning();
+};
+
 const rootCanister = async (): Promise<RootActor> => {
 	const { principal } = get(authStore);
 	const cacheKey = principal.toString();

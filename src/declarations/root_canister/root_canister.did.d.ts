@@ -7,7 +7,9 @@ export type EmailPermission = { 'Deny' : null } |
 export type Result = { 'ok' : null } |
   { 'err' : string };
 export interface _SERVICE {
+  'accept_risk_warning' : ActorMethod<[], Result>,
   'get_email_permission' : ActorMethod<[], [] | [EmailPermission]>,
+  'get_risk_warning_agreement' : ActorMethod<[], [] | [boolean]>,
   'insert_email' : ActorMethod<[[] | [string]], Result>,
 }
 export declare const idlFactory: IDL.InterfaceFactory;

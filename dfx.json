@@ -1,12 +1,10 @@
 {
-	"dfx": "0.26.1",
+	"dfx": "0.27.0",
 	"canisters": {
 		"ckusdc_pool": {
 			"main": "src/backend/ckusdc-pool/main.mo",
 			"type": "motoko",
-			"dependencies": [
-				"exchange_rate_canister"
-			]
+			"dependencies": ["exchange_rate_canister"]
 		},
 		"dusd_ledger": {
 			"type": "custom",
@@ -23,9 +21,7 @@
 		"stablecoin_minter": {
 			"main": "src/backend/stablecoin-minter/main.mo",
 			"type": "motoko",
-			"dependencies": [
-				"exchange_rate_canister"
-			]
+			"dependencies": ["exchange_rate_canister"]
 		},
 		"root_canister": {
 			"main": "src/backend/root-canister/main.mo",
@@ -38,20 +34,14 @@
 		"test": {
 			"main": "src/test/staking/main.mo",
 			"type": "motoko",
-			"dependencies": [
-				"staking_canister"
-			]
+			"dependencies": ["staking_canister"]
 		},
 		"frontend": {
-			"dependencies": [
-				"internet_identity"
-			],
+			"dependencies": ["internet_identity"],
 			"frontend": {
 				"entrypoint": "build/index.html"
 			},
-			"source": [
-				"build/"
-			],
+			"source": ["build/"],
 			"type": "assets"
 		},
 		"internet_identity": {
@@ -206,10 +196,7 @@
 			"type": "ephemeral"
 		},
 		"ic": {
-			"providers": [
-				"https://mainnet.dfinity.network",
-				"https://ic0.app/"
-			],
+			"providers": ["https://mainnet.dfinity.network", "https://ic0.app/"],
 			"type": "persistent"
 		}
 	}

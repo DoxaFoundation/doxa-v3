@@ -9,6 +9,8 @@ type EmailPermission =
    Deny;
  };
 service : {
+  accept_risk_warning: () -> (Result);
   get_email_permission: () -> (opt EmailPermission) query;
-  insert_email: (opt text) -> (Result);
+  get_risk_warning_agreement: () -> (opt bool) query;
+  insert_email: (email: opt text) -> (Result);
 }
