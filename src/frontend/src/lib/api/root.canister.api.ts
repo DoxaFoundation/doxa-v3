@@ -25,6 +25,12 @@ export const getRiskWarningAgreement = async (): Promise<[] | [boolean]> => {
 	return get_risk_warning_agreement();
 };
 
+export const isBadActor = async (): Promise<boolean> => {
+	const { is_bad_actor } = await rootCanister();
+
+	return is_bad_actor();
+};
+
 export const acceptRiskWarning = async (): Promise<Result> => {
 	const { accept_risk_warning } = await rootCanister();
 

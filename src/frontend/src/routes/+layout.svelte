@@ -10,6 +10,7 @@
 	import { fetchSwapPoolData, poolsMap } from '@states/swap-pool-data.svelte';
 	import { fetchAllInitialTransactions } from '@services/transaction.service';
 	import RiskWarningBanner from '@components/RiskWarning/RiskWarningBanner.svelte';
+	import BlockBadActor from '@components/BadActor/BlockBadActor.svelte';
 
 	let { children } = $props();
 
@@ -41,5 +42,6 @@
 	<Navbar />
 
 	<div class="px-2 self-stretch flex-grow">{@render children()}</div>
+	<BlockBadActor />
 	<RiskWarningBanner />
 </div>
