@@ -19,7 +19,7 @@
 </script>
 
 {#if visible}
-	<Modal title="Access Blocked" dismissable={false} size="md">
+	<Modal bind:open={visible} title="Access Blocked" dismissable={false} size="md">
 		<div class="text-center space-y-4">
 			<div class="mx-auto mb-4 text-red-500">
 				<svg class="w-16 h-16 mx-auto" fill="currentColor" viewBox="0 0 20 20">
