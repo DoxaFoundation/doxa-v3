@@ -19,11 +19,13 @@ import IcrcIndex "../service/icrc-index-interface";
 import Map "mo:map/Map";
 import Hash "mo:base/Hash";
 import Set "mo:map/Set";
+import Env "../service/env";
+import Vector "mo:vector";
 
 actor class DoxaStaking() = this {
 	// Token interfaces
-	private let DUSD : Icrc.Self = actor ("irorr-5aaaa-aaaak-qddsq-cai"); // DUSD token canister
-	private let DUSDIndex : IcrcIndex.Self = actor ("modmy-byaaa-aaaag-qndgq-cai");
+	private let DUSD : Icrc.Self = actor (Env.dusd_ledger); // DUSD token canister
+	private let DUSDIndex : IcrcIndex.Self = actor (Env.dusd_index);
 
 	// Lock duration and bootstrap constants in nanoseconds
 	private let MIN_LOCK_DURATION_IN_NANOS : Nat = 2_592_000_000_000_000; // 30 days minimum
@@ -69,6 +71,7 @@ actor class DoxaStaking() = this {
 	private stable let stakes = Map.new<Types.StakeId, Types.Stake>();
 	private stable let userStakes = Map.new<Principal, [Types.StakeId]>();
 	private stable let earlyStakers = Map.new<Principal, Nat>(); // Maps early stakers to their multiplier (multiplier * 1_000_000)
+	private stable let dusdForPegBlockIndices = Vector.new<Nat>(); // this is used to track the block indices of the dusd for peg transactions
 
 	private stable var bootstrapStartTime : Time.Time = 0;
 	private stable var isBootstrapPhase : Bool = true;
@@ -376,7 +379,7 @@ actor class DoxaStaking() = this {
 	// Add CKUSDC pool interface
 	private let CKUSDCPool : actor {
 		weekly_reward_approval : shared RewardApprovalArg -> async Result.Result<Nat, RewardApprovalErr>;
-	} = actor ("ieja4-4iaaa-aaaak-qddra-cai");
+	} = actor (Env.ckusdc_pool);
 
 	// Transaction tracking
 	private stable let harvestBlockIndices = Map.new<Principal, [BlockIndex]>();
@@ -1633,6 +1636,34 @@ actor class DoxaStaking() = this {
 			};
 		} catch (e) {
 			#err("Transaction fetch karne me error aaya: " # Error.message(e));
+		};
+	};
+
+	// This function is used to transfer dusd from staking canister to ckUSDC Pool canister
+	public shared ({ caller }) func get_dusd_for_maintaining_peg(amount : Nat) : async Result.Result<(), Text> {
+		if (caller != Principal.fromText(Env.ckusdc_pool)) {
+			return #err("Not authorised");
+		};
+
+		let transferArgs = {
+			from_subaccount = null;
+			to = {
+				owner = Principal.fromText(Env.ckusdc_pool);
+				subaccount = null;
+			};
+			amount;
+			fee = null;
+			memo = null;
+			created_at_time = null;
+		};
+		let result = await DUSD.icrc1_transfer(transferArgs);
+
+		switch (result) {
+			case (#Ok(blockIndex)) {
+				Vector.add(dusdForPegBlockIndices, blockIndex);
+				#ok();
+			};
+			case (#Err(error)) { #err("Error transferring DUSD: " # debug_show (error)) };
 		};
 	};
 

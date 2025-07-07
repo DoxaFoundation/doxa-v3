@@ -12,6 +12,7 @@ import Nat32 "mo:base/Nat32";
 import Float "mo:base/Float";
 import Buffer "mo:base/Buffer";
 import U "../Utils";
+import Env "../service/env";
 
 actor CkusdcPool {
 	type TimerId = Timer.TimerId;
@@ -49,7 +50,7 @@ actor CkusdcPool {
 	};
 
 	let ckUSDC : Icrc.Self = actor ("xevnm-gaaaa-aaaar-qafnq-cai");
-	let DUSD : Icrc.Self = actor ("irorr-5aaaa-aaaak-qddsq-cai");
+	let DUSD : Icrc.Self = actor (Env.dusd_ledger);
 
 	let errorResultLog = Buffer.Buffer<ResultErrorLog>(0);
 
@@ -124,8 +125,13 @@ actor CkusdcPool {
 
 		if (expectedDUSDTotalSupply < currentDUSDTotalSupply) {
 			let burnAmountF : Float = currentDUSDTotalSupply - expectedDUSDTotalSupply;
-			let dusdBalanceOfPool : Nat = await getDusdBalanceOfPool();
 			let burnAmount : Nat = fromFloatTo6Decimals(burnAmountF);
+
+			// Get DUSD from Staking Canister for Burning
+			await getDusdFromStakingCanisterForBurning(burnAmount);
+
+			// Get DUSD Balance of Pool
+			let dusdBalanceOfPool : Nat = await getDusdBalanceOfPool();
 
 			// Burning only if CkUSDC Pool have enough DUSD balance
 			if (burnAmount <= dusdBalanceOfPool) {
@@ -135,6 +141,21 @@ actor CkusdcPool {
 			};
 		};
 	};
+
+	func getDusdFromStakingCanisterForBurning(burnAmount : Nat) : async () {
+		let dusdBalanceOfPool : Nat = await getDusdBalanceOfPool();
+
+		if (burnAmount > dusdBalanceOfPool) {
+
+			let stakingCanister : actor {
+				get_dusd_for_maintaining_peg : (Nat) -> async Result.Result<(), Text>;
+			} = actor (Env.staking_canister);
+
+			let _transferResult = await stakingCanister.get_dusd_for_maintaining_peg(burnAmount - dusdBalanceOfPool);
+		};
+
+	};
+
 	func recordFailedToAdjustReserve() : () {
 		errorResultLog.add({
 			timestamp = U.timeNowInNat64();
@@ -204,14 +225,14 @@ actor CkusdcPool {
 
 	func getCkUsdcPoolBalance() : async Nat {
 		await ckUSDC.icrc1_balance_of({
-			owner = Principal.fromText("i7m4z-gqaaa-aaaak-qddtq-cai");
+			owner = Principal.fromText(Env.ckusdc_pool);
 			subaccount = null;
 		});
 	};
 
 	func getDusdBalanceOfPool() : async Nat {
 		await DUSD.icrc1_balance_of({
-			owner = Principal.fromText("i7m4z-gqaaa-aaaak-qddtq-cai");
+			owner = Principal.fromText(Env.ckusdc_pool);
 			subaccount = null;
 		});
 	};
@@ -222,7 +243,7 @@ actor CkusdcPool {
 
 	func getCurrentReserveOfDUSD() : async Nat {
 		await ckUSDC.icrc1_balance_of({
-			owner = Principal.fromText("iyn2n-liaaa-aaaak-qddta-cai");
+			owner = Principal.fromText(Env.stablecoin_minter);
 			subaccount = U.toSubAccount(1);
 		});
 	};
@@ -241,14 +262,14 @@ actor CkusdcPool {
 
 	func getCkUsdcReserveAccount(_token : Tokens) : Icrc.Account {
 		{
-			owner = Principal.fromText("iyn2n-liaaa-aaaak-qddta-cai");
+			owner = Principal.fromText(Env.stablecoin_minter);
 			subaccount = U.toSubAccount(1);
 		};
 	};
 
 	func getDUSDMinterAccount() : Icrc.Account {
 		{
-			owner = Principal.fromText("iyn2n-liaaa-aaaak-qddta-cai");
+			owner = Principal.fromText(Env.stablecoin_minter);
 			subaccount = null;
 		};
 	};
@@ -282,7 +303,7 @@ actor CkusdcPool {
 	};
 
 	public shared ({ caller }) func weekly_reward_approval({ memo; created_at_time; amount; expires_at } : RewardApprovalArg) : async Result<Nat, RewardApprovalErr> {
-		let stakingCanister = Principal.fromText("mhahe-xqaaa-aaaag-qndha-cai");
+		let stakingCanister = Principal.fromText(Env.staking_canister);
 
 		if (caller != stakingCanister) {
 			return #err(#NotAuthorised);
