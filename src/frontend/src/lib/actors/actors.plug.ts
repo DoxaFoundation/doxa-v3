@@ -4,7 +4,7 @@ import {
 	ROOT_CANISTER_ID,
 	STABLECOIN_MINTER_CANISTER_ID,
 	STAKING_CANISTER_ID,
-	USDX_LEDGER_CANISTER_ID
+	DUSD_LEDGER_CANISTER_ID
 } from '../constants/app.constants';
 import {
 	stablecoinMinterIdlFactory,
@@ -32,8 +32,8 @@ export const getActorsFromPlug = async (): Promise<Actors> => ({
 		canisterId: CKUSDC_LEDGER_CANISTER_ID,
 		interfaceFactory: icrcLedgerIdlFactory
 	}),
-	USDx: await plug.createActor({
-		canisterId: USDX_LEDGER_CANISTER_ID,
+	DUSD: await plug.createActor({
+		canisterId: DUSD_LEDGER_CANISTER_ID,
 		interfaceFactory: icrcLedgerIdlFactory
 	}),
 	staking: await plug.createActor({

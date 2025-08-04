@@ -1,14 +1,84 @@
+type Result_2 = 
+ variant {
+   err: text;
+   ok: vec record {
+             text;
+             nat;
+           };
+ };
+type Result_1 = 
+ variant {
+   err: text;
+   ok: vec CanisterStatusResult;
+ };
 type Result = 
  variant {
    err: text;
    ok;
+ };
+type LogVisibility = 
+ variant {
+   controllers;
+   public;
  };
 type EmailPermission = 
  variant {
    Allow: text;
    Deny;
  };
+type DefiniteCanisterSettings = 
+ record {
+   compute_allocation: nat;
+   controllers: vec principal;
+   freezing_threshold: nat;
+   log_visibility: LogVisibility;
+   memory_allocation: nat;
+   reserved_cycles_limit: nat;
+   wasm_memory_limit: nat;
+ };
+type CanisterStatusResult = 
+ record {
+   cycles: nat;
+   idle_cycles_burned_per_day: nat;
+   memory_size: nat;
+   module_hash: opt blob;
+   query_stats:
+    record {
+      num_calls_total: nat;
+      num_instructions_total: nat;
+      request_payload_bytes_total: nat;
+      response_payload_bytes_total: nat;
+    };
+   reserved_cycles: nat;
+   settings: DefiniteCanisterSettings;
+   status: variant {
+             running;
+             stopped;
+             stopping;
+           };
+ };
+type Canister = 
+ variant {
+   all;
+   ckusdc_pool;
+   dusd_index;
+   dusd_ledger;
+   frontend;
+   root_canister;
+   stablecoin_minter;
+   staking_canister;
+   utility_canister;
+ };
 service : {
+  accept_risk_warning: () -> (Result);
+  add_bad_actor: ("principal": principal) -> (Result);
+  canister_balances: (canisters: vec Canister) -> (Result_2);
+  canisters_status: (canisters: vec Canister) -> (Result_1);
   get_email_permission: () -> (opt EmailPermission) query;
-  insert_email: (opt text) -> (Result);
+  get_risk_warning_agreement: () -> (opt bool) query;
+  insert_email: (email: opt text) -> (Result);
+  is_bad_actor: () -> (bool) query;
+  remove_bad_actor: ("principal": principal) -> (Result);
+  start_canisters: (canisters: vec Canister) -> (Result);
+  stop_canisters: (canisters: vec Canister) -> (Result);
 }

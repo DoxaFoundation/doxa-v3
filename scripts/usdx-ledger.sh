@@ -10,12 +10,12 @@ export MINTER_ACCOUNT=$(dfx canister id stablecoin_minter --ic)
 export FEE_COLLECTOR_ACCOUNT=$(dfx canister id ckusdc_pool --ic)
 
 TOKEN_NAME="Doxa Dollar"
-TOKEN_SYMBOL="USDx"
+TOKEN_SYMBOL="DUSD"
 Decimals=6
 
 PRE_MINTED_TOKENS=0
 
-# Fee is 0.01 USDx
+# Fee is 0.01 DUSD
 TRANSFER_FEE=10_000
 
 TRIGGER_THRESHOLD=2000
@@ -35,7 +35,7 @@ METADATA="vec {
     };
   }"
 
-dfx deploy usdx_ledger --ic --argument "(variant {Init = 
+dfx deploy dusd_ledger --ic --argument "(variant {Init = 
 record {
      decimals = opt ${Decimals};
      token_symbol = \"${TOKEN_SYMBOL}\";

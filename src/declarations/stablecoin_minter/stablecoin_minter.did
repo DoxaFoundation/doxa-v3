@@ -1,9 +1,9 @@
-type USDxBlockIndex = nat;
-type Tokens = variant {USDx;};
+type DUSDBlockIndex = nat;
+type Tokens = variant {DUSD;};
 type NotifyMintWithCkusdcResult = 
  variant {
    err: NotifyError;
-   ok: USDxBlockIndex;
+   ok: DUSDBlockIndex;
  };
 type NotifyError = 
  variant {

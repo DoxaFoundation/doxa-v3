@@ -8,6 +8,9 @@
 	import { balances, fetchBalances } from '@states/ledger-balance.svelte';
 	import { fetchPrices, price } from '@states/tokens-price.svelte';
 	import { fetchSwapPoolData, poolsMap } from '@states/swap-pool-data.svelte';
+	import { fetchAllInitialTransactions } from '@services/transaction.service';
+	import RiskWarningBanner from '@components/RiskWarning/RiskWarningBanner.svelte';
+	import BlockBadActor from '@components/BadActor/BlockBadActor.svelte';
 
 	let { children } = $props();
 
@@ -22,6 +25,8 @@
 		if (value && value.isAuthenticated) {
 			fetchBalances();
 		}
+
+		fetchAllInitialTransactions();
 	});
 	onDestroy(unsubscribe);
 
@@ -33,10 +38,10 @@
 
 <Toaster richColors />
 
-<div class="flex flex-col items-stretch">
-	<div>
-		<Navbar />
-	</div>
+<div class="flex flex-col items-stretch min-h-screen">
+	<Navbar />
 
-	<div class="px-2 self-stretch">{@render children()}</div>
+	<div class="px-2 self-stretch flex-grow">{@render children()}</div>
+	<BlockBadActor />
+	<RiskWarningBanner />
 </div>

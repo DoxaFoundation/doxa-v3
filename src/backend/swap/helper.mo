@@ -45,7 +45,7 @@ module {
 		let map = HashMap.HashMap<Text, Text>(0, Text.equal, Text.hash);
 		map.put("ryjl3-tyaaa-aaaaa-aaaba-cai", "ICP");
 		map.put("xevnm-gaaaa-aaaar-qafnq-cai", "ckUSDC");
-		map.put("irorr-5aaaa-aaaak-qddsq-cai", "USDx");
+		map.put("irorr-5aaaa-aaaak-qddsq-cai", "DUSD");
 		map.put("mxzaz-hqaaa-aaaar-qaada-cai", "ckBTC");
 		map.put("ss2fx-dyaaa-aaaar-qacoq-cai", "ckETH");
 		map.put("cngnf-vqaaa-aaaar-qag4q-cai", "ckUSDT");
@@ -54,7 +54,7 @@ module {
 
 	type Price1000UsdArgs = {
 		ICP : Nat;
-		USDx : Nat;
+		DUSD : Nat;
 		ckBTC : Nat;
 		ckETH : Nat;
 		ckUSDC : Nat;
@@ -67,7 +67,7 @@ module {
 			case (null) {
 				{
 					ICP = 7;
-					USDx = 1;
+					DUSD = 1;
 					ckUSDC = 1;
 					ckBTC = 100_000;
 					ckETH = 3000;
@@ -83,7 +83,7 @@ module {
 		let icpAmount1000usd = (usd1000 * decimals) / price.ICP;
 		liquidityAmountMap.put("ryjl3-tyaaa-aaaaa-aaaba-cai", icpAmount1000usd);
 		liquidityAmountMap.put("xevnm-gaaaa-aaaar-qafnq-cai", (usd1000 * (10 ** 6)) / price.ckUSDC);
-		liquidityAmountMap.put("irorr-5aaaa-aaaak-qddsq-cai", (usd1000 * (10 ** 6)) / price.USDx);
+		liquidityAmountMap.put("irorr-5aaaa-aaaak-qddsq-cai", (usd1000 * (10 ** 6)) / price.DUSD);
 		liquidityAmountMap.put("mxzaz-hqaaa-aaaar-qaada-cai", (usd1000 * (10 ** 8)) / price.ckBTC);
 		liquidityAmountMap.put("ss2fx-dyaaa-aaaar-qacoq-cai", (usd1000 * (10 ** 18)) / price.ckETH);
 		liquidityAmountMap.put("cngnf-vqaaa-aaaar-qag4q-cai", (usd1000 * (10 ** 6)) / price.ckUSDT);

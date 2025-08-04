@@ -3,7 +3,7 @@ import {
 	CKUSDC_LEDGER_CANISTER_ID,
 	CKUSDT_LEDGER_CANISTER_ID,
 	CKBTC_LEDGER_CANISTER_ID,
-	USDX_LEDGER_CANISTER_ID,
+	DUSD_LEDGER_CANISTER_ID,
 	ICP_LEDGER_CANISTER_ID
 } from '$lib/constants/app.constants';
 import type { GetPoolArgs, PoolData } from '@declarations/SwapFactory/SwapFactory.did';
@@ -16,7 +16,7 @@ import type { SwapArgs } from '@declarations/SwapPool/SwapPool.did';
 export const getPoolsArgsToFetch = (): GetPoolArgs[] => {
 	const tokenMap = {
 		ICP: { address: ICP_LEDGER_CANISTER_ID, standard: 'ICP' },
-		USDx: { address: USDX_LEDGER_CANISTER_ID, standard: 'ICRC2' },
+		DUSD: { address: DUSD_LEDGER_CANISTER_ID, standard: 'ICRC2' },
 		ckUSDC: { address: CKUSDC_LEDGER_CANISTER_ID, standard: 'ICRC2' },
 		ckBTC: { address: CKBTC_LEDGER_CANISTER_ID, standard: 'ICRC2' },
 		ckETH: { address: CKETH_LEDGER_CANISTER_ID, standard: 'ICRC2' },
@@ -24,11 +24,11 @@ export const getPoolsArgsToFetch = (): GetPoolArgs[] => {
 	};
 
 	const tokenPairs: GetPoolArgs[] = [
-		{ token0: tokenMap.USDx, token1: tokenMap.ICP, fee: BigInt(3000) }, // USDx ⇄ ICP
-		{ token0: tokenMap.USDx, token1: tokenMap.ckUSDC, fee: BigInt(3000) }, // USDx ⇄ ckUSDC
-		{ token0: tokenMap.USDx, token1: tokenMap.ckBTC, fee: BigInt(3000) }, // USDx ⇄ ckBTC
-		{ token0: tokenMap.USDx, token1: tokenMap.ckETH, fee: BigInt(3000) }, // USDx ⇄ ckETH
-		{ token0: tokenMap.ckUSDT, token1: tokenMap.USDx, fee: BigInt(3000) }, // USDx ⇄ ckUSDT
+		{ token0: tokenMap.DUSD, token1: tokenMap.ICP, fee: BigInt(3000) }, // DUSD ⇄ ICP
+		{ token0: tokenMap.DUSD, token1: tokenMap.ckUSDC, fee: BigInt(3000) }, // DUSD ⇄ ckUSDC
+		{ token0: tokenMap.DUSD, token1: tokenMap.ckBTC, fee: BigInt(3000) }, // DUSD ⇄ ckBTC
+		{ token0: tokenMap.DUSD, token1: tokenMap.ckETH, fee: BigInt(3000) }, // DUSD ⇄ ckETH
+		{ token0: tokenMap.ckUSDT, token1: tokenMap.DUSD, fee: BigInt(3000) }, // DUSD ⇄ ckUSDT
 		{ token0: tokenMap.ICP, token1: tokenMap.ckUSDC, fee: BigInt(3000) }, // ICP ⇄ ckUSDC
 		{ token0: tokenMap.ckBTC, token1: tokenMap.ICP, fee: BigInt(3000) }, // ICP ⇄ ckBTC
 		{ token0: tokenMap.ICP, token1: tokenMap.ckETH, fee: BigInt(3000) }, // ICP ⇄ ckETH

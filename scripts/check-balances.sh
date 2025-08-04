@@ -4,7 +4,7 @@
 export DEFAULT_ACCOUNT=$(dfx identity get-principal --identity default)
 
 export ICP=$(dfx canister id icp_ledger)
-export USDx=$(dfx canister id usdx_ledger)
+export DUSD=$(dfx canister id dusd_ledger)
 export ckUSDC=$(dfx canister id ckusdc_ledger)
 
 cd src/icp-swap/
@@ -39,9 +39,9 @@ echo "----------------------------------------"
 icp_balance=$(dfx canister call $ICP icrc1_balance_of "(record {owner=principal \"$DEFAULT_ACCOUNT\"})")
 format_balance "ICP" "$icp_balance" 8
 
-# Check USDx balance (6 decimals)
-usdx_balance=$(dfx canister call $USDx icrc1_balance_of "(record {owner=principal \"$DEFAULT_ACCOUNT\"})")
-format_balance "USDx" "$usdx_balance" 6
+# Check DUSD balance (6 decimals)
+dusd_balance=$(dfx canister call $DUSD icrc1_balance_of "(record {owner=principal \"$DEFAULT_ACCOUNT\"})")
+format_balance "DUSD" "$dusd_balance" 6
 
 # Check ckUSDC balance (6 decimals)
 ckusdc_balance=$(dfx canister call $ckUSDC icrc1_balance_of "(record {owner=principal \"$DEFAULT_ACCOUNT\"})")

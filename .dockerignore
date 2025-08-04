@@ -1,0 +1,17 @@
+.*
+!.dfx
+*.md
+*.log
+Dockerfile
+Dockerfile.*
+canbench*
+LICENSE
+Makefile
+target
+wasms
+lib
+node_modules
+npm-debug.log
+canbench*.yml
+LICENSE
+Makefile

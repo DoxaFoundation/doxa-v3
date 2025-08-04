@@ -10,10 +10,10 @@ export type CkUSDCBlockIndex = bigint;
 export type NotifyError = { 'AlreadyProcessed' : { 'blockIndex' : bigint } } |
   { 'InvalidTransaction' : string } |
   { 'Other' : { 'error_message' : string, 'error_code' : bigint } };
-export type NotifyMintWithCkusdcResult = { 'ok' : USDxBlockIndex } |
+export type NotifyMintWithCkusdcResult = { 'ok' : DUSDBlockIndex } |
   { 'err' : NotifyError };
-export type Tokens = { 'USDx' : null };
-export type USDxBlockIndex = bigint;
+export type Tokens = { 'DUSD' : null };
+export type DUSDBlockIndex = bigint;
 export interface _SERVICE {
   'get_ckusdc_reserve_account_of' : ActorMethod<
     [{ 'token' : Tokens }],

@@ -206,7 +206,7 @@ actor class CreatePool(
 	// Type definition for liquidity amount conversion.
 	type Price1000UsdArgs = {
 		ICP : Nat;
-		USDx : Nat;
+		DUSD : Nat;
 		ckBTC : Nat;
 		ckETH : Nat;
 		ckUSDC : Nat;
@@ -271,11 +271,11 @@ actor class CreatePool(
 	};
 
 	func getliquidityAmount(tokenId : Text, swapPoolId : Principal) : Nat {
-		let ckUsdC_usdx = Principal.fromText("ahw5u-keaaa-aaaaa-qaaha-cai");
-		let usdx_ckUsdT = Principal.fromText("c2lt4-zmaaa-aaaaa-qaaiq-cai");
+		let ckUsdC_dusd = Principal.fromText("ahw5u-keaaa-aaaaa-qaaha-cai");
+		let dusd_ckUsdT = Principal.fromText("c2lt4-zmaaa-aaaaa-qaaiq-cai");
 		let ckUsdC_ckUsdT = Principal.fromText("dfdal-2uaaa-aaaaa-qaama-cai");
 
-		if (swapPoolId == ckUsdC_usdx or swapPoolId == usdx_ckUsdT or swapPoolId == ckUsdC_ckUsdT) {
+		if (swapPoolId == ckUsdC_dusd or swapPoolId == dusd_ckUsdT or swapPoolId == ckUsdC_ckUsdT) {
 			10_000_000000;
 		} else { Option.get(liquidityAmountMap.get(tokenId), 0) };
 
@@ -711,11 +711,11 @@ actor class CreatePool(
 
 /*
 vec {
-    record { name = "ICP/USDx"; canisterId = principal "aovwi-4maaa-aaaaa-qaagq-cai" };
-    record { name = "ckUSDC/USDx"; canisterId = principal "ahw5u-keaaa-aaaaa-qaaha-cai" }; usdc1 = 9927815975 , usdx0 = 10000000000
-    record { name = "ckBTC/USDx"; canisterId = principal "aax3a-h4aaa-aaaaa-qaahq-cai" };
-    record { name = "ckETH/USDx"; canisterId = principal "c5kvi-uuaaa-aaaaa-qaaia-cai" };
-    record { name = "USDx/ckUSDT"; canisterId = principal "c2lt4-zmaaa-aaaaa-qaaiq-cai" };    usdx1 = 9927815975 usdt0 = 10000000000
+    record { name = "ICP/DUSD"; canisterId = principal "aovwi-4maaa-aaaaa-qaagq-cai" };
+    record { name = "ckUSDC/DUSD"; canisterId = principal "ahw5u-keaaa-aaaaa-qaaha-cai" }; usdc1 = 9927815975 , dusd0 = 10000000000
+    record { name = "ckBTC/DUSD"; canisterId = principal "aax3a-h4aaa-aaaaa-qaahq-cai" };
+    record { name = "ckETH/DUSD"; canisterId = principal "c5kvi-uuaaa-aaaaa-qaaia-cai" };
+    record { name = "DUSD/ckUSDT"; canisterId = principal "c2lt4-zmaaa-aaaaa-qaaiq-cai" };    dusd1 = 9927815975 usdt0 = 10000000000
     record { name = "ckUSDC/ICP"; canisterId = principal "ctiya-peaaa-aaaaa-qaaja-cai" };
     record { name = "ICP/ckBTC"; canisterId = principal "cuj6u-c4aaa-aaaaa-qaajq-cai" };
     record { name = "ckETH/ICP"; canisterId = principal "cbopz-duaaa-aaaaa-qaaka-cai" };

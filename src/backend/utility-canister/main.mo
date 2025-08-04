@@ -27,7 +27,7 @@ actor {
 
 	// Token address constants
 	let tokenMap = {
-		USDx = "irorr-5aaaa-aaaak-qddsq-cai";
+		DUSD = "irorr-5aaaa-aaaak-qddsq-cai";
 		ICP = "ryjl3-tyaaa-aaaaa-aaaba-cai";
 		ckUSDC = "xevnm-gaaaa-aaaar-qafnq-cai";
 		ckBTC = "mxzaz-hqaaa-aaaar-qaada-cai";
@@ -35,7 +35,7 @@ actor {
 		ckUSDT = "cngnf-vqaaa-aaaar-qag4q-cai";
 	};
 
-	stable var allTokenPriceMainnet : [var (Text, Float)] = [var (tokenMap.ckUSDC, 1.0), (tokenMap.ckUSDT, 1.0), (tokenMap.ckETH, 0), (tokenMap.ckBTC, 0), (tokenMap.ICP, 0), (tokenMap.USDx, 1.0)];
+	stable var allTokenPriceMainnet : [var (Text, Float)] = [var (tokenMap.ckUSDC, 1.0), (tokenMap.ckUSDT, 1.0), (tokenMap.ckETH, 0), (tokenMap.ckBTC, 0), (tokenMap.ICP, 0), (tokenMap.DUSD, 1.0)];
 
 	stable var timerId : TimerId = 0;
 
@@ -193,14 +193,14 @@ actor {
 
 	func orderPriceBasedOnStablecoin(token0 : Text, token1 : Text, price : Float) : (Text, Float) {
 		let ckUSDC = "xevnm-gaaaa-aaaar-qafnq-cai";
-		// let usdx = "irorr-5aaaa-aaaak-qddsq-cai";
+		// let dusd = "irorr-5aaaa-aaaak-qddsq-cai";
 		// let ckUSDT = "cngnf-vqaaa-aaaar-qag4q-cai";
 
 		// price is token1 usd price / token0 usd price
-		if (token0 == ckUSDC /* or token0 == ckUSDT or token0 == usdx */) {
+		if (token0 == ckUSDC /* or token0 == ckUSDT or token0 == dusd */) {
 			// Round to 8 decimal places for consistency
 			return (token1, roundToDecimals(price, 8));
-		} else if (token1 == ckUSDC /* or token1 == ckUSDT or token1 == usdx */) {
+		} else if (token1 == ckUSDC /* or token1 == ckUSDT or token1 == dusd */) {
 			// Improved precision for division with rounding
 			let inversePrice = 1.0 / price;
 			return (token0, roundToDecimals(inversePrice, 8));
@@ -236,7 +236,7 @@ actor {
 
 	func getPoolAgs() : [SwapFactory.GetPoolArgs] {
 		let tokenMap = {
-			USDx = "irorr-5aaaa-aaaak-qddsq-cai";
+			DUSD = "irorr-5aaaa-aaaak-qddsq-cai";
 			ICP = "ryjl3-tyaaa-aaaaa-aaaba-cai";
 			ckUSDC = "xevnm-gaaaa-aaaar-qafnq-cai";
 			ckBTC = "mxzaz-hqaaa-aaaar-qaada-cai";
@@ -246,30 +246,30 @@ actor {
 
 		let tokenPairs : [SwapFactory.GetPoolArgs] = [
 			// {
-			//     token0 = { address = tokenMap.USDx; standard = "ICRC2" };
+			//     token0 = { address = tokenMap.DUSD; standard = "ICRC2" };
 			//     token1 = { address = tokenMap.ICP; standard = "ICRC2" };
 			//     fee = 3000;
-			// }, // USDx ⇄ ICP
+			// }, // DUSD ⇄ ICP
 			{
-				token0 = { address = tokenMap.USDx; standard = "ICRC2" };
+				token0 = { address = tokenMap.DUSD; standard = "ICRC2" };
 				token1 = { address = tokenMap.ckUSDC; standard = "ICRC2" };
 				fee = 3000;
-			}, // USDx ⇄ ckUSDC
+			}, // DUSD ⇄ ckUSDC
 			// {
-			//     token0 = { address = tokenMap.USDx; standard = "ICRC2" };
+			//     token0 = { address = tokenMap.DUSD; standard = "ICRC2" };
 			//     token1 = { address = tokenMap.ckBTC; standard = "ICRC2" };
 			//     fee = 3000;
-			// }, // USDx ⇄ ckBTC
+			// }, // DUSD ⇄ ckBTC
 			// {
-			//     token0 = { address = tokenMap.USDx; standard = "ICRC2" };
+			//     token0 = { address = tokenMap.DUSD; standard = "ICRC2" };
 			//     token1 = { address = tokenMap.ckETH; standard = "ICRC2" };
 			//     fee = 3000;
-			// }, // USDx ⇄ ckETH
+			// }, // DUSD ⇄ ckETH
 			// {
 			//     token0 = { address = tokenMap.ckUSDT; standard = "ICRC2" };
-			//     token1 = { address = tokenMap.USDx; standard = "ICRC2" };
+			//     token1 = { address = tokenMap.DUSD; standard = "ICRC2" };
 			//     fee = 3000;
-			// }, // USDx ⇄ ckUSDT
+			// }, // DUSD ⇄ ckUSDT
 			{
 				token0 = { address = tokenMap.ICP; standard = "ICRC2" };
 				token1 = { address = tokenMap.ckUSDC; standard = "ICRC2" };
@@ -476,7 +476,7 @@ actor {
 
 // Token address constants
 // let tokenMap = {
-//     USDx = "irorr-5aaaa-aaaak-qddsq-cai";
+//     DUSD = "irorr-5aaaa-aaaak-qddsq-cai";
 //     ICP = "ryjl3-tyaaa-aaaaa-aaaba-cai";
 //     ckUSDC = "xevnm-gaaaa-aaaar-qafnq-cai";
 //     ckBTC = "mxzaz-hqaaa-aaaar-qaada-cai";

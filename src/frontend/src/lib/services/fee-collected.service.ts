@@ -1,5 +1,4 @@
 import { feeCollected } from '@states/fee-collected.svelte';
-import { setStakingPoolDetails } from '@states/staking.svelte';
 import { authStore } from '@stores/auth.store';
 import { toast } from 'svelte-sonner';
 import { get } from 'svelte/store';

@@ -12,13 +12,14 @@ import Nat32 "mo:base/Nat32";
 import Float "mo:base/Float";
 import Buffer "mo:base/Buffer";
 import U "../Utils";
+import Env "../service/env";
 
 actor CkusdcPool {
 	type TimerId = Timer.TimerId;
 	type Time = Time.Time;
 	type Result<Ok, Err> = Result.Result<Ok, Err>;
 	type Tokens = {
-		#USDx;
+		#DUSD;
 	};
 
 	type XrcFetchError = {
@@ -31,7 +32,7 @@ actor CkusdcPool {
 		error : {
 			#ExchangeRateError : XRC.ExchangeRateError;
 			#CkUDSCTransferError : Icrc.TransferError;
-			#USDxBurnTransferError : Icrc.TransferError;
+			#DUSDBurnTransferError : Icrc.TransferError;
 			#FailedToAdjustReserve : Tokens;
 		};
 	};
@@ -49,7 +50,7 @@ actor CkusdcPool {
 	};
 
 	let ckUSDC : Icrc.Self = actor ("xevnm-gaaaa-aaaar-qafnq-cai");
-	let USDx : Icrc.Self = actor ("irorr-5aaaa-aaaak-qddsq-cai");
+	let DUSD : Icrc.Self = actor (Env.dusd_ledger);
 
 	let errorResultLog = Buffer.Buffer<ResultErrorLog>(0);
 
@@ -85,66 +86,86 @@ actor CkusdcPool {
 
 	};
 
-	func adjustUSDxReserve() : async () {
+	func adjustDUSDReserve() : async () {
 		//When USD/USDC Rate is Above 1 (USDC Depreciates)
 		if (usdUsdc.rateF > 1) {
-			// Add more USDC or Burn USDx supply
-			let issuedUSDx = from6DecimalToFloat(await USDx.icrc1_total_supply()); //
-			let expectedCkusdcInReserve = issuedUSDx * usdUsdc.rateF;
-			let currentCkusdcInReserve = from6DecimalToFloat(await getCurrentReserveOfUSDx()); //
+			// Add more USDC or Burn DUSD supply
+			let issuedDUSD = from6DecimalToFloat(await DUSD.icrc1_total_supply()); //
+			let expectedCkusdcInReserve = issuedDUSD * usdUsdc.rateF;
+			let currentCkusdcInReserve = from6DecimalToFloat(await getCurrentReserveOfDUSD()); //
 
 			if (expectedCkusdcInReserve > currentCkusdcInReserve) {
-				// Add more USDC or Burn USDx
+				// Add more USDC or Burn DUSD
 				let ckUsdcToAdd = fromFloatTo6Decimals(expectedCkusdcInReserve - currentCkusdcInReserve);
-				await handleCkusdcOrBurnUsdx(ckUsdcToAdd);
+				await handleCkusdcOrBurnDusd(ckUsdcToAdd);
 			};
 		};
 	};
 
-	func handleCkusdcOrBurnUsdx(amount : Nat) : async () {
+	func handleCkusdcOrBurnDusd(amount : Nat) : async () {
 		let ckusdcPoolBalance = await getCkUsdcPoolBalance();
 		let ckUsdcInNeed = amount + 10_000;
 		if (ckusdcPoolBalance >= ckUsdcInNeed) {
 			await transferCkusdcToReserve(amount);
 		} else {
-			// send some ckUSDC and burn Usdx
-			await xferAvailableCkusdcAndBurnUSDx(ckusdcPoolBalance);
+			// send some ckUSDC and burn Dusd
+			await xferAvailableCkusdcAndBurnDUSD(ckusdcPoolBalance);
 		};
 	};
 
-	func xferAvailableCkusdcAndBurnUSDx(ckUsdcBalance : Nat) : async () {
+	func xferAvailableCkusdcAndBurnDUSD(ckUsdcBalance : Nat) : async () {
 		var addedCkusdc : Nat = 0;
 		if (ckUsdcBalance >= 20_000) {
 			addedCkusdc := ckUsdcBalance - 10_000;
 			await transferCkusdcToReserve(addedCkusdc);
 		};
-		let currentCkUSReserveBalance : Float = from6DecimalToFloat(await getCurrentReserveOfUSDx()); //
-		let expectedUSDxTotalSupply : Float = currentCkUSReserveBalance / usdUsdc.rateF;
-		let currentUSDxTotalSupply : Float = from6DecimalToFloat(await USDx.icrc1_total_supply()); //
+		let currentCkUSReserveBalance : Float = from6DecimalToFloat(await getCurrentReserveOfDUSD()); //
+		let expectedDUSDTotalSupply : Float = currentCkUSReserveBalance / usdUsdc.rateF;
+		let currentDUSDTotalSupply : Float = from6DecimalToFloat(await DUSD.icrc1_total_supply()); //
 
-		if (expectedUSDxTotalSupply < currentUSDxTotalSupply) {
-			let burnAmountF : Float = currentUSDxTotalSupply - expectedUSDxTotalSupply;
-			let usdxBalanceOfPool : Nat = await getUsdxBalanceOfPool();
+		if (expectedDUSDTotalSupply < currentDUSDTotalSupply) {
+			let burnAmountF : Float = currentDUSDTotalSupply - expectedDUSDTotalSupply;
 			let burnAmount : Nat = fromFloatTo6Decimals(burnAmountF);
 
-			// Burning only if CkUSDC Pool have enough USDx balance
-			if (burnAmount <= usdxBalanceOfPool) {
-				await burnUsdx(burnAmount);
+			// Get DUSD from Staking Canister for Burning
+			await getDusdFromStakingCanisterForBurning(burnAmount);
+
+			// Get DUSD Balance of Pool
+			let dusdBalanceOfPool : Nat = await getDusdBalanceOfPool();
+
+			// Burning only if CkUSDC Pool have enough DUSD balance
+			if (burnAmount <= dusdBalanceOfPool) {
+				await burnDusd(burnAmount);
 			} else {
 				recordFailedToAdjustReserve();
 			};
 		};
 	};
+
+	func getDusdFromStakingCanisterForBurning(burnAmount : Nat) : async () {
+		let dusdBalanceOfPool : Nat = await getDusdBalanceOfPool();
+
+		if (burnAmount > dusdBalanceOfPool) {
+
+			let stakingCanister : actor {
+				get_dusd_for_maintaining_peg : (Nat) -> async Result.Result<(), Text>;
+			} = actor (Env.staking_canister);
+
+			let _transferResult = await stakingCanister.get_dusd_for_maintaining_peg(burnAmount - dusdBalanceOfPool);
+		};
+
+	};
+
 	func recordFailedToAdjustReserve() : () {
 		errorResultLog.add({
 			timestamp = U.timeNowInNat64();
-			error = #FailedToAdjustReserve(#USDx);
+			error = #FailedToAdjustReserve(#DUSD);
 		});
 	};
 
 	func transferCkusdcToReserve(amount : Nat) : async () {
 		let transferResult = await ckUSDC.icrc1_transfer({
-			to = getCkUsdcReserveAccount(#USDx);
+			to = getCkUsdcReserveAccount(#DUSD);
 			amount;
 			fee = null;
 			memo = null;
@@ -163,9 +184,9 @@ actor CkusdcPool {
 		};
 	};
 
-	func burnUsdx(amount : Nat) : async () {
-		let usdxTransferResult = await USDx.icrc1_transfer({
-			to = getUSDxMinterAccount();
+	func burnDusd(amount : Nat) : async () {
+		let dusdTransferResult = await DUSD.icrc1_transfer({
+			to = getDUSDMinterAccount();
 			amount;
 			fee = null;
 			memo = null;
@@ -173,12 +194,12 @@ actor CkusdcPool {
 			created_at_time = ?U.timeNowInNat64();
 		});
 
-		switch (usdxTransferResult) {
+		switch (dusdTransferResult) {
 			case (#Ok(value)) {};
 			case (#Err(error)) {
 				errorResultLog.add({
 					timestamp = U.timeNowInNat64();
-					error = #USDxBurnTransferError error;
+					error = #DUSDBurnTransferError error;
 				});
 			};
 		};
@@ -204,25 +225,25 @@ actor CkusdcPool {
 
 	func getCkUsdcPoolBalance() : async Nat {
 		await ckUSDC.icrc1_balance_of({
-			owner = Principal.fromText("i7m4z-gqaaa-aaaak-qddtq-cai");
+			owner = Principal.fromText(Env.ckusdc_pool);
 			subaccount = null;
 		});
 	};
 
-	func getUsdxBalanceOfPool() : async Nat {
-		await USDx.icrc1_balance_of({
-			owner = Principal.fromText("i7m4z-gqaaa-aaaak-qddtq-cai");
+	func getDusdBalanceOfPool() : async Nat {
+		await DUSD.icrc1_balance_of({
+			owner = Principal.fromText(Env.ckusdc_pool);
 			subaccount = null;
 		});
 	};
 
-	func _getUSDxTotalSupply() : async Nat {
-		await USDx.icrc1_total_supply();
+	func _getDUSDTotalSupply() : async Nat {
+		await DUSD.icrc1_total_supply();
 	};
 
-	func getCurrentReserveOfUSDx() : async Nat {
+	func getCurrentReserveOfDUSD() : async Nat {
 		await ckUSDC.icrc1_balance_of({
-			owner = Principal.fromText("iyn2n-liaaa-aaaak-qddta-cai");
+			owner = Principal.fromText(Env.stablecoin_minter);
 			subaccount = U.toSubAccount(1);
 		});
 	};
@@ -241,21 +262,21 @@ actor CkusdcPool {
 
 	func getCkUsdcReserveAccount(_token : Tokens) : Icrc.Account {
 		{
-			owner = Principal.fromText("iyn2n-liaaa-aaaak-qddta-cai");
+			owner = Principal.fromText(Env.stablecoin_minter);
 			subaccount = U.toSubAccount(1);
 		};
 	};
 
-	func getUSDxMinterAccount() : Icrc.Account {
+	func getDUSDMinterAccount() : Icrc.Account {
 		{
-			owner = Principal.fromText("iyn2n-liaaa-aaaak-qddta-cai");
+			owner = Principal.fromText(Env.stablecoin_minter);
 			subaccount = null;
 		};
 	};
 
 	func fetchRateAndAdjustReserve() : async () {
 		await fetchXrcRate();
-		await adjustUSDxReserve();
+		await adjustDUSDReserve();
 	};
 
 	/// Timer
@@ -282,7 +303,7 @@ actor CkusdcPool {
 	};
 
 	public shared ({ caller }) func weekly_reward_approval({ memo; created_at_time; amount; expires_at } : RewardApprovalArg) : async Result<Nat, RewardApprovalErr> {
-		let stakingCanister = Principal.fromText("mhahe-xqaaa-aaaag-qndha-cai");
+		let stakingCanister = Principal.fromText(Env.staking_canister);
 
 		if (caller != stakingCanister) {
 			return #err(#NotAuthorised);
@@ -300,7 +321,7 @@ actor CkusdcPool {
 
 		};
 
-		switch (await USDx.icrc2_approve(approveArg)) {
+		switch (await DUSD.icrc2_approve(approveArg)) {
 			case (#Ok(value)) { #ok(value) };
 			case (#Err(error)) { #err(#LedgerApprovalError error) };
 		};

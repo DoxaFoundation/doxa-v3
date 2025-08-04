@@ -17,7 +17,7 @@ export const idlFactory = ({ IDL }) => {
     'StablecoinRateNotFound' : IDL.Null,
     'Pending' : IDL.Null,
   });
-  const Tokens = IDL.Variant({ 'USDx' : IDL.Null });
+  const Tokens = IDL.Variant({ 'DUSD' : IDL.Null });
   const TransferError = IDL.Variant({
     'GenericError' : IDL.Record({
       'message' : IDL.Text,
@@ -35,7 +35,7 @@ export const idlFactory = ({ IDL }) => {
     'error' : IDL.Variant({
       'ExchangeRateError' : ExchangeRateError,
       'FailedToAdjustReserve' : Tokens,
-      'USDxBurnTransferError' : TransferError,
+      'DUSDBurnTransferError' : TransferError,
       'CkUDSCTransferError' : TransferError,
     }),
     'timestamp' : IDL.Nat64,

@@ -12,7 +12,7 @@ module {
 		totalTokensStaked : Nat; // Total number of tokens staked in the pool
 		totalFeeCollected : Nat; // total transaction fee
 		minimumTotalStake : Nat; // Minimum total stake required to keep the pool active
-		stakingTokenSymbol : Text; // Symbol of the staking token (e.g., USDx)
+		stakingTokenSymbol : Text; // Symbol of the staking token (e.g., DUSD)
 		stakingTokenName : Text; // Name of the staking token (e.g., Doxa Dollar)
 		rewardTokenSymbol : Text; // Symbol of the reward token
 		rewardTokenCanisterId : Text; // Canister ID of the reward token
@@ -71,7 +71,7 @@ module {
 	};
 
 	public type Tokens = {
-		#USDx;
+		#DUSD;
 	};
 
 	public type StakeMetrics = {

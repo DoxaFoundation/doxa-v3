@@ -14,7 +14,7 @@ import {
 	CKUSDC_LEDGER_CANISTER_ID,
 	STABLECOIN_MINTER_CANISTER_ID,
 	STAKING_CANISTER_ID,
-	USDX_LEDGER_CANISTER_ID,
+	DUSD_LEDGER_CANISTER_ID,
 	UTILITY_CANISTER_ID
 } from '@constants/app.constants';
 import { getAgent } from './agents.ic';
@@ -41,8 +41,8 @@ export const getCkUsdcActor = async (identity: Identity): Promise<IcrcLedgerActo
 	return await getIcrcActor(identity, CKUSDC_LEDGER_CANISTER_ID);
 };
 
-export const getUsdxActor = async (identity: Identity): Promise<IcrcLedgerActor> => {
-	return await getIcrcActor(identity, USDX_LEDGER_CANISTER_ID);
+export const getDUSDActor = async (identity: Identity): Promise<IcrcLedgerActor> => {
+	return await getIcrcActor(identity, DUSD_LEDGER_CANISTER_ID);
 };
 
 export const getStakingActor = async (identity: Identity): Promise<StakingActor> => {
@@ -54,7 +54,7 @@ export const getStakingActor = async (identity: Identity): Promise<StakingActor>
 export const getActors = async (identity: Identity): Promise<Actors> => ({
 	stablecoinMinter: await getStablecoinMinterActor(identity),
 	ckUSDC: await getCkUsdcActor(identity),
-	USDx: await getUsdxActor(identity),
+	DUSD: await getDUSDActor(identity),
 	staking: await getStakingActor(identity)
 });
 
