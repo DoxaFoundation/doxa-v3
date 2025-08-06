@@ -3,6 +3,13 @@
 	import { Button, Dropdown, DropdownItem } from 'flowbite-svelte';
 	import { ChevronDownOutline } from 'flowbite-svelte-icons';
 
+	type Item = {
+		id: number;
+		value: string;
+		img: string;
+		name: string;
+		ledgerId: string;
+	};
 	let {
 		items,
 		value = $bindable(),
@@ -11,12 +18,12 @@
 		class: className,
 		change = () => {}
 	}: {
-		items: { id: number; value: string; img: string; name: string }[];
+		items: Item[];
 		value: string;
 		placeholder: string;
 		dropDownClass?: string;
 		class?: string;
-		change?: (value: string, selectImg: string) => void;
+		change?: (item: Item) => void;
 	} = $props();
 
 	let activeClass = 'font-medium font-bold text-center py-2 px-4 text-sm bg-slate-300';
@@ -28,11 +35,11 @@
 
 	let dropdownOpen = $state(false);
 
-	function handleSelect(item: { id: number; value: string; img: string; name: string }) {
+	function handleSelect(item: Item) {
 		value = item.value;
 		selectImg = item.img;
 		selectName = item.name;
-		change(value, selectImg);
+		change(item);
 		dropdownOpen = false;
 	}
 
@@ -40,7 +47,7 @@
 		if (item.value === value) {
 			selectImg = item.img;
 			selectName = item.name;
-			change(value, selectImg);
+			change(item);
 		}
 	});
 </script>

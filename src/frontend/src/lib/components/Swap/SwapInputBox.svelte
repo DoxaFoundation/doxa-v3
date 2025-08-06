@@ -56,7 +56,7 @@
 
 <div class="w-full flex items-center">
 	<input
-		class="w-full outline-0 font-medium text-3xl md:text-4xl bg-inherit disabled:bg-inherit"
+		class="w-full outline-0 focus:outline-none font-medium text-3xl md:text-4xl bg-inherit disabled:bg-inherit"
 		type="text"
 		placeholder="0.00"
 		bind:value

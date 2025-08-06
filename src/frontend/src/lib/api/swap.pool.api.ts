@@ -7,7 +7,12 @@ import type {
 	SwapPoolResponse,
 	PoolTokensMetadata
 } from '$lib/types/api';
-import type { DepositArgs, SwapArgs, WithdrawArgs } from '@declarations/SwapPool/SwapPool.did';
+import type {
+	DepositAndSwapArgs,
+	DepositArgs,
+	SwapArgs,
+	WithdrawArgs
+} from '@declarations/SwapPool/SwapPool.did';
 import type { Principal } from '@dfinity/principal';
 import { authStore } from '@stores/auth.store';
 import { get } from 'svelte/store';
@@ -30,14 +35,6 @@ export const depositFrom = async ({
 	const { depositFrom } = await swapPoolCanister({ canisterId });
 
 	return depositFrom(args);
-};
-
-export const getTokenMeta = async ({
-	canisterId
-}: CanisterApiFunctionParams): Promise<PoolTokensMetadata> => {
-	const { getTokenMeta } = await swapPoolCanister({ canisterId });
-
-	return getTokenMeta();
 };
 
 export const getUserUnusedBalance = async ({
@@ -82,6 +79,15 @@ export const withdraw = async ({
 	const { withdraw } = await swapPoolCanister({ canisterId });
 
 	return withdraw(args);
+};
+
+export const depositFromAndSwap = async ({
+	canisterId,
+	...args
+}: CanisterApiFunctionParams<DepositAndSwapArgs>): Promise<SwapPoolResponse> => {
+	const { depositFromAndSwap } = await swapPoolCanister({ canisterId });
+
+	return depositFromAndSwap(args);
 };
 
 const swapPoolCanister = async ({
