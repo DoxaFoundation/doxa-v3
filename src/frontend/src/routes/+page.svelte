@@ -17,8 +17,7 @@
 	import EmailPopUp from '@components/NewsLetter/EmailPopUp.svelte';
 	import { getFee } from '@utils/icrc-ledger.utils';
 	import { LedgerMetadata } from '@states/ledger-metadata.svelte';
-	import { getQuote } from '@services/swap.service';
-	import { mintDusd } from '@services/dusd-mint.service';
+	import { getQuote, mintDusd } from '@services/dusd-mint.service';
 	import { fetchSwapPoolData, poolsMap } from '@states/swap-pool-data.svelte';
 	import { getPoolKeyStoreKey } from '@utils/swap.utils';
 

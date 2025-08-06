@@ -10,10 +10,10 @@ import { toast } from 'svelte-sonner';
 import { authStore } from '@stores/auth.store';
 import { get } from 'svelte/store';
 import { getFee, getFeeWithDecimals } from '@utils/icrc-ledger.utils';
-import { toBigIntDecimals } from '@utils/decimals.utils';
+import { fromBigIntDecimals, toBigIntDecimals } from '@utils/decimals.utils';
 import { getPoolData, getSwapArgs } from '@utils/swap.utils';
 import { updateBalance } from '@states/ledger-balance.svelte';
-import { depositFromAndSwap } from '$lib/api/swap.pool.api';
+import { depositFromAndSwap, quote } from '$lib/api/swap.pool.api';
 import { LedgerMetadata } from '@states/ledger-metadata.svelte';
 
 let toastId: string | number;
@@ -204,5 +204,32 @@ export const mintDusd = async (
 		const ckUsdcAmount = outputCkUsdcAmount - ckUsdcFee;
 
 		return await mintDusdUsingCkUSDC(ckUsdcAmount);
+	}
+};
+
+export const getQuote = async (
+	from: string,
+	to: string,
+	amount: string
+): Promise<number | null> => {
+	try {
+		const pool = getPoolData(from, to);
+		const swapArgs = getSwapArgs(from, to, Number(amount), '0', 0);
+
+		const response = await quote({
+			canisterId: pool.canisterId.toString(),
+			...swapArgs
+		});
+
+		if ('ok' in response) {
+			return fromBigIntDecimals(response.ok, to);
+		} else {
+			console.error('Error getting quote:', response.err);
+			return null;
+		}
+	} catch (error) {
+		console.error('Error getting quote:', error);
+
+		return null;
 	}
 };
