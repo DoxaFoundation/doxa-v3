@@ -16,7 +16,7 @@ Decimals=6
 PRE_MINTED_TOKENS=0
 
 # Fee is 0.01 DUSD
-TRANSFER_FEE=10_000
+TRANSFER_FEE=70_000
 
 TRIGGER_THRESHOLD=2000
 NUM_OF_BLOCK_TO_ARCHIVE=1000
@@ -35,7 +35,7 @@ METADATA="vec {
     };
   }"
 
-dfx deploy dusd_ledger --ic --argument "(variant {Init = 
+dfx deploy dusd_ledger --ic --argument "(variant {Init =
 record {
      decimals = opt ${Decimals};
      token_symbol = \"${TOKEN_SYMBOL}\";
