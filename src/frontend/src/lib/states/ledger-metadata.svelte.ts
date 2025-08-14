@@ -9,7 +9,7 @@ export const LedgerMetadata: Record<string, ICRCLedgerMetadata> = $state({});
 const storeName = 'ledger-metadata';
 
 export const syncLedgerMetadata = async () => {
-	let localMetadata = await get<string>({ key: storeName });
+	const localMetadata = await get<string>({ key: storeName });
 	if (localMetadata) {
 		for (const [canisterId, metadata] of JSON.parse(localMetadata) as [
 			string,
@@ -17,6 +17,7 @@ export const syncLedgerMetadata = async () => {
 		][]) {
 			LedgerMetadata[canisterId] = metadata;
 		}
+		fetchLedgerMetadata();
 	} else {
 		await fetchLedgerMetadata();
 	}
