@@ -3,6 +3,7 @@ import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 import Buffer "mo:base/Buffer";
 import Option "mo:base/Option";
+import Debug "mo:base/Debug";
 import IC "mo:ic";
 import Env "../service/env";
 
@@ -26,6 +27,20 @@ actor {
 
 	public query ({ caller }) func get_email_permission() : async ?EmailPermission {
 		Map.get(emailMap, phash, caller);
+	};
+
+	public query ({ caller }) func get_subscribed_emails() : async [Text] {
+		if (caller != Principal.fromText(Env.controller)) return Debug.trap("Admin only function");
+
+		Map.toArrayMap<Principal, EmailPermission, Text>(
+			emailMap,
+			func(principal, emailPermission) = switch (emailPermission) {
+				case (#Allow email) ?(email);
+				case (#Deny) null;
+			},
+
+		);
+
 	};
 
 	public shared ({ caller }) func insert_email(email : ?Text) : async Result<(), Text> {
